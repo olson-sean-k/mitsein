@@ -1,0 +1,26 @@
+[package]
+name = "mitsein"
+version = "0.0.0"
+authors = ["Sean Olson <olson.sean.k@gmail.com>"]
+description = "Strongly typed APIs for non-empty collections and views."
+repository = "https://github.com/olson-sean-k/mitsein"
+readme = "README.md"
+edition = "2021"
+rust-version = "1.75.0"
+license = "MIT"
+keywords = [
+    "collection",
+    "non-empty",
+    "one-or-more",
+    "vector"
+]
+categories = ["data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs"
+]
+
+[dependencies]
