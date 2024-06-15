@@ -40,6 +40,15 @@ impl NonZeroUsizeExt for NonZeroUsize {
     const ONE: Self = unsafe { NonZeroUsize::new_unchecked(1) };
 }
 
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct NonEmpty<T>
+where
+    T: ?Sized,
+{
+    items: T,
+}
+
 macro_rules! with_literals {
     ($f:ident$(,)?) => {};
     ($f:ident, [$($N:literal $(,)?)+]$(,)?) => {

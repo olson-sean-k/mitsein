@@ -8,15 +8,11 @@ use std::vec::{self, Splice};
 
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 use crate::slice1::Slice1;
-use crate::NonZeroUsizeExt as _;
+use crate::{NonEmpty, NonZeroUsizeExt as _};
 
-pub type Cow1<'a, T> = Cow<'a, Slice1<[T]>>;
+pub type Cow1<'a, T> = Cow<'a, Slice1<T>>;
 
-#[derive(Clone, Eq, Hash, PartialEq)]
-#[repr(transparent)]
-pub struct Vec1<T> {
-    items: Vec<T>,
-}
+pub type Vec1<T> = NonEmpty<Vec<T>>;
 
 impl<T> Vec1<T> {
     pub(crate) fn from_vec_unchecked(items: Vec<T>) -> Self {
@@ -203,11 +199,11 @@ impl<T> Vec1<T> {
         &self.items
     }
 
-    pub fn as_slice1(&self) -> &Slice1<[T]> {
+    pub fn as_slice1(&self) -> &Slice1<T> {
         Slice1::from_slice_unchecked(self.items.as_slice())
     }
 
-    pub fn as_mut_slice1(&mut self) -> &mut Slice1<[T]> {
+    pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
         Slice1::from_mut_slice_unchecked(self.items.as_mut_slice())
     }
 
@@ -226,8 +222,8 @@ impl<T> AsMut<[T]> for Vec1<T> {
     }
 }
 
-impl<T> AsMut<Slice1<[T]>> for Vec1<T> {
-    fn as_mut(&mut self) -> &mut Slice1<[T]> {
+impl<T> AsMut<Slice1<T>> for Vec1<T> {
+    fn as_mut(&mut self) -> &mut Slice1<T> {
         self.as_mut_slice1()
     }
 }
@@ -238,8 +234,8 @@ impl<T> AsRef<[T]> for Vec1<T> {
     }
 }
 
-impl<T> AsRef<Slice1<[T]>> for Vec1<T> {
-    fn as_ref(&self) -> &Slice1<[T]> {
+impl<T> AsRef<Slice1<T>> for Vec1<T> {
+    fn as_ref(&self) -> &Slice1<T> {
         self.as_slice1()
     }
 }
@@ -256,8 +252,8 @@ impl<T> Borrow<[T]> for Vec1<T> {
     }
 }
 
-impl<T> Borrow<Slice1<[T]>> for Vec1<T> {
-    fn borrow(&self) -> &Slice1<[T]> {
+impl<T> Borrow<Slice1<T>> for Vec1<T> {
+    fn borrow(&self) -> &Slice1<T> {
         self.as_slice1()
     }
 }
@@ -268,8 +264,8 @@ impl<T> BorrowMut<[T]> for Vec1<T> {
     }
 }
 
-impl<T> BorrowMut<Slice1<[T]>> for Vec1<T> {
-    fn borrow_mut(&mut self) -> &mut Slice1<[T]> {
+impl<T> BorrowMut<Slice1<T>> for Vec1<T> {
+    fn borrow_mut(&mut self) -> &mut Slice1<T> {
         self.as_mut_slice1()
     }
 }
@@ -306,11 +302,11 @@ impl<T> Extend<T> for Vec1<T> {
     }
 }
 
-impl<'a, T> From<&'a Slice1<[T]>> for Vec1<T>
+impl<'a, T> From<&'a Slice1<T>> for Vec1<T>
 where
     T: Clone,
 {
-    fn from(items: &'a Slice1<[T]>) -> Self {
+    fn from(items: &'a Slice1<T>) -> Self {
         Vec1::from_vec_unchecked(Vec::from(items.as_slice()))
     }
 }
