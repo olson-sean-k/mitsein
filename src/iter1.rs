@@ -6,17 +6,29 @@ use std::num::NonZeroUsize;
 use std::option;
 
 pub trait IteratorExt: Iterator {
-    fn one_or_more(self) -> Remainder<Self>
+    fn try_into_iter1(self) -> Remainder<Self>
     where
         Self: Sized;
+
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self, T::IntoIter>>
+    where
+        Self: Sized,
+        T: IntoIterator1<Item = Self::Item>;
 }
 
 impl<I> IteratorExt for I
 where
     I: Iterator,
 {
-    fn one_or_more(self) -> Remainder<Self> {
-        Iterator1::try_from_iter(self).ok()
+    fn try_into_iter1(self) -> Remainder<Self> {
+        Iterator1::try_from_iter(self)
+    }
+
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self, T::IntoIter>>
+    where
+        T: IntoIterator1<Item = Self::Item>,
+    {
+        Iterator1::from_iter_unchecked(self.chain(items.into_iter1()))
     }
 }
 
@@ -55,7 +67,131 @@ where
     }
 }
 
-pub type Remainder<I> = Option<Iterator1<Peekable<I>>>;
+pub trait FnItem {
+    type Item;
+
+    fn item(self) -> Self::Item;
+}
+
+impl<T, F> FnItem for F
+where
+    F: FnOnce() -> T,
+{
+    type Item = T;
+
+    fn item(self) -> Self::Item {
+        (self)()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct ElseItem<F>
+where
+    F: FnItem,
+{
+    item: Option<F>,
+}
+
+impl<F> ElseItem<F>
+where
+    F: FnItem,
+{
+    fn some(f: F) -> Self {
+        ElseItem { item: Some(f) }
+    }
+
+    fn none() -> Self {
+        ElseItem { item: None }
+    }
+}
+
+impl<F> DoubleEndedIterator for ElseItem<F>
+where
+    F: FnItem,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.next()
+    }
+}
+
+impl<F> ExactSizeIterator for ElseItem<F>
+where
+    F: FnItem,
+{
+    fn len(&self) -> usize {
+        if self.item.is_some() {
+            1
+        }
+        else {
+            0
+        }
+    }
+}
+
+impl<F> Iterator for ElseItem<F>
+where
+    F: FnItem,
+{
+    type Item = F::Item;
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (1, Some(1))
+    }
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.item.take().map(FnItem::item)
+    }
+}
+
+pub type OrItem<I> = Iterator1<Chain<Peekable<I>, option::IntoIter<<I as Iterator>::Item>>>;
+
+pub type OrElseItem<I, F> = Iterator1<Chain<Peekable<I>, ElseItem<F>>>;
+
+pub type HeadAndTail<T, I> = Iterator1<Chain<option::IntoIter<T>, <I as IntoIterator>::IntoIter>>;
+
+pub type Remainder<I> = Result<Iterator1<Peekable<I>>, Peekable<I>>;
+
+pub trait RemainderExt<I>
+where
+    I: Iterator,
+{
+    fn or_item(self, item: I::Item) -> OrItem<I>;
+
+    fn or_else_item<F>(self, f: F) -> OrElseItem<I, F>
+    where
+        F: FnItem<Item = I::Item>;
+
+    fn into_iter(self) -> Peekable<I>;
+}
+
+impl<I> RemainderExt<I> for Remainder<I>
+where
+    I: Iterator,
+{
+    fn or_item(self, item: I::Item) -> OrItem<I> {
+        Iterator1::from_iter_unchecked(match self {
+            Ok(items) => items.into_iter().chain(None),
+            Err(empty) => empty.chain(Some(item)),
+        })
+    }
+
+    fn or_else_item<F>(self, f: F) -> OrElseItem<I, F>
+    where
+        F: FnItem<Item = I::Item>,
+    {
+        Iterator1::from_iter_unchecked(match self {
+            Ok(items) => items.into_iter().chain(ElseItem::none()),
+            Err(empty) => empty.chain(ElseItem::some(f)),
+        })
+    }
+
+    fn into_iter(self) -> Peekable<I> {
+        match self {
+            Ok(items) => items.into_iter(),
+            Err(empty) => empty,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
@@ -78,7 +214,7 @@ impl<I> Iterator1<I>
 where
     I: Iterator,
 {
-    pub fn try_from_iter<T>(items: T) -> Result<Iterator1<Peekable<I>>, Peekable<I>>
+    pub fn try_from_iter<T>(items: T) -> Remainder<I>
     where
         T: IntoIterator<IntoIter = I>,
     {
@@ -90,16 +226,16 @@ where
     }
 
     #[inline(always)]
-    fn zero_or_more<T, F>(mut self, f: F) -> (T, Remainder<I>)
+    fn maybe_empty<T, F>(mut self, f: F) -> (T, Remainder<I>)
     where
         F: FnOnce(&mut I) -> T,
     {
         let output = f(&mut self.items);
-        (output, Iterator1::try_from_iter(self.items).ok())
+        (output, Iterator1::try_from_iter(self.items))
     }
 
     #[inline(always)]
-    fn one_or_more<J, F>(self, f: F) -> Iterator1<J>
+    fn non_empty<J, F>(self, f: F) -> Iterator1<J>
     where
         J: Iterator,
         F: FnOnce(I) -> J,
@@ -125,7 +261,8 @@ where
     where
         I: ExactSizeIterator,
     {
-        NonZeroUsize::new(self.items.len()).expect("non-empty iterator has zero items")
+        // SAFETY:
+        unsafe { NonZeroUsize::new_unchecked(cmp::max(1, self.items.len())) }
     }
 
     pub fn as_iter(&self) -> &I {
@@ -170,39 +307,39 @@ where
     where
         F: FnMut(I::Item) -> bool,
     {
-        self.zero_or_more(move |items| items.any(f))
+        self.maybe_empty(move |items| items.any(f))
     }
 
     pub fn all<F>(self, f: F) -> (bool, Remainder<I>)
     where
         F: FnMut(I::Item) -> bool,
     {
-        self.zero_or_more(move |items| items.all(f))
+        self.maybe_empty(move |items| items.all(f))
     }
 
     pub fn nth(self, n: usize) -> (Option<I::Item>, Remainder<I>) {
-        self.zero_or_more(move |items| items.nth(n))
+        self.maybe_empty(move |items| items.nth(n))
     }
 
     pub fn find<F>(self, f: F) -> (Option<I::Item>, Remainder<I>)
     where
         F: FnMut(&I::Item) -> bool,
     {
-        self.zero_or_more(move |items| items.find(f))
+        self.maybe_empty(move |items| items.find(f))
     }
 
     pub fn find_map<T, F>(self, f: F) -> (Option<T>, Remainder<I>)
     where
         F: FnMut(I::Item) -> Option<T>,
     {
-        self.zero_or_more(move |items| items.find_map(f))
+        self.maybe_empty(move |items| items.find_map(f))
     }
 
     pub fn position<F>(self, f: F) -> (Option<usize>, Remainder<I>)
     where
         F: FnMut(I::Item) -> bool,
     {
-        self.zero_or_more(move |items| items.position(f))
+        self.maybe_empty(move |items| items.position(f))
     }
 
     pub fn rposition<F>(self, f: F) -> (Option<usize>, Remainder<I>)
@@ -210,7 +347,7 @@ where
         I: DoubleEndedIterator + ExactSizeIterator,
         F: FnMut(I::Item) -> bool,
     {
-        self.zero_or_more(move |items| items.rposition(f))
+        self.maybe_empty(move |items| items.rposition(f))
     }
 
     pub fn copied<'a, T>(self) -> Iterator1<Copied<I>>
@@ -218,7 +355,7 @@ where
         T: 'a + Copy,
         I: Iterator<Item = &'a T>,
     {
-        self.one_or_more(I::copied)
+        self.non_empty(I::copied)
     }
 
     pub fn cloned<'a, T>(self) -> Iterator1<Cloned<I>>
@@ -226,58 +363,58 @@ where
         T: 'a + Clone,
         I: Iterator<Item = &'a T>,
     {
-        self.one_or_more(I::cloned)
+        self.non_empty(I::cloned)
     }
 
     pub fn enumerate(self) -> Iterator1<Enumerate<I>> {
-        self.one_or_more(I::enumerate)
+        self.non_empty(I::enumerate)
     }
 
     pub fn map<T, F>(self, f: F) -> Iterator1<Map<I, F>>
     where
         F: FnMut(I::Item) -> T,
     {
-        self.one_or_more(move |items| items.map(f))
+        self.non_empty(move |items| items.map(f))
     }
 
     pub fn take(self, n: NonZeroUsize) -> Iterator1<Take<I>> {
-        self.one_or_more(move |items| items.take(n.into()))
+        self.non_empty(move |items| items.take(n.into()))
     }
 
     pub fn cycle(self) -> Iterator1<Cycle<I>>
     where
         I: Clone,
     {
-        self.one_or_more(I::cycle)
+        self.non_empty(I::cycle)
     }
 
-    pub fn chain<J>(self, chained: J) -> Iterator1<Chain<I, J::IntoIter>>
+    pub fn chain<T>(self, chained: T) -> Iterator1<Chain<I, T::IntoIter>>
     where
-        J: IntoIterator<Item = I::Item>,
+        T: IntoIterator<Item = I::Item>,
     {
-        self.one_or_more(move |items| items.chain(chained))
+        self.non_empty(move |items| items.chain(chained))
     }
 
     pub fn step_by(self, step: usize) -> Iterator1<StepBy<I>> {
-        self.one_or_more(move |items| items.step_by(step))
+        self.non_empty(move |items| items.step_by(step))
     }
 
     pub fn inspect<F>(self, f: F) -> Iterator1<Inspect<I, F>>
     where
         F: FnMut(&I::Item),
     {
-        self.one_or_more(move |items| items.inspect(f))
+        self.non_empty(move |items| items.inspect(f))
     }
 
     pub fn peekable(self) -> Iterator1<Peekable<I>> {
-        self.one_or_more(I::peekable)
+        self.non_empty(I::peekable)
     }
 
     pub fn rev(self) -> Iterator1<Rev<I>>
     where
         I: DoubleEndedIterator,
     {
-        self.one_or_more(I::rev)
+        self.non_empty(I::rev)
     }
 
     pub fn collect<T>(self) -> T
@@ -310,15 +447,22 @@ where
     }
 }
 
-pub fn one<T>(item: T) -> Iterator1<option::IntoIter<T>> {
+pub fn item<T>(item: T) -> Iterator1<option::IntoIter<T>> {
     Iterator1::from_iter_unchecked(Some(item))
 }
 
-pub fn one_or_more<T, I>(head: T, tail: I) -> Iterator1<impl Iterator<Item = T>>
+pub fn head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<T, I>
 where
     I: IntoIterator<Item = T>,
 {
     Iterator1::from_iter_unchecked(Some(head).into_iter().chain(tail))
+}
+
+pub fn from_fn_item<F>(f: F) -> Iterator1<ElseItem<F>>
+where
+    F: FnItem,
+{
+    Iterator1::from_iter_unchecked(ElseItem::some(f))
 }
 
 macro_rules! impl_into_iterator1_for_array {

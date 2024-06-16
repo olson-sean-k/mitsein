@@ -25,7 +25,7 @@ pub mod slice1;
 pub mod vec1;
 
 pub mod prelude {
-    pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _};
+    pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _};
     pub use crate::NonZeroUsizeExt as _;
 }
 
