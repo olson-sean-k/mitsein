@@ -465,16 +465,5 @@ where
     Iterator1::from_iter_unchecked(ElseItem::some(f))
 }
 
-macro_rules! impl_into_iterator1_for_array {
-    ($N:literal) => {
-        impl<T> $crate::iter1::IntoIterator1 for [T; $N] {
-            fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-                $crate::iter1::Iterator1::from_iter_unchecked(self)
-            }
-        }
-    };
-}
-crate::with_non_zero_array_size_literals!(impl_into_iterator1_for_array);
-
 #[cfg(test)]
 mod tests {}

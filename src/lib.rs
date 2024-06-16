@@ -20,6 +20,7 @@
     clippy::unused_self
 )]
 
+pub mod array1;
 pub mod iter1;
 pub mod slice1;
 pub mod vec1;
