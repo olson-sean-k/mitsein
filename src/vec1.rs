@@ -280,16 +280,16 @@ where
 }
 
 impl<T> Deref for Vec1<T> {
-    type Target = [T];
+    type Target = Slice1<T>;
 
     fn deref(&self) -> &Self::Target {
-        self.items.deref()
+        self.as_slice1()
     }
 }
 
 impl<T> DerefMut for Vec1<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.items.deref_mut()
+        self.as_mut_slice1()
     }
 }
 
