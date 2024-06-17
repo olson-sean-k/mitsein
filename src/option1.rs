@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 use std::option;
 
-use crate::iter1::{IntoIterator1, Iterator1};
+use crate::iter1::{AtMostOne, ExactlyOne, IntoIterator1, Iterator1};
 use crate::slice1::Slice1;
 use crate::{FnInto, NonEmpty};
 
@@ -157,7 +157,7 @@ impl<T> From<Option1<T>> for Option<T> {
 
 impl<T> IntoIterator for Option1<T> {
     type Item = T;
-    type IntoIter = option::IntoIter<T>;
+    type IntoIter = AtMostOne<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.items.into_iter()
@@ -165,7 +165,7 @@ impl<T> IntoIterator for Option1<T> {
 }
 
 impl<T> IntoIterator1 for Option1<T> {
-    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+    fn into_iter1(self) -> ExactlyOne<T> {
         Iterator1::from_iter_unchecked(self.items)
     }
 }
