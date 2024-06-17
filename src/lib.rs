@@ -22,11 +22,13 @@
 
 pub mod array1;
 pub mod iter1;
+pub mod option1;
 pub mod slice1;
 pub mod vec1;
 
 pub mod prelude {
     pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _};
+    pub use crate::option1::OptionExt as _;
     pub use crate::NonZeroUsizeExt as _;
 }
 
@@ -39,6 +41,23 @@ pub trait NonZeroUsizeExt {
 impl NonZeroUsizeExt for NonZeroUsize {
     // SAFETY:
     const ONE: Self = unsafe { NonZeroUsize::new_unchecked(1) };
+}
+
+pub trait FnInto: FnOnce() -> Self::Into {
+    type Into;
+
+    fn call(self) -> Self::Into;
+}
+
+impl<T, F> FnInto for F
+where
+    F: FnOnce() -> T,
+{
+    type Into = T;
+
+    fn call(self) -> Self::Into {
+        (self)()
+    }
 }
 
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]

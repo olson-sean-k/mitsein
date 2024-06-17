@@ -5,6 +5,9 @@ use std::iter::{
 use std::num::NonZeroUsize;
 use std::option;
 
+use crate::option1::{Option1, OptionExt as _};
+use crate::FnInto;
+
 pub trait IteratorExt: Iterator {
     fn try_into_iter1(self) -> Remainder<Self>
     where
@@ -67,56 +70,41 @@ where
     }
 }
 
-pub trait FnItem {
-    type Item;
-
-    fn item(self) -> Self::Item;
-}
-
-impl<T, F> FnItem for F
-where
-    F: FnOnce() -> T,
-{
-    type Item = T;
-
-    fn item(self) -> Self::Item {
-        (self)()
-    }
-}
+pub type One<T> = option::IntoIter<T>;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct ElseItem<F>
+pub struct OneFn<F>
 where
-    F: FnItem,
+    F: FnInto,
 {
     item: Option<F>,
 }
 
-impl<F> ElseItem<F>
+impl<F> OneFn<F>
 where
-    F: FnItem,
+    F: FnInto,
 {
     fn some(f: F) -> Self {
-        ElseItem { item: Some(f) }
+        OneFn { item: Some(f) }
     }
 
     fn none() -> Self {
-        ElseItem { item: None }
+        OneFn { item: None }
     }
 }
 
-impl<F> DoubleEndedIterator for ElseItem<F>
+impl<F> DoubleEndedIterator for OneFn<F>
 where
-    F: FnItem,
+    F: FnInto,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.next()
     }
 }
 
-impl<F> ExactSizeIterator for ElseItem<F>
+impl<F> ExactSizeIterator for OneFn<F>
 where
-    F: FnItem,
+    F: FnInto,
 {
     fn len(&self) -> usize {
         if self.item.is_some() {
@@ -128,26 +116,27 @@ where
     }
 }
 
-impl<F> Iterator for ElseItem<F>
+impl<F> Iterator for OneFn<F>
 where
-    F: FnItem,
+    F: FnInto,
 {
-    type Item = F::Item;
+    type Item = F::Into;
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (1, Some(1))
     }
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.item.take().map(FnItem::item)
+        self.item.take().call()
     }
 }
 
-pub type OrItem<I> = Iterator1<Chain<Peekable<I>, option::IntoIter<<I as Iterator>::Item>>>;
+pub type OrItem<I> = Iterator1<Chain<Peekable<I>, One<<I as Iterator>::Item>>>;
 
-pub type OrElseItem<I, F> = Iterator1<Chain<Peekable<I>, ElseItem<F>>>;
+pub type OrElseItem<I, F> = Iterator1<Chain<Peekable<I>, OneFn<F>>>;
 
-pub type HeadAndTail<T, I> = Iterator1<Chain<option::IntoIter<T>, <I as IntoIterator>::IntoIter>>;
+pub type HeadAndTail<T> =
+    Iterator1<Chain<One<<T as IntoIterator>::Item>, <T as IntoIterator>::IntoIter>>;
 
 pub type Remainder<I> = Result<Iterator1<Peekable<I>>, Peekable<I>>;
 
@@ -159,7 +148,7 @@ where
 
     fn or_else_item<F>(self, f: F) -> OrElseItem<I, F>
     where
-        F: FnItem<Item = I::Item>;
+        F: FnInto<Into = I::Item>;
 
     fn into_iter(self) -> Peekable<I>;
 }
@@ -177,11 +166,11 @@ where
 
     fn or_else_item<F>(self, f: F) -> OrElseItem<I, F>
     where
-        F: FnItem<Item = I::Item>,
+        F: FnInto<Into = I::Item>,
     {
         Iterator1::from_iter_unchecked(match self {
-            Ok(items) => items.into_iter().chain(ElseItem::none()),
-            Err(empty) => empty.chain(ElseItem::some(f)),
+            Ok(items) => items.into_iter().chain(OneFn::none()),
+            Err(empty) => empty.chain(OneFn::some(f)),
         })
     }
 
@@ -447,22 +436,22 @@ where
     }
 }
 
-pub fn item<T>(item: T) -> Iterator1<option::IntoIter<T>> {
-    Iterator1::from_iter_unchecked(Some(item))
+pub fn item<T>(item: T) -> Iterator1<One<T>> {
+    Option1::from_item(item).into_iter1()
 }
 
-pub fn head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<T, I>
+pub fn head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
 where
     I: IntoIterator<Item = T>,
 {
-    Iterator1::from_iter_unchecked(Some(head).into_iter().chain(tail))
+    Option1::from_item(head).into_iter1().chain(tail)
 }
 
-pub fn from_fn_item<F>(f: F) -> Iterator1<ElseItem<F>>
+pub fn from_fn<F>(f: F) -> Iterator1<OneFn<F>>
 where
-    F: FnItem,
+    F: FnInto,
 {
-    Iterator1::from_iter_unchecked(ElseItem::some(f))
+    Iterator1::from_iter_unchecked(OneFn::some(f))
 }
 
 #[cfg(test)]
