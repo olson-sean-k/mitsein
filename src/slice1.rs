@@ -1,6 +1,7 @@
 use std::borrow::ToOwned;
 use std::fmt::{self, Debug, Formatter};
 use std::mem;
+use std::num::NonZeroUsize;
 use std::ops::{Deref, DerefMut};
 use std::slice;
 
@@ -10,9 +11,6 @@ use crate::NonEmpty;
 
 pub type Slice1<T> = NonEmpty<[T]>;
 
-// TODO: As with `Vec1`, provide functions with stronger guarantees for slices of one or more
-//       items. For example, functions that isolate terminal items like `split_first` need not be
-//       fallible.
 impl<T> Slice1<T> {
     pub(crate) fn from_slice_unchecked(items: &[T]) -> &Self {
         // SAFETY:
@@ -43,6 +41,43 @@ impl<T> Slice1<T> {
         T: Clone,
     {
         Vec1::from(self)
+    }
+
+    pub fn repeat(&self, n: NonZeroUsize) -> Vec1<T>
+    where
+        T: Copy,
+    {
+        Vec1::from_vec_unchecked(self.items.repeat(n.into()))
+    }
+
+    pub fn split_first(&self) -> (&T, &[T]) {
+        // SAFETY:
+        unsafe { self.items.split_first().unwrap_unchecked() }
+    }
+
+    pub fn split_first_mut(&mut self) -> (&mut T, &mut [T]) {
+        // SAFETY:
+        unsafe { self.items.split_first_mut().unwrap_unchecked() }
+    }
+
+    pub fn first(&self) -> &T {
+        // SAFETY:
+        unsafe { self.items.first().unwrap_unchecked() }
+    }
+
+    pub fn first_mut(&mut self) -> &mut T {
+        // SAFETY:
+        unsafe { self.items.first_mut().unwrap_unchecked() }
+    }
+
+    pub fn last(&self) -> &T {
+        // SAFETY:
+        unsafe { self.items.last().unwrap_unchecked() }
+    }
+
+    pub fn last_mut(&mut self) -> &mut T {
+        // SAFETY:
+        unsafe { self.items.last_mut().unwrap_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
