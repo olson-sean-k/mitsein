@@ -113,5 +113,13 @@ where
     }
 }
 
+pub fn from_ref<T>(item: &T) -> &Slice1<T> {
+    Slice1::from_slice_unchecked(slice::from_ref(item))
+}
+
+pub fn from_mut<T>(item: &mut T) -> &mut Slice1<T> {
+    Slice1::from_mut_slice_unchecked(slice::from_mut(item))
+}
+
 #[cfg(test)]
 mod tests {}
