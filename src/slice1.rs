@@ -1,11 +1,14 @@
-use std::borrow::ToOwned;
-use std::fmt::{self, Debug, Formatter};
-use std::mem;
-use std::num::NonZeroUsize;
-use std::ops::{Deref, DerefMut};
-use std::slice;
+#[cfg(feature = "alloc")]
+use alloc::borrow::ToOwned;
+use core::fmt::{self, Debug, Formatter};
+use core::mem;
+#[cfg(feature = "alloc")]
+use core::num::NonZeroUsize;
+use core::ops::{Deref, DerefMut};
+use core::slice;
 
 use crate::iter1::Iterator1;
+#[cfg(feature = "alloc")]
 use crate::vec1::Vec1;
 use crate::NonEmpty;
 
@@ -36,6 +39,8 @@ impl<T> Slice1<T> {
         }
     }
 
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn to_vec1(&self) -> Vec1<T>
     where
         T: Clone,
@@ -43,6 +48,8 @@ impl<T> Slice1<T> {
         Vec1::from(self)
     }
 
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn repeat(&self, n: NonZeroUsize) -> Vec1<T>
     where
         T: Copy,
@@ -137,6 +144,8 @@ impl<T> DerefMut for Slice1<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl<T> ToOwned for Slice1<T>
 where
     T: Clone,

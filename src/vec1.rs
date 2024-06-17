@@ -1,10 +1,13 @@
-use std::borrow::{Borrow, BorrowMut, Cow};
-use std::fmt::{self, Debug, Formatter};
-use std::iter::Peekable;
-use std::num::NonZeroUsize;
-use std::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
-use std::slice;
-use std::vec::{self, Splice};
+#![cfg(feature = "alloc")]
+#![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+
+use alloc::borrow::{Borrow, BorrowMut, Cow};
+use alloc::vec::{self, Splice, Vec};
+use core::fmt::{self, Debug, Formatter};
+use core::iter::Peekable;
+use core::num::NonZeroUsize;
+use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
+use core::slice;
 
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 use crate::slice1::Slice1;
@@ -20,7 +23,7 @@ impl<T> Vec1<T> {
     }
 
     pub fn from_item(item: T) -> Self {
-        Vec1::from_vec_unchecked(vec![item])
+        Vec1::from_vec_unchecked(alloc::vec![item])
     }
 
     pub fn from_head_and_tail<I>(head: T, tail: I) -> Self
@@ -388,7 +391,7 @@ impl<T> TryFrom<Vec<T>> for Vec1<T> {
 #[macro_export]
 macro_rules! vec1 {
     ($($item:expr $(,)?)+) => {
-        $crate::vec1::Vec1::from_vec_unchecked(vec![$($item,)+])
+        $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$($item,)+])
     };
 }
 pub use vec1;
@@ -397,7 +400,7 @@ macro_rules! impl_from_array_for_vec1 {
     ($N:literal) => {
         impl<T> From<[T; $N]> for Vec1<T> {
             fn from(array: [T; $N]) -> Self {
-                $crate::vec1::Vec1::from_vec_unchecked(Vec::from(array))
+                $crate::vec1::Vec1::from_vec_unchecked(alloc::vec::Vec::from(array))
             }
         }
 

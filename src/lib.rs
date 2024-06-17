@@ -1,4 +1,3 @@
-// TODO: Do not depend on `std` (depend on `core` and `alloc` instead).
 // TODO: Support serialization.
 // TODO: Implement tests. Consider `rstest`.
 
@@ -19,6 +18,10 @@
     clippy::unreadable_literal,
     clippy::unused_self
 )]
+#![no_std]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 pub mod array1;
 pub mod iter1;
@@ -32,7 +35,7 @@ pub mod prelude {
     pub use crate::NonZeroUsizeExt as _;
 }
 
-use std::num::NonZeroUsize;
+use core::num::NonZeroUsize;
 
 pub trait NonZeroUsizeExt {
     const ONE: Self;

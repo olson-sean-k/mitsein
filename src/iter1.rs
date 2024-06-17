@@ -1,9 +1,9 @@
-use std::cmp;
-use std::iter::{
+use core::cmp;
+use core::iter::{
     Chain, Cloned, Copied, Cycle, Enumerate, Inspect, Map, Peekable, Rev, StepBy, Take,
 };
-use std::num::NonZeroUsize;
-use std::option;
+use core::num::NonZeroUsize;
+use core::option;
 
 use crate::option1::{Option1, OptionExt as _};
 use crate::FnInto;

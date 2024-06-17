@@ -23,4 +23,8 @@ rustdoc-args = [
     "docsrs"
 ]
 
+[features]
+default = ["alloc"]
+alloc = []
+
 [dependencies]

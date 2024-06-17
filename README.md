@@ -69,5 +69,14 @@ Mitsein**. This means that no head item is allocated diffently. For example, the
 **not** allocated on the heap. This can potentially cause surprising or poor
 performance when the item type is large, as the head item is stack allocated.
 
+## Cargo Features
+
+Mitsein provides some optional features and integrations via the following Cargo
+features.
+
+| Feature | Default | Dependencies | Description                                               |
+|---------|---------|--------------|-----------------------------------------------------------|
+| `alloc` | Yes     | `alloc`      | Enables non-empty collections that allocate, like `Vec1`. |
+
 [`nonempty`]: https://crates.io/crates/nonempty
 [`vec1`]: https://crates.io/crates/vec1

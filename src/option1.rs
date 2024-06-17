@@ -1,5 +1,5 @@
-use std::convert::Infallible;
-use std::option;
+use core::convert::Infallible;
+use core::option;
 
 use crate::iter1::{AtMostOne, ExactlyOne, IntoIterator1, Iterator1};
 use crate::slice1::Slice1;
