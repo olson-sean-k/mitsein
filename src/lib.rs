@@ -25,6 +25,7 @@ extern crate alloc;
 mod serde;
 
 pub mod array1;
+pub mod boxed1;
 pub mod iter1;
 pub mod option1;
 pub mod slice1;

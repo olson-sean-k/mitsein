@@ -1,11 +1,9 @@
-#[cfg(feature = "alloc")]
-use alloc::borrow::ToOwned;
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
-#[cfg(feature = "alloc")]
-use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut};
 use core::slice;
+#[cfg(feature = "alloc")]
+use {alloc::borrow::ToOwned, alloc::vec::Vec, core::num::NonZeroUsize};
 
 use crate::iter1::Iterator1;
 #[cfg(feature = "alloc")]
@@ -141,6 +139,17 @@ impl<T> Deref for Slice1<T> {
 impl<T> DerefMut for Slice1<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl<'a, T> From<&'a Slice1<T>> for Vec<T>
+where
+    T: Clone,
+{
+    fn from(items: &'a Slice1<T>) -> Self {
+        Vec::from(items.as_slice())
     }
 }
 

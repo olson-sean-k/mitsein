@@ -9,6 +9,7 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 use core::slice;
 
+use crate::boxed1::BoxedSlice1;
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
@@ -68,6 +69,10 @@ impl<T> Vec1<T> {
 
     pub fn into_vec(self) -> Vec<T> {
         self.items
+    }
+
+    pub fn into_boxed_slice1(self) -> BoxedSlice1<T> {
+        BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice())
     }
 
     fn many_or_else<M, O>(&mut self, many: M, one: O) -> Result<T, &T>
@@ -316,6 +321,12 @@ where
     }
 }
 
+impl<T> From<BoxedSlice1<T>> for Vec1<T> {
+    fn from(items: BoxedSlice1<T>) -> Self {
+        Vec1::from_vec_unchecked(Vec::from(items.into_boxed_slice()))
+    }
+}
+
 impl<T> From<Vec1<T>> for Vec<T> {
     fn from(items: Vec1<T>) -> Self {
         items.items
@@ -410,18 +421,18 @@ pub use vec1;
 
 macro_rules! impl_from_array_for_vec1 {
     ($N:literal) => {
-        impl<T> From<[T; $N]> for Vec1<T> {
-            fn from(array: [T; $N]) -> Self {
-                $crate::vec1::Vec1::from_vec_unchecked(alloc::vec::Vec::from(array))
+        impl<T> From<[T; $N]> for $crate::vec1::Vec1<T> {
+            fn from(items: [T; $N]) -> Self {
+                $crate::vec1::Vec1::from_vec_unchecked(alloc::vec::Vec::from(items))
             }
         }
 
-        impl<'a, T> From<&'a [T; $N]> for Vec1<T>
+        impl<'a, T> From<&'a [T; $N]> for $crate::vec1::Vec1<T>
         where
             T: Copy,
         {
-            fn from(array: &'a [T; $N]) -> Self {
-                $crate::vec1::Vec1::from_vec_unchecked(array.iter().copied().collect())
+            fn from(items: &'a [T; $N]) -> Self {
+                $crate::vec1::Vec1::from_vec_unchecked(items.iter().copied().collect())
             }
         }
     };
