@@ -25,6 +25,17 @@ rustdoc-args = [
 
 [features]
 default = ["alloc"]
-alloc = []
+alloc = ["serde/alloc"]
+serde = ["dep:serde", "dep:serde_derive"]
 
 [dependencies]
+
+[dependencies.serde]
+version = "1.0"
+default-features = false
+optional = true
+
+[dependencies.serde_derive]
+version = "1.0"
+default-features = false
+optional = true

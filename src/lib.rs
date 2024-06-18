@@ -1,4 +1,3 @@
-// TODO: Support serialization.
 // TODO: Implement tests. Consider `rstest`.
 
 #![deny(
@@ -23,6 +22,8 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+mod serde;
+
 pub mod array1;
 pub mod iter1;
 pub mod option1;
@@ -36,6 +37,14 @@ pub mod prelude {
 }
 
 use core::num::NonZeroUsize;
+#[cfg(feature = "serde")]
+use {
+    ::serde::{Deserialize, Serialize},
+    ::serde_derive::{Deserialize, Serialize},
+};
+
+#[cfg(feature = "serde")]
+use crate::serde::{EmptyError, Serde};
 
 pub trait NonZeroUsizeExt {
     const ONE: Self;
@@ -63,6 +72,19 @@ where
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(
+        bound(
+            deserialize = "Self: TryFrom<Serde<T>, Error = EmptyError>, \
+                           T: Clone + Deserialize<'de>,",
+            serialize = "T: Clone + Serialize,",
+        ),
+        try_from = "Serde<T>",
+        into = "Serde<T>",
+    )
+)]
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct NonEmpty<T>

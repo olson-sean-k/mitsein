@@ -2,6 +2,8 @@ use core::convert::Infallible;
 use core::option;
 
 use crate::iter1::{AtMostOne, ExactlyOne, IntoIterator1, Iterator1};
+#[cfg(feature = "serde")]
+use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 use crate::{FnInto, NonEmpty};
 
@@ -189,5 +191,15 @@ impl<T, E> TryFrom<Result<T, E>> for Option1<T> {
             Ok(item) => Ok(Option1::from_item(item)),
             Err(error) => Err(Err(error)),
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+impl<T> TryFrom<Serde<Option<T>>> for Option1<T> {
+    type Error = EmptyError;
+
+    fn try_from(serde: Serde<Option<T>>) -> Result<Self, Self::Error> {
+        Option1::try_from(serde.items).map_err(|_| EmptyError)
     }
 }

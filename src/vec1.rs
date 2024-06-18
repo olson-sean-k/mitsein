@@ -10,6 +10,8 @@ use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 use core::slice;
 
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
+#[cfg(feature = "serde")]
+use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 use crate::{NonEmpty, NonZeroUsizeExt as _};
 
@@ -374,6 +376,16 @@ where
             0 => Err(items),
             _ => Ok(Vec1::from_vec_unchecked(Vec::from(items))),
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+impl<T> TryFrom<Serde<Vec<T>>> for Vec1<T> {
+    type Error = EmptyError;
+
+    fn try_from(serde: Serde<Vec<T>>) -> Result<Self, Self::Error> {
+        Vec1::try_from(serde.items).map_err(|_| EmptyError)
     }
 }
 
