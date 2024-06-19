@@ -4,6 +4,13 @@ use core::iter::{
 };
 use core::num::NonZeroUsize;
 use core::option;
+#[cfg(all(feature = "alloc", feature = "itertools"))]
+use {alloc::vec, itertools::MultiPeek};
+#[cfg(feature = "itertools")]
+use {
+    core::borrow::Borrow,
+    itertools::{Itertools, MapInto, MapOk, WithPosition},
+};
 
 use crate::option1::{Option1, OptionExt as _};
 use crate::FnInto;
@@ -415,6 +422,66 @@ where
         T: FromIterator1<I::Item>,
     {
         T::from_iter1(self)
+    }
+}
+
+#[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+impl<I> Iterator1<I>
+where
+    I: Iterator,
+{
+    pub fn map_into<T>(self) -> Iterator1<MapInto<I, T>>
+    where
+        I::Item: Into<T>,
+    {
+        self.non_empty(I::map_into)
+    }
+
+    pub fn map_ok<F, T, U, E>(self, f: F) -> Iterator1<MapOk<I, F>>
+    where
+        I: Iterator<Item = Result<T, E>>,
+        F: FnMut(T) -> U,
+    {
+        self.non_empty(move |items| items.map_ok(f))
+    }
+
+    pub fn with_positon(self) -> Iterator1<WithPosition<I>> {
+        self.non_empty(I::with_position)
+    }
+
+    pub fn contains<Q>(self, query: &Q) -> (bool, Remainder<I>)
+    where
+        I::Item: Borrow<Q>,
+        Q: PartialEq,
+    {
+        self.maybe_empty(move |items| items.contains(query))
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn multipeek(self) -> Iterator1<MultiPeek<I>> {
+        self.non_empty(I::multipeek)
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn sorted(self) -> Iterator1<vec::IntoIter<I::Item>>
+    where
+        I::Item: Ord,
+    {
+        self.non_empty(I::sorted)
+    }
+}
+
+#[cfg(all(feature = "alloc", feature = "itertools"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", feature = "itertools"))))]
+impl<I> Iterator1<MultiPeek<I>>
+where
+    I: Iterator,
+{
+    pub fn peek(&mut self) -> Option<&I::Item> {
+        self.items.peek()
     }
 }
 

@@ -74,11 +74,13 @@ performance when the item type is large, as the head item is stack allocated.
 Mitsein provides some optional features and integrations via the following Cargo
 features.
 
-| Feature | Default | Dependencies            | Description                                                        |
-|---------|---------|-------------------------|--------------------------------------------------------------------|
-| `alloc` | Yes     | `alloc`                 | Enables non-empty collections that allocate, like `Vec1`.          |
-| `serde` | No      | `serde`, `serde_derive` | Enables de/serialization  of non-empty collections with [`serde`]. |
+| Feature     | Default | Dependencies            | Description                                                |
+|-------------|---------|-------------------------|------------------------------------------------------------|
+| `alloc`     | Yes     | `alloc`                 | Non-empty collections that allocate, like `Vec1`.          |
+| `itertools` | No      | `itertools`             | Combinators from [`itertools`] for `Iterator1`.            |
+| `serde`     | No      | `serde`, `serde_derive` | De/serialization  of non-empty collections with [`serde`]. |
 
+[`itertools`]: https://crates.io/crates/itertools
 [`nonempty`]: https://crates.io/crates/nonempty
 [`serde`]: https://crates.io/crates/serde
 [`vec1`]: https://crates.io/crates/vec1
