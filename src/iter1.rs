@@ -1,6 +1,7 @@
 use core::cmp;
 use core::iter::{
-    Chain, Cloned, Copied, Cycle, Enumerate, Inspect, Map, Peekable, Rev, StepBy, Take,
+    self, Chain, Cloned, Copied, Cycle, Enumerate, Inspect, Map, Peekable, Repeat, Rev, StepBy,
+    Take,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -533,6 +534,13 @@ where
     F: FnInto,
 {
     Iterator1::from_iter_unchecked(AtMostOneFn::some(f))
+}
+
+pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
+where
+    T: Clone,
+{
+    Iterator1::from_iter_unchecked(iter::repeat(item))
 }
 
 #[cfg(test)]
