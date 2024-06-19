@@ -29,6 +29,12 @@ impl<T> Vec1<T> {
         Vec1::from_vec_unchecked(alloc::vec![item])
     }
 
+    pub fn from_item_with_capacity(item: T, capacity: usize) -> Self {
+        let mut items = Vec::with_capacity(capacity);
+        items.push(item);
+        Vec1::from_vec_unchecked(items)
+    }
+
     pub fn from_head_and_tail<I>(head: T, tail: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -48,12 +54,6 @@ impl<T> Vec1<T> {
         I: IntoIterator<Item = T>,
     {
         Iterator1::try_from_iter(items).map(Vec1::from_iter1)
-    }
-
-    pub fn from_item_with_capacity(item: T, capacity: usize) -> Self {
-        let mut items = Vec::with_capacity(capacity);
-        items.push(item);
-        Vec1::from_vec_unchecked(items)
     }
 
     pub fn into_head_and_tail(mut self) -> (T, Vec<T>) {
@@ -339,8 +339,6 @@ impl<T> FromIterator1<T> for Vec1<T> {
         I: IntoIterator1<Item = T>,
     {
         Vec1 {
-            // TODO: This should work, but `rustc` incorrectly rejects a blanket implementation for
-            //       `FromIterator` types. See the `iter1` module.
             //items: items.into_iter1().collect(),
             items: items.into_iter1().into_iter().collect(),
         }

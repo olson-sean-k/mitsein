@@ -30,6 +30,7 @@ pub mod iter1;
 pub mod option1;
 pub mod slice1;
 pub mod vec1;
+pub mod vec_deque1;
 
 pub mod prelude {
     pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _};
