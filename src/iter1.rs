@@ -149,6 +149,9 @@ pub type OrElseItem<I, F> = Iterator1<Chain<Peekable<I>, AtMostOneFn<F>>>;
 pub type HeadAndTail<T> =
     Iterator1<Chain<AtMostOne<<T as IntoIterator>::Item>, <T as IntoIterator>::IntoIter>>;
 
+pub type TailAndHead<T> =
+    Iterator1<Chain<<T as IntoIterator>::IntoIter, AtMostOne<<T as IntoIterator>::Item>>>;
+
 pub type Remainder<I> = Result<Iterator1<Peekable<I>>, Peekable<I>>;
 
 pub trait RemainderExt<I>
@@ -507,8 +510,22 @@ where
     }
 }
 
-pub fn item<T>(item: T) -> ExactlyOne<T> {
+pub fn from_item<T>(item: T) -> ExactlyOne<T> {
     Option1::from_item(item).into_iter1()
+}
+
+pub fn from_head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
+where
+    I: IntoIterator<Item = T>,
+{
+    Option1::from_item(head).into_iter1().chain(tail)
+}
+
+pub fn from_tail_and_head<I, T>(tail: I, head: T) -> TailAndHead<I>
+where
+    I: IntoIterator<Item = T>,
+{
+    tail.into_iter().chain1(Option1::from_item(head))
 }
 
 pub fn from_fn<F>(f: F) -> ExactlyOneFn<F>
@@ -516,13 +533,6 @@ where
     F: FnInto,
 {
     Iterator1::from_iter_unchecked(AtMostOneFn::some(f))
-}
-
-pub fn head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
-where
-    I: IntoIterator<Item = T>,
-{
-    Option1::from_item(head).into_iter1().chain(tail)
 }
 
 #[cfg(test)]
