@@ -21,6 +21,20 @@ pub trait Array1:
     fn as_mut_slice1(&mut self) -> &mut Slice1<Self::Item>;
 }
 
+macro_rules! with_non_zero_array_size_literals {
+    ($f:ident$(,)?) => {
+        $crate::with_literals!(
+            $f,
+            [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
+                45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+            ],
+        );
+    };
+}
+pub(crate) use with_non_zero_array_size_literals;
+
 macro_rules! impl_array1_for_array {
     ($N:literal) => {
         impl<T> $crate::array1::Array1 for [T; $N] {
@@ -38,7 +52,7 @@ macro_rules! impl_array1_for_array {
         }
     };
 }
-crate::with_non_zero_array_size_literals!(impl_array1_for_array);
+with_non_zero_array_size_literals!(impl_array1_for_array);
 
 macro_rules! impl_as_mut_for_array {
     ($N:literal) => {
@@ -49,7 +63,7 @@ macro_rules! impl_as_mut_for_array {
         }
     };
 }
-crate::with_non_zero_array_size_literals!(impl_as_mut_for_array);
+with_non_zero_array_size_literals!(impl_as_mut_for_array);
 
 macro_rules! impl_as_ref_for_array {
     ($N:literal) => {
@@ -60,7 +74,7 @@ macro_rules! impl_as_ref_for_array {
         }
     };
 }
-crate::with_non_zero_array_size_literals!(impl_as_ref_for_array);
+with_non_zero_array_size_literals!(impl_as_ref_for_array);
 
 macro_rules! impl_into_iterator1_for_array {
     ($N:literal) => {
@@ -71,4 +85,4 @@ macro_rules! impl_into_iterator1_for_array {
         }
     };
 }
-crate::with_non_zero_array_size_literals!(impl_into_iterator1_for_array);
+with_non_zero_array_size_literals!(impl_into_iterator1_for_array);

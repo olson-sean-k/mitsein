@@ -7,6 +7,7 @@ use core::iter::Peekable;
 use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut};
 
+use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
@@ -255,6 +256,15 @@ impl<T> Extend<T> for VecDeque1<T> {
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for VecDeque1<T>
+where
+    [T; N]: Array1,
+{
+    fn from(items: [T; N]) -> Self {
+        VecDeque1::from_vec_deque_unchecked(VecDeque::from(items))
+    }
+}
+
 impl<T> From<VecDeque1<T>> for VecDeque<T> {
     fn from(items: VecDeque1<T>) -> Self {
         items.items
@@ -322,19 +332,6 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
         }
     }
 }
-
-macro_rules! impl_from_array_for_vec_deque1 {
-    ($N:literal) => {
-        impl<T> From<[T; $N]> for $crate::vec_deque1::VecDeque1<T> {
-            fn from(items: [T; $N]) -> Self {
-                $crate::vec_deque1::VecDeque1::from_vec_deque_unchecked(
-                    alloc::collections::vec_deque::VecDeque::from(items),
-                )
-            }
-        }
-    };
-}
-crate::with_non_zero_array_size_literals!(impl_from_array_for_vec_deque1);
 
 #[cfg(test)]
 mod tests {}

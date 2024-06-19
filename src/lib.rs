@@ -33,6 +33,7 @@ pub mod vec1;
 pub mod vec_deque1;
 
 pub mod prelude {
+    pub use crate::array1::Array1;
     pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _};
     pub use crate::option1::OptionExt as _;
     pub use crate::NonZeroUsizeExt as _;
@@ -105,19 +106,6 @@ macro_rules! with_literals {
     };
 }
 pub(crate) use with_literals;
-
-macro_rules! with_non_zero_array_size_literals {
-    ($f:ident$(,)?) => {
-        $crate::with_literals!(
-            $f,
-            [
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26, 27, 28, 29, 30, 31, 32,
-            ],
-        );
-    };
-}
-pub(crate) use with_non_zero_array_size_literals;
 
 #[cfg(test)]
 mod tests {}

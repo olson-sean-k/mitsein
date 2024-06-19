@@ -5,6 +5,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::ops::{Deref, DerefMut};
 
+use crate::array1::Array1;
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
@@ -80,6 +81,15 @@ impl<T> AsRef<Slice1<T>> for BoxedSlice1<T> {
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for BoxedSlice1<T>
+where
+    [T; N]: Array1,
+{
+    fn from(items: [T; N]) -> Self {
+        BoxedSlice1::from_boxed_slice_unchecked(Box::from(items))
+    }
+}
+
 impl<'a, T> From<&'a Slice1<T>> for BoxedSlice1<T>
 where
     T: Clone,
@@ -124,16 +134,3 @@ impl<T> TryFrom<Serde<Box<[T]>>> for BoxedSlice1<T> {
         BoxedSlice1::try_from_boxed_slice(serde.items).map_err(|_| EmptyError)
     }
 }
-
-macro_rules! impl_from_array_for_boxed_slice1 {
-    ($N:literal) => {
-        impl<T> From<[T; $N]> for $crate::boxed1::BoxedSlice1<T> {
-            fn from(items: [T; $N]) -> Self {
-                $crate::boxed1::BoxedSlice1::from_boxed_slice_unchecked(alloc::boxed::Box::from(
-                    items,
-                ))
-            }
-        }
-    };
-}
-crate::with_non_zero_array_size_literals!(impl_from_array_for_boxed_slice1);
