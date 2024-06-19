@@ -79,7 +79,7 @@ impl<T> VecDeque1<T> {
         }
     }
 
-    fn many_or_first<F>(&mut self, f: F) -> Result<T, &T>
+    fn many_or_only<F>(&mut self, f: F) -> Result<T, &T>
     where
         F: FnOnce(&mut VecDeque<T>) -> T,
     {
@@ -154,29 +154,29 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front(&mut self) -> Result<T, &T> {
+    pub fn pop_front_or_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_first(|items| unsafe { items.pop_front().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_front().unwrap_unchecked() })
     }
 
-    pub fn pop_back(&mut self) -> Result<T, &T> {
+    pub fn pop_back_or_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_first(|items| unsafe { items.pop_back().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_back().unwrap_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove(&mut self, index: usize) -> Option<Result<T, &T>> {
+    pub fn remove_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
         self.try_many_or_index(index, move |items| items.remove(index))
     }
 
-    pub fn swap_remove_front(&mut self, index: usize) -> Option<Result<T, &T>> {
+    pub fn swap_remove_front_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
         self.try_many_or_index(index, move |items| items.swap_remove_front(index))
     }
 
-    pub fn swap_remove_back(&mut self, index: usize) -> Option<Result<T, &T>> {
+    pub fn swap_remove_back_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
         self.try_many_or_index(index, move |items| items.swap_remove_back(index))
     }
 

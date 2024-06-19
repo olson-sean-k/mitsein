@@ -87,7 +87,7 @@ impl<T> Vec1<T> {
         }
     }
 
-    fn many_or_first<F>(&mut self, f: F) -> Result<T, &T>
+    fn many_or_only<F>(&mut self, f: F) -> Result<T, &T>
     where
         F: FnOnce(&mut Vec<T>) -> T,
     {
@@ -142,20 +142,20 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop(&mut self) -> Result<T, &T> {
+    pub fn pop_or_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_first(|items| unsafe { items.pop().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop().unwrap_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove(&mut self, index: usize) -> Result<T, &T> {
+    pub fn remove_or_only(&mut self, index: usize) -> Result<T, &T> {
         self.many_or_index(index, move |items| items.remove(index))
     }
 
-    pub fn swap_remove(&mut self, index: usize) -> Result<T, &T> {
+    pub fn swap_remove_or_only(&mut self, index: usize) -> Result<T, &T> {
         self.many_or_index(index, move |items| items.swap_remove(index))
     }
 
