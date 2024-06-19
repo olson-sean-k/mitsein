@@ -83,27 +83,27 @@ pub type AtMostOne<T> = option::IntoIter<T>;
 pub type ExactlyOne<T> = Iterator1<AtMostOne<T>>;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct AtMostOneFn<F>
+pub struct AtMostOneWith<F>
 where
     F: FnInto,
 {
     item: Option<F>,
 }
 
-impl<F> AtMostOneFn<F>
+impl<F> AtMostOneWith<F>
 where
     F: FnInto,
 {
     fn some(f: F) -> Self {
-        AtMostOneFn { item: Some(f) }
+        AtMostOneWith { item: Some(f) }
     }
 
     fn none() -> Self {
-        AtMostOneFn { item: None }
+        AtMostOneWith { item: None }
     }
 }
 
-impl<F> DoubleEndedIterator for AtMostOneFn<F>
+impl<F> DoubleEndedIterator for AtMostOneWith<F>
 where
     F: FnInto,
 {
@@ -112,7 +112,7 @@ where
     }
 }
 
-impl<F> ExactSizeIterator for AtMostOneFn<F>
+impl<F> ExactSizeIterator for AtMostOneWith<F>
 where
     F: FnInto,
 {
@@ -126,7 +126,7 @@ where
     }
 }
 
-impl<F> Iterator for AtMostOneFn<F>
+impl<F> Iterator for AtMostOneWith<F>
 where
     F: FnInto,
 {
@@ -141,11 +141,11 @@ where
     }
 }
 
-pub type ExactlyOneFn<F> = Iterator1<AtMostOneFn<F>>;
+pub type ExactlyOneWith<F> = Iterator1<AtMostOneWith<F>>;
 
 pub type OrItem<I> = Iterator1<Chain<Peekable<I>, AtMostOne<<I as Iterator>::Item>>>;
 
-pub type OrElseItem<I, F> = Iterator1<Chain<Peekable<I>, AtMostOneFn<F>>>;
+pub type OrElseItem<I, F> = Iterator1<Chain<Peekable<I>, AtMostOneWith<F>>>;
 
 pub type HeadAndTail<T> =
     Iterator1<Chain<AtMostOne<<T as IntoIterator>::Item>, <T as IntoIterator>::IntoIter>>;
@@ -184,8 +184,8 @@ where
         F: FnInto<Into = I::Item>,
     {
         Iterator1::from_iter_unchecked(match self {
-            Ok(items) => items.into_iter().chain(AtMostOneFn::none()),
-            Err(empty) => empty.chain(AtMostOneFn::some(f)),
+            Ok(items) => items.into_iter().chain(AtMostOneWith::none()),
+            Err(empty) => empty.chain(AtMostOneWith::some(f)),
         })
     }
 
@@ -515,6 +515,13 @@ pub fn from_item<T>(item: T) -> ExactlyOne<T> {
     Option1::from_item(item).into_iter1()
 }
 
+pub fn from_item_with<F>(f: F) -> ExactlyOneWith<F>
+where
+    F: FnInto,
+{
+    Iterator1::from_iter_unchecked(AtMostOneWith::some(f))
+}
+
 pub fn from_head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
 where
     I: IntoIterator<Item = T>,
@@ -527,13 +534,6 @@ where
     I: IntoIterator<Item = T>,
 {
     tail.into_iter().chain1(Option1::from_item(head))
-}
-
-pub fn from_fn<F>(f: F) -> ExactlyOneFn<F>
-where
-    F: FnInto,
-{
-    Iterator1::from_iter_unchecked(AtMostOneFn::some(f))
 }
 
 pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
