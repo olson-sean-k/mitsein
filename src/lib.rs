@@ -1,5 +1,6 @@
 // TODO: Implement tests. Consider `rstest`.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
     clippy::cast_lossless,
     clippy::checked_conversions,
