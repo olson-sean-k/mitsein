@@ -50,9 +50,15 @@ use mitsein::prelude::*;
 use mitsein::vec1::Vec1;
 
 let xs = iter1::from_head_and_tail(0i32, [1, 2]);
-let xs: Vec1<_> = xs.into_iter().skip(3).or_item1(3).collect();
-
+let xs: Vec1<_> = xs.into_iter().skip(3).or1([3]).collect();
 assert_eq!(xs.as_slice(), &[3]);
+
+let xs = Vec1::from([0i32, 1, 2]);
+let (has_zero, remainder) = xs.iter1().any(|x| *x == 0);
+if has_zero {
+    let xs: Vec1<_> = remainder.or_else1(|| iter1::from_item(&0i32)).collect();
+    assert_eq!(xs.as_slice(), &[&1, &2]);
+}
 ```
 
 ## Features and Comparisons
