@@ -25,6 +25,15 @@ pub trait IteratorExt: Iterator {
     where
         Self: Sized,
         T: IntoIterator1<Item = Self::Item>;
+
+    fn or_item(self, item: Self::Item) -> OrItem<Self>
+    where
+        Self: Sized;
+
+    fn or_else_item<F>(self, f: F) -> OrElseItem<Self, F>
+    where
+        Self: Sized,
+        F: FnInto<Into = Self::Item>;
 }
 
 impl<I> IteratorExt for I
@@ -40,6 +49,23 @@ where
         T: IntoIterator1<Item = Self::Item>,
     {
         Iterator1::from_iter_unchecked(self.chain(items.into_iter1()))
+    }
+
+    fn or_item(self, item: Self::Item) -> OrItem<Self> {
+        match Iterator1::try_from_iter(self) {
+            Ok(items) => items.chain(None),
+            Err(empty) => Iterator1::from_iter_unchecked(empty.chain(Some(item))),
+        }
+    }
+
+    fn or_else_item<F>(self, f: F) -> OrElseItem<Self, F>
+    where
+        F: FnInto<Into = Self::Item>,
+    {
+        match Iterator1::try_from_iter(self) {
+            Ok(items) => items.chain(AtMostOneWith::none()),
+            Err(empty) => Iterator1::from_iter_unchecked(empty.chain(AtMostOneWith::some(f))),
+        }
     }
 }
 
