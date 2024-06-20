@@ -1,7 +1,7 @@
 use core::cmp;
 use core::iter::{
-    self, Chain, Cloned, Copied, Cycle, Enumerate, Inspect, Map, Peekable, Repeat, Rev, StepBy,
-    Take,
+    self, Chain, Cloned, Copied, Cycle, Enumerate, Flatten, Inspect, Map, Peekable, Repeat, Rev,
+    StepBy, Take,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -13,27 +13,70 @@ use {
     itertools::{Itertools, MapInto, MapOk, WithPosition},
 };
 
-use crate::option1::{Option1, OptionExt as _};
+use crate::option1::Option1;
 use crate::FnInto;
 
-pub trait IteratorExt: Iterator {
-    fn try_into_iter1(self) -> Remainder<Self>
-    where
-        Self: Sized;
+pub trait Then1<I>
+where
+    I: Iterator,
+{
+    type MaybeEmpty: Iterator<Item = I::Item>;
 
-    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self, T::IntoIter>>
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
     where
         Self: Sized,
-        T: IntoIterator1<Item = Self::Item>;
+        T: IntoIterator1<Item = I::Item>;
 
-    fn or_item(self, item: Self::Item) -> OrItem<Self>
-    where
-        Self: Sized;
-
-    fn or_else_item<F>(self, f: F) -> OrElseItem<Self, F>
+    fn or1<T>(self, items: T) -> Or1<I, T>
     where
         Self: Sized,
-        F: FnInto<Into = Self::Item>;
+        T: IntoIterator1<Item = I::Item>;
+
+    fn or_else1<F>(self, f: F) -> OrElse1<I, F>
+    where
+        Self: Sized,
+        F: FnInto,
+        F::Into: IntoIterator1<Item = I::Item>;
+
+    fn or_item1<T>(self, item: I::Item) -> Or1<I, [I::Item; 1]>
+    where
+        Self: Sized,
+    {
+        self.or1([item])
+    }
+}
+
+impl<I> Then1<I> for I
+where
+    I: Iterator,
+{
+    type MaybeEmpty = I;
+
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    where
+        T: IntoIterator1<Item = I::Item>,
+    {
+        Iterator1::from_iter_unchecked(self.chain(items.into_iter1()))
+    }
+
+    fn or1<T>(self, items: T) -> Or1<I, T>
+    where
+        T: IntoIterator1<Item = I::Item>,
+    {
+        Iterator1::try_from_iter(self).or1(items)
+    }
+
+    fn or_else1<F>(self, f: F) -> OrElse1<I, F>
+    where
+        F: FnInto,
+        F::Into: IntoIterator1<Item = I::Item>,
+    {
+        Iterator1::try_from_iter(self).or_else1(f)
+    }
+}
+
+pub trait IteratorExt: Iterator + Sized + Then1<Self> {
+    fn try_into_iter1(self) -> Remainder<Self>;
 }
 
 impl<I> IteratorExt for I
@@ -42,30 +85,6 @@ where
 {
     fn try_into_iter1(self) -> Remainder<Self> {
         Iterator1::try_from_iter(self)
-    }
-
-    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self, T::IntoIter>>
-    where
-        T: IntoIterator1<Item = Self::Item>,
-    {
-        Iterator1::from_iter_unchecked(self.chain(items.into_iter1()))
-    }
-
-    fn or_item(self, item: Self::Item) -> OrItem<Self> {
-        match Iterator1::try_from_iter(self) {
-            Ok(items) => items.chain(None),
-            Err(empty) => Iterator1::from_iter_unchecked(empty.chain(Some(item))),
-        }
-    }
-
-    fn or_else_item<F>(self, f: F) -> OrElseItem<Self, F>
-    where
-        F: FnInto<Into = Self::Item>,
-    {
-        match Iterator1::try_from_iter(self) {
-            Ok(items) => items.chain(AtMostOneWith::none()),
-            Err(empty) => Iterator1::from_iter_unchecked(empty.chain(AtMostOneWith::some(f))),
-        }
     }
 }
 
@@ -108,70 +127,9 @@ pub type AtMostOne<T> = option::IntoIter<T>;
 
 pub type ExactlyOne<T> = Iterator1<AtMostOne<T>>;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct AtMostOneWith<F>
-where
-    F: FnInto,
-{
-    item: Option<F>,
-}
-
-impl<F> AtMostOneWith<F>
-where
-    F: FnInto,
-{
-    fn some(f: F) -> Self {
-        AtMostOneWith { item: Some(f) }
-    }
-
-    fn none() -> Self {
-        AtMostOneWith { item: None }
-    }
-}
-
-impl<F> DoubleEndedIterator for AtMostOneWith<F>
-where
-    F: FnInto,
-{
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.next()
-    }
-}
-
-impl<F> ExactSizeIterator for AtMostOneWith<F>
-where
-    F: FnInto,
-{
-    fn len(&self) -> usize {
-        if self.item.is_some() {
-            1
-        }
-        else {
-            0
-        }
-    }
-}
-
-impl<F> Iterator for AtMostOneWith<F>
-where
-    F: FnInto,
-{
-    type Item = F::Into;
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (1, Some(1))
-    }
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.item.take().call()
-    }
-}
+pub type AtMostOneWith<F> = iter::OnceWith<F>;
 
 pub type ExactlyOneWith<F> = Iterator1<AtMostOneWith<F>>;
-
-pub type OrItem<I> = Iterator1<Chain<Peekable<I>, AtMostOne<<I as Iterator>::Item>>>;
-
-pub type OrElseItem<I, F> = Iterator1<Chain<Peekable<I>, AtMostOneWith<F>>>;
 
 pub type HeadAndTail<T> =
     Iterator1<Chain<AtMostOne<<T as IntoIterator>::Item>, <T as IntoIterator>::IntoIter>>;
@@ -179,18 +137,18 @@ pub type HeadAndTail<T> =
 pub type TailAndHead<T> =
     Iterator1<Chain<<T as IntoIterator>::IntoIter, AtMostOne<<T as IntoIterator>::Item>>>;
 
+pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
+
+pub type Or1<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
+
+pub type OrElse1<I, F> = Iterator1<Chain<Peekable<I>, EmptyOrInto<<F as FnInto>::Into>>>;
+
 pub type Remainder<I> = Result<Iterator1<Peekable<I>>, Peekable<I>>;
 
-pub trait RemainderExt<I>
+pub trait RemainderExt<I>: Then1<I>
 where
     I: Iterator,
 {
-    fn or_item(self, item: I::Item) -> OrItem<I>;
-
-    fn or_else_item<F>(self, f: F) -> OrElseItem<I, F>
-    where
-        F: FnInto<Into = I::Item>;
-
     fn into_iter(self) -> Peekable<I>;
 }
 
@@ -198,28 +156,46 @@ impl<I> RemainderExt<I> for Remainder<I>
 where
     I: Iterator,
 {
-    fn or_item(self, item: I::Item) -> OrItem<I> {
-        Iterator1::from_iter_unchecked(match self {
-            Ok(items) => items.into_iter().chain(None),
-            Err(empty) => empty.chain(Some(item)),
-        })
-    }
-
-    fn or_else_item<F>(self, f: F) -> OrElseItem<I, F>
-    where
-        F: FnInto<Into = I::Item>,
-    {
-        Iterator1::from_iter_unchecked(match self {
-            Ok(items) => items.into_iter().chain(AtMostOneWith::none()),
-            Err(empty) => empty.chain(AtMostOneWith::some(f)),
-        })
-    }
-
     fn into_iter(self) -> Peekable<I> {
         match self {
             Ok(items) => items.into_iter(),
             Err(empty) => empty,
         }
+    }
+}
+
+impl<I> Then1<I> for Remainder<I>
+where
+    I: Iterator,
+{
+    type MaybeEmpty = Peekable<I>;
+
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    where
+        T: IntoIterator1<Item = I::Item>,
+    {
+        Iterator1::from_iter_unchecked(RemainderExt::into_iter(self).chain(items.into_iter1()))
+    }
+
+    fn or1<T>(self, items: T) -> Or1<I, T>
+    where
+        T: IntoIterator1<Item = I::Item>,
+    {
+        Iterator1::from_iter_unchecked(match self {
+            Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
+            Err(empty) => empty.chain(empty_or_into(Some(items))),
+        })
+    }
+
+    fn or_else1<F>(self, f: F) -> OrElse1<I, F>
+    where
+        F: FnInto,
+        F::Into: IntoIterator1<Item = I::Item>,
+    {
+        Iterator1::from_iter_unchecked(match self {
+            Ok(items) => items.into_iter().chain(empty_or_into::<F::Into>(None)),
+            Err(empty) => empty.chain(empty_or_into(Some(f.call()))),
+        })
     }
 }
 
@@ -545,7 +521,7 @@ pub fn from_item_with<F>(f: F) -> ExactlyOneWith<F>
 where
     F: FnInto,
 {
-    Iterator1::from_iter_unchecked(AtMostOneWith::some(f))
+    Iterator1::from_iter_unchecked(iter::once_with(f))
 }
 
 pub fn from_head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
@@ -567,6 +543,13 @@ where
     T: Clone,
 {
     Iterator1::from_iter_unchecked(iter::repeat(item))
+}
+
+fn empty_or_into<T>(items: Option<T>) -> EmptyOrInto<T>
+where
+    T: IntoIterator,
+{
+    items.map(T::into_iter).into_iter().flatten()
 }
 
 #[cfg(test)]

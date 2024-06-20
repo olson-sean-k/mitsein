@@ -34,7 +34,9 @@ pub mod vec_deque1;
 
 pub mod prelude {
     pub use crate::array1::Array1;
-    pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _};
+    pub use crate::iter1::{
+        FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _, Then1,
+    };
     pub use crate::option1::OptionExt as _;
     pub use crate::NonZeroUsizeExt as _;
 }
