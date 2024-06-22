@@ -280,6 +280,11 @@ where
         unsafe { NonZeroUsize::new_unchecked(self.items.count()) }
     }
 
+    pub fn first(mut self) -> I::Item {
+        // SAFETY:
+        unsafe { self.items.next().unwrap_unchecked() }
+    }
+
     pub fn last(self) -> I::Item {
         // SAFETY:
         unsafe { self.items.last().unwrap_unchecked() }

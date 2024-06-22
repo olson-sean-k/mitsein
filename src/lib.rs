@@ -27,6 +27,7 @@ mod serde;
 
 pub mod array1;
 pub mod boxed1;
+pub mod btree_map1;
 pub mod iter1;
 pub mod option1;
 pub mod slice1;
@@ -35,6 +36,8 @@ pub mod vec_deque1;
 
 pub mod prelude {
     pub use crate::array1::Array1;
+    #[cfg(feature = "alloc")]
+    pub use crate::btree_map1::OrOnlyExt as _;
     pub use crate::iter1::{
         FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _, Then1,
     };
@@ -98,6 +101,60 @@ where
     T: ?Sized,
 {
     items: T,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Arity<O, M> {
+    One(O),
+    Many(M),
+}
+
+impl<O, M> Arity<O, M> {
+    pub fn one(self) -> Option<O> {
+        match self {
+            Arity::One(one) => Some(one),
+            _ => None,
+        }
+    }
+
+    pub fn many(self) -> Option<M> {
+        match self {
+            Arity::Many(many) => Some(many),
+            _ => None,
+        }
+    }
+
+    pub fn map_one<U, F>(self, f: F) -> Arity<U, M>
+    where
+        F: FnOnce(O) -> U,
+    {
+        match self {
+            Arity::One(one) => Arity::One(f(one)),
+            Arity::Many(many) => Arity::Many(many),
+        }
+    }
+
+    pub fn map_many<U, F>(self, f: F) -> Arity<O, U>
+    where
+        F: FnOnce(M) -> U,
+    {
+        match self {
+            Arity::One(one) => Arity::One(one),
+            Arity::Many(many) => Arity::Many(f(many)),
+        }
+    }
+}
+
+impl<T> Arity<T, T> {
+    pub fn map<U, F>(self, f: F) -> Arity<U, U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Arity::One(one) => Arity::One(f(one)),
+            Arity::Many(many) => Arity::Many(f(many)),
+        }
+    }
 }
 
 macro_rules! with_literals {

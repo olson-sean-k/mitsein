@@ -88,7 +88,7 @@ impl<T> VecDeque1<T> {
         self.many_or_else(f, |items| unsafe { items.front().unwrap_unchecked() })
     }
 
-    fn try_many_or_index<F>(&mut self, index: usize, f: F) -> Option<Result<T, &T>>
+    fn try_many_or_get<F>(&mut self, index: usize, f: F) -> Option<Result<T, &T>>
     where
         F: FnOnce(&mut VecDeque<T>) -> Option<T>,
     {
@@ -170,15 +170,15 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn remove_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
-        self.try_many_or_index(index, move |items| items.remove(index))
+        self.try_many_or_get(index, move |items| items.remove(index))
     }
 
     pub fn swap_remove_front_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
-        self.try_many_or_index(index, move |items| items.swap_remove_front(index))
+        self.try_many_or_get(index, move |items| items.swap_remove_front(index))
     }
 
     pub fn swap_remove_back_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
-        self.try_many_or_index(index, move |items| items.swap_remove_back(index))
+        self.try_many_or_get(index, move |items| items.swap_remove_back(index))
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {

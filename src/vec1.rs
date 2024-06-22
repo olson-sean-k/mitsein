@@ -96,7 +96,7 @@ impl<T> Vec1<T> {
         self.many_or_else(f, |items| unsafe { items.get_unchecked(0) })
     }
 
-    fn many_or_index<F>(&mut self, index: usize, f: F) -> Result<T, &T>
+    fn many_or_get<F>(&mut self, index: usize, f: F) -> Result<T, &T>
     where
         F: FnOnce(&mut Vec<T>) -> T,
     {
@@ -153,11 +153,11 @@ impl<T> Vec1<T> {
     }
 
     pub fn remove_or_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_index(index, move |items| items.remove(index))
+        self.many_or_get(index, move |items| items.remove(index))
     }
 
     pub fn swap_remove_or_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_index(index, move |items| items.swap_remove(index))
+        self.many_or_get(index, move |items| items.swap_remove(index))
     }
 
     pub fn len(&self) -> NonZeroUsize {
