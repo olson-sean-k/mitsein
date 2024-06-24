@@ -12,7 +12,7 @@ use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, NonZeroUsizeExt as _};
+use crate::NonEmpty;
 
 pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
 
@@ -140,7 +140,7 @@ impl<T> VecDeque1<T> {
 
     // NOTE: This is as similar to `VecDeque::clear` as `VecDeque1` can afford.
     pub fn split_off_front(&mut self) -> VecDeque<T> {
-        self.split_off(NonZeroUsize::ONE)
+        self.split_off(NonZeroUsize::MIN)
     }
 
     pub fn append(&mut self, mut items: Self) {

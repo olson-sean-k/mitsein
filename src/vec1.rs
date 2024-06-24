@@ -15,7 +15,7 @@ use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, NonZeroUsizeExt as _};
+use crate::NonEmpty;
 
 pub type Cow1<'a, T> = Cow<'a, Slice1<T>>;
 
@@ -132,7 +132,7 @@ impl<T> Vec1<T> {
 
     // NOTE: This is as similar to `Vec::clear` as `Vec1` can afford.
     pub fn split_off_first(&mut self) -> Vec<T> {
-        self.split_off(NonZeroUsize::ONE)
+        self.split_off(NonZeroUsize::MIN)
     }
 
     pub fn append(&mut self, mut items: Self) {
