@@ -143,8 +143,11 @@ impl<T> VecDeque1<T> {
         self.split_off(NonZeroUsize::MIN)
     }
 
-    pub fn append(&mut self, mut items: Self) {
-        self.items.append(&mut items.items)
+    pub fn append<R>(&mut self, items: R)
+    where
+        R: Into<VecDeque<T>>,
+    {
+        self.items.append(&mut items.into())
     }
 
     pub fn push_front(&mut self, item: T) {

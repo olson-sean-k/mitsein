@@ -378,11 +378,12 @@ impl<K, V> BTreeMap1<K, V> {
         }
     }
 
-    pub fn append(&mut self, mut items: Self)
+    pub fn append<R>(&mut self, items: R)
     where
         K: Ord,
+        R: Into<BTreeMap<K, V>>,
     {
-        self.items.append(&mut items.items)
+        self.items.append(&mut items.into())
     }
 
     pub fn entry(&mut self, key: K) -> Entry<'_, K, V>

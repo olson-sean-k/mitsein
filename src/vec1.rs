@@ -135,8 +135,11 @@ impl<T> Vec1<T> {
         self.split_off(NonZeroUsize::MIN)
     }
 
-    pub fn append(&mut self, mut items: Self) {
-        self.items.append(&mut items.items)
+    pub fn append<R>(&mut self, items: R)
+    where
+        R: Into<Vec<T>>,
+    {
+        self.items.append(&mut items.into())
     }
 
     pub fn push(&mut self, item: T) {
