@@ -26,11 +26,11 @@ impl<T> Vec1<T> {
         Vec1 { items }
     }
 
-    pub fn from_item(item: T) -> Self {
+    pub fn from_one(item: T) -> Self {
         Vec1::from_vec_unchecked(alloc::vec![item])
     }
 
-    pub fn from_item_with_capacity(item: T, capacity: usize) -> Self {
+    pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
         let mut items = Vec::with_capacity(capacity);
         items.push(item);
         Vec1::from_vec_unchecked(items)

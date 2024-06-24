@@ -24,11 +24,11 @@ impl<T> BTreeSet1<T> {
         BTreeSet1 { items }
     }
 
-    pub fn from_item(item: T) -> Self
+    pub fn from_one(item: T) -> Self
     where
         T: Ord,
     {
-        iter1::from_item(item).collect()
+        iter1::from_one(item).collect()
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>

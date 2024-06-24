@@ -22,27 +22,27 @@ where
 {
     type MaybeEmpty: Iterator<Item = I::Item>;
 
-    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
     where
         Self: Sized,
         T: IntoIterator1<Item = I::Item>;
 
-    fn or1<T>(self, items: T) -> Or1<I, T>
+    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
     where
         Self: Sized,
         T: IntoIterator1<Item = I::Item>;
 
-    fn or_else1<F>(self, f: F) -> OrElse1<I, F>
+    fn or_else_non_empty<F>(self, f: F) -> OrElseNonEmpty<I, F>
     where
         Self: Sized,
         F: FnInto,
         F::Into: IntoIterator1<Item = I::Item>;
 
-    fn or_item1<T>(self, item: I::Item) -> Or1<I, [I::Item; 1]>
+    fn or_one<T>(self, item: I::Item) -> OrNonEmpty<I, [I::Item; 1]>
     where
         Self: Sized,
     {
-        self.or1([item])
+        self.or_non_empty([item])
     }
 }
 
@@ -52,26 +52,26 @@ where
 {
     type MaybeEmpty = I;
 
-    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
     where
         T: IntoIterator1<Item = I::Item>,
     {
         Iterator1::from_iter_unchecked(self.chain(items.into_iter1()))
     }
 
-    fn or1<T>(self, items: T) -> Or1<I, T>
+    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
     where
         T: IntoIterator1<Item = I::Item>,
     {
-        Iterator1::try_from_iter(self).or1(items)
+        Iterator1::try_from_iter(self).or_non_empty(items)
     }
 
-    fn or_else1<F>(self, f: F) -> OrElse1<I, F>
+    fn or_else_non_empty<F>(self, f: F) -> OrElseNonEmpty<I, F>
     where
         F: FnInto,
         F::Into: IntoIterator1<Item = I::Item>,
     {
-        Iterator1::try_from_iter(self).or_else1(f)
+        Iterator1::try_from_iter(self).or_else_non_empty(f)
     }
 }
 
@@ -139,9 +139,9 @@ pub type TailAndHead<T> =
 
 pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
 
-pub type Or1<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
+pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
-pub type OrElse1<I, F> = Iterator1<Chain<Peekable<I>, EmptyOrInto<<F as FnInto>::Into>>>;
+pub type OrElseNonEmpty<I, F> = Iterator1<Chain<Peekable<I>, EmptyOrInto<<F as FnInto>::Into>>>;
 
 pub type Remainder<I> = Result<Iterator1<Peekable<I>>, Peekable<I>>;
 
@@ -170,14 +170,14 @@ where
 {
     type MaybeEmpty = Peekable<I>;
 
-    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
     where
         T: IntoIterator1<Item = I::Item>,
     {
         Iterator1::from_iter_unchecked(RemainderExt::into_iter(self).chain(items.into_iter1()))
     }
 
-    fn or1<T>(self, items: T) -> Or1<I, T>
+    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
     where
         T: IntoIterator1<Item = I::Item>,
     {
@@ -187,7 +187,7 @@ where
         })
     }
 
-    fn or_else1<F>(self, f: F) -> OrElse1<I, F>
+    fn or_else_non_empty<F>(self, f: F) -> OrElseNonEmpty<I, F>
     where
         F: FnInto,
         F::Into: IntoIterator1<Item = I::Item>,
@@ -518,11 +518,11 @@ where
     }
 }
 
-pub fn from_item<T>(item: T) -> ExactlyOne<T> {
-    Option1::from_item(item).into_iter1()
+pub fn from_one<T>(item: T) -> ExactlyOne<T> {
+    Option1::from_one(item).into_iter1()
 }
 
-pub fn from_item_with<F>(f: F) -> ExactlyOneWith<F>
+pub fn from_one_with<F>(f: F) -> ExactlyOneWith<F>
 where
     F: FnInto,
 {
@@ -533,14 +533,14 @@ pub fn from_head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
 where
     I: IntoIterator<Item = T>,
 {
-    Option1::from_item(head).into_iter1().chain(tail)
+    Option1::from_one(head).into_iter1().chain(tail)
 }
 
 pub fn from_tail_and_head<I, T>(tail: I, head: T) -> TailAndHead<I>
 where
     I: IntoIterator<Item = T>,
 {
-    tail.into_iter().chain1(Option1::from_item(head))
+    tail.into_iter().chain_non_empty(Option1::from_one(head))
 }
 
 pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>

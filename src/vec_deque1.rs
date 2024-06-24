@@ -21,11 +21,11 @@ impl<T> VecDeque1<T> {
         VecDeque1 { items }
     }
 
-    pub fn from_item(item: T) -> Self {
-        iter1::from_item(item).collect()
+    pub fn from_one(item: T) -> Self {
+        iter1::from_one(item).collect()
     }
 
-    pub fn from_item_with_capacity(item: T, capacity: usize) -> Self {
+    pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
         let mut items = VecDeque::with_capacity(capacity);
         items.push_back(item);
         VecDeque1::from_vec_deque_unchecked(items)

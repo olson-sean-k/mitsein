@@ -281,11 +281,11 @@ impl<K, V> BTreeMap1<K, V> {
         BTreeMap1 { items }
     }
 
-    pub fn from_key_value(key: K, value: V) -> Self
+    pub fn from_one(key: K, value: V) -> Self
     where
         K: Ord,
     {
-        iter1::from_item((key, value)).collect()
+        iter1::from_one((key, value)).collect()
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>

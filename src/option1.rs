@@ -25,7 +25,7 @@ impl<T> OptionExt<T> for Option<T> {
 pub type Option1<T> = NonEmpty<Option<T>>;
 
 impl<T> Option1<T> {
-    pub fn from_item(item: T) -> Self {
+    pub fn from_one(item: T) -> Self {
         NonEmpty { items: Some(item) }
     }
 
@@ -53,7 +53,7 @@ impl<T> Option1<T> {
     where
         F: FnOnce(T) -> U,
     {
-        Option1::from_item(f(self.take()))
+        Option1::from_one(f(self.take()))
     }
 
     pub fn get(&self) -> &T {
@@ -87,11 +87,11 @@ impl<T> Option1<T> {
     }
 
     pub fn as_ref(&self) -> Option1<&T> {
-        Option1::from_item(self.get())
+        Option1::from_one(self.get())
     }
 
     pub fn as_mut(&mut self) -> Option1<&mut T> {
-        Option1::from_item(self.get_mut())
+        Option1::from_one(self.get_mut())
     }
 }
 
@@ -100,14 +100,14 @@ impl<'a, T> Option1<&'a T> {
     where
         T: Clone,
     {
-        Option1::from_item(self.take().clone())
+        Option1::from_one(self.take().clone())
     }
 
     pub fn copied(self) -> Option1<T>
     where
         T: Copy,
     {
-        Option1::from_item(*self.take())
+        Option1::from_one(*self.take())
     }
 }
 
@@ -116,14 +116,14 @@ impl<'a, T> Option1<&'a mut T> {
     where
         T: Clone,
     {
-        Option1::from_item(self.take().clone())
+        Option1::from_one(self.take().clone())
     }
 
     pub fn copied(self) -> Option1<T>
     where
         T: Copy,
     {
-        Option1::from_item(*self.take())
+        Option1::from_one(*self.take())
     }
 }
 
@@ -135,19 +135,19 @@ impl<T> Option1<Option1<T>> {
 
 impl<T> Option1<Option<T>> {
     pub fn transpose(self) -> Option<Option1<T>> {
-        self.take().map(Option1::from_item)
+        self.take().map(Option1::from_one)
     }
 }
 
 impl<T, E> Option1<Result<T, E>> {
     pub fn transpose(self) -> Result<Option1<T>, E> {
-        self.take().map(Option1::from_item)
+        self.take().map(Option1::from_one)
     }
 }
 
 impl<T> From<T> for Option1<T> {
     fn from(item: T) -> Self {
-        Option1::from_item(item)
+        Option1::from_one(item)
     }
 }
 
@@ -177,7 +177,7 @@ impl<T> TryFrom<Option<T>> for Option1<T> {
 
     fn try_from(option: Option<T>) -> Result<Self, Self::Error> {
         match option {
-            Some(item) => Ok(Option1::from_item(item)),
+            Some(item) => Ok(Option1::from_one(item)),
             _ => Err(None),
         }
     }
@@ -188,7 +188,7 @@ impl<T, E> TryFrom<Result<T, E>> for Option1<T> {
 
     fn try_from(result: Result<T, E>) -> Result<Self, Self::Error> {
         match result {
-            Ok(item) => Ok(Option1::from_item(item)),
+            Ok(item) => Ok(Option1::from_one(item)),
             Err(error) => Err(Err(error)),
         }
     }
