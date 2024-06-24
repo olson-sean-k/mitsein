@@ -255,10 +255,7 @@ where
         unsafe {
             (
                 NonZeroUsize::new_unchecked(cmp::max(1, lower)),
-                upper.and_then(|upper| match upper {
-                    0 => None,
-                    upper => Some(NonZeroUsize::new_unchecked(upper)),
-                }),
+                upper.map(|upper| NonZeroUsize::new_unchecked(cmp::max(1, upper))),
             )
         }
     }
