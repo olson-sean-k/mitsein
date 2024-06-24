@@ -43,8 +43,10 @@ pub mod prelude {
         FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _, Then1,
     };
     pub use crate::option1::OptionExt as _;
+    pub use crate::NonZeroExt as _;
 }
 
+use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
 use {
     ::serde::{Deserialize, Serialize},
@@ -53,6 +55,16 @@ use {
 
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
+
+pub trait NonZeroExt<T> {
+    fn clamped(n: T) -> Self;
+}
+
+impl NonZeroExt<usize> for NonZeroUsize {
+    fn clamped(n: usize) -> Self {
+        NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
+    }
+}
 
 pub trait FnInto: FnOnce() -> Self::Into {
     type Into;

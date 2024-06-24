@@ -1,4 +1,3 @@
-use core::cmp;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, Flatten, Inspect, Map, Peekable, Repeat, Rev,
     StepBy, Take,
@@ -14,7 +13,7 @@ use {
 };
 
 use crate::option1::Option1;
-use crate::FnInto;
+use crate::{FnInto, NonZeroExt as _};
 
 pub trait Then1<I>
 where
@@ -251,21 +250,17 @@ where
 
     pub fn size_hint(&self) -> (NonZeroUsize, Option<NonZeroUsize>) {
         let (lower, upper) = self.items.size_hint();
-        // SAFETY:
-        unsafe {
-            (
-                NonZeroUsize::new_unchecked(cmp::max(1, lower)),
-                upper.map(|upper| NonZeroUsize::new_unchecked(cmp::max(1, upper))),
-            )
-        }
+        (
+            NonZeroUsize::clamped(lower),
+            upper.map(NonZeroUsize::clamped),
+        )
     }
 
     pub fn len(&self) -> NonZeroUsize
     where
         I: ExactSizeIterator,
     {
-        // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(cmp::max(1, self.items.len())) }
+        NonZeroUsize::clamped(self.items.len())
     }
 
     pub fn as_iter(&self) -> &I {
