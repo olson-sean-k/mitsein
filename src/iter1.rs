@@ -457,7 +457,7 @@ where
         self.non_empty(move |items| items.map_ok(f))
     }
 
-    pub fn with_positon(self) -> Iterator1<WithPosition<I>> {
+    pub fn with_position(self) -> Iterator1<WithPosition<I>> {
         self.non_empty(I::with_position)
     }
 
