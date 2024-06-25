@@ -10,6 +10,7 @@ use crate::iter1::Iterator1;
 use crate::vec1::Vec1;
 use crate::NonEmpty;
 
+// TODO: Implement `Index` and `IndexMut`.
 pub type Slice1<T> = NonEmpty<[T]>;
 
 impl<T> Slice1<T> {

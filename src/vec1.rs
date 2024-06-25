@@ -15,7 +15,7 @@ use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::NonEmpty;
+use crate::{NonEmpty, Vacancy};
 
 pub type Cow1<'a, T> = Cow<'a, Slice1<T>>;
 
@@ -173,6 +173,7 @@ impl<T> Vec1<T> {
         unsafe { NonZeroUsize::new_unchecked(self.items.capacity()) }
     }
 
+    // TODO: Remove this and other functions provided by `Slice1` and slice.
     pub fn first(&self) -> &T {
         // SAFETY:
         unsafe { self.items.first().unwrap_unchecked() }
@@ -368,6 +369,8 @@ impl<T> FromIterator1<T> for Vec1<T> {
     }
 }
 
+// TODO: Implement `Index` and `IndexMut` for some index type `N` supported by `Vec` (or rely on an
+//       implementation for `Slice1` and `Deref`).
 impl<T> Index<usize> for Vec1<T> {
     type Output = <Vec<T> as Index<usize>>::Output;
 
@@ -429,6 +432,12 @@ impl<T> TryFrom<Vec<T>> for Vec1<T> {
             0 => Err(items),
             _ => Ok(Vec1::from_vec_unchecked(items)),
         }
+    }
+}
+
+impl<T> Vacancy for Vec1<T> {
+    fn vacancy(&self) -> usize {
+        self.items.vacancy()
     }
 }
 

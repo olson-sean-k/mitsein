@@ -88,6 +88,10 @@ Mitsein**. This means that no head item is allocated diffently. For example, the
 **not** allocated on the heap. This can potentially cause surprising or poor
 performance when the item type is large, as the head item is stack allocated.
 
+**Mitsein is a `no_std` library, and `alloc` is optional**. Non-empty slices and
+iterators (and their relationship with arrays) can be used in embedded contexts,
+or any other environment where `std` or allocation are not available.
+
 ## Cargo Features
 
 Mitsein provides some optional features and integrations via the following Cargo
@@ -96,9 +100,11 @@ features.
 | Feature     | Default | Dependencies            | Description                                                |
 |-------------|---------|-------------------------|------------------------------------------------------------|
 | `alloc`     | Yes     | `alloc`                 | Non-empty collections that allocate, like `Vec1`.          |
+| `arrayvec`  | No      | `arrayvec`              | Non-empty implementation of [`ArrayVec`][`arrayvec`].      |
 | `itertools` | No      | `itertools`             | Combinators from [`itertools`] for `Iterator1`.            |
 | `serde`     | No      | `serde`, `serde_derive` | De/serialization  of non-empty collections with [`serde`]. |
 
+[`arrayvec`]: https://crates.io/crates/arrayvec
 [`itertools`]: https://crates.io/crates/itertools
 [`nonempty`]: https://crates.io/crates/nonempty
 [`serde`]: https://crates.io/crates/serde

@@ -12,7 +12,7 @@ keywords = [
     "collection",
     "non-empty",
     "one-or-more",
-    "vector"
+    "vector",
 ]
 categories = ["data-structures"]
 
@@ -20,16 +20,29 @@ categories = ["data-structures"]
 all-features = true
 rustdoc-args = [
     "--cfg",
-    "docsrs"
+    "docsrs",
 ]
 
 [features]
 default = ["alloc"]
-alloc = ["itertools/use_alloc", "serde/alloc"]
+alloc = [
+    "itertools/use_alloc",
+    "serde/alloc",
+]
+arrayvec = ["dep:arrayvec"]
 itertools = ["dep:itertools"]
-serde = ["dep:serde", "dep:serde_derive"]
+serde = [
+    "dep:serde",
+    "dep:serde_derive",
+    "arrayvec/serde",
+]
 
 [dependencies]
+
+[dependencies.arrayvec]
+version = "^0.7.0"
+default-features = false
+optional = true
 
 [dependencies.itertools]
 version = "^0.13.0"
