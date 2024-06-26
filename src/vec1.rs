@@ -7,7 +7,6 @@ use core::fmt::{self, Debug, Formatter};
 use core::iter::Peekable;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
-use core::slice;
 
 use crate::array1::Array1;
 use crate::boxed1::BoxedSlice1;
@@ -171,35 +170,6 @@ impl<T> Vec1<T> {
     pub fn capacity(&self) -> NonZeroUsize {
         // SAFETY:
         unsafe { NonZeroUsize::new_unchecked(self.items.capacity()) }
-    }
-
-    // TODO: Remove this and other functions provided by `Slice1` and slice.
-    pub fn first(&self) -> &T {
-        // SAFETY:
-        unsafe { self.items.first().unwrap_unchecked() }
-    }
-
-    pub fn first_mut(&mut self) -> &mut T {
-        // SAFETY:
-        unsafe { self.items.first_mut().unwrap_unchecked() }
-    }
-
-    pub fn last(&self) -> &T {
-        // SAFETY:
-        unsafe { self.items.last().unwrap_unchecked() }
-    }
-
-    pub fn last_mut(&mut self) -> &mut T {
-        // SAFETY:
-        unsafe { self.items.last_mut().unwrap_unchecked() }
-    }
-
-    pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
-        Iterator1::from_iter_unchecked(self.items.iter())
-    }
-
-    pub fn iter1_mut(&mut self) -> Iterator1<slice::IterMut<'_, T>> {
-        Iterator1::from_iter_unchecked(self.items.iter_mut())
     }
 
     pub fn splice<R, I>(&mut self, range: R, replacement: I) -> Splice<'_, I::IntoIter>
