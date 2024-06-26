@@ -1,7 +1,7 @@
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
-use core::ops::{Deref, DerefMut};
-use core::slice;
+use core::ops::{Deref, DerefMut, Index, IndexMut};
+use core::slice::{self, SliceIndex};
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec, core::num::NonZeroUsize};
 
@@ -10,7 +10,6 @@ use crate::iter1::Iterator1;
 use crate::vec1::Vec1;
 use crate::NonEmpty;
 
-// TODO: Implement `Index` and `IndexMut`.
 pub type Slice1<T> = NonEmpty<[T]>;
 
 impl<T> Slice1<T> {
@@ -151,6 +150,26 @@ where
 {
     fn from(items: &'a Slice1<T>) -> Self {
         Vec::from(items.as_slice())
+    }
+}
+
+impl<T, I> Index<I> for Slice1<T>
+where
+    I: SliceIndex<[T]>,
+{
+    type Output = <I as SliceIndex<[T]>>::Output;
+
+    fn index(&self, at: I) -> &Self::Output {
+        self.items.index(at)
+    }
+}
+
+impl<T, I> IndexMut<I> for Slice1<T>
+where
+    I: SliceIndex<[T]>,
+{
+    fn index_mut(&mut self, at: I) -> &mut Self::Output {
+        self.items.index_mut(at)
     }
 }
 

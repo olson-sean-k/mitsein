@@ -6,7 +6,7 @@ use alloc::vec::{self, Splice, Vec};
 use core::fmt::{self, Debug, Formatter};
 use core::iter::Peekable;
 use core::num::NonZeroUsize;
-use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
+use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
 use crate::boxed1::BoxedSlice1;
@@ -336,22 +336,6 @@ impl<T> FromIterator1<T> for Vec1<T> {
             //items: items.into_iter1().collect(),
             items: items.into_iter1().into_iter().collect(),
         }
-    }
-}
-
-// TODO: Implement `Index` and `IndexMut` for some index type `N` supported by `Vec` (or rely on an
-//       implementation for `Slice1` and `Deref`).
-impl<T> Index<usize> for Vec1<T> {
-    type Output = <Vec<T> as Index<usize>>::Output;
-
-    fn index(&self, at: usize) -> &Self::Output {
-        self.items.index(at)
-    }
-}
-
-impl<T> IndexMut<usize> for Vec1<T> {
-    fn index_mut(&mut self, at: usize) -> &mut Self::Output {
-        self.items.index_mut(at)
     }
 }
 
