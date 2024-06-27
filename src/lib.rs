@@ -1,3 +1,6 @@
+// TODO: Unchecked constructors (e.g., `Vec1::from_vec_unchecked`) ought to be `unsafe`. If marked
+//       as such, then they can be exposed in the public API.
+// TODO: Some constructors and functions ought to be `const`.
 // TODO: Implement tests. Consider `rstest`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -33,6 +36,7 @@ pub mod btree_set1;
 pub mod iter1;
 pub mod option1;
 pub mod slice1;
+pub mod sync1;
 pub mod vec1;
 pub mod vec_deque1;
 
@@ -42,9 +46,14 @@ pub mod prelude {
         FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _, Then1,
     };
     pub use crate::option1::OptionExt as _;
+    #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
+    pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
     pub use crate::{NonZeroExt as _, Saturate, Saturated, Vacancy};
     #[cfg(feature = "alloc")]
-    pub use {crate::boxed1::BoxedSlice1Ext as _, crate::btree_map1::OrOnlyExt as _};
+    pub use {
+        crate::boxed1::BoxedSlice1Ext as _, crate::btree_map1::OrOnlyExt as _,
+        crate::vec1::Cow1Ext as _,
+    };
 }
 
 #[cfg(feature = "arrayvec")]

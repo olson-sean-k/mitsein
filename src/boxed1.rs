@@ -8,6 +8,8 @@ use crate::array1::Array1;
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
+#[cfg(target_has_atomic = "ptr")]
+use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::vec1::Vec1;
 
 pub type BoxedSlice1<T> = Box<Slice1<T>>;
@@ -21,6 +23,10 @@ pub trait BoxedSlice1Ext<T>: Sized {
     fn try_from_slice(items: &[T]) -> Result<Self, &[T]>
     where
         T: Clone;
+
+    #[cfg(target_has_atomic = "ptr")]
+    #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
+    fn into_arc_slice1(self) -> ArcSlice1<T>;
 
     fn into_boxed_slice(self) -> Box<[T]>;
 
@@ -38,7 +44,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
         //         so this function is unsafe). This transmutation is safe, because `[T]` and
         //         `Slice1<T>` have the same representation (`Slice1<T>` is `repr(transparent)`).
         //         Moreover, the allocator only requires that the memory location and layout are
-        //         the same when deallocating, so dropping the transmuted box is sound.
+        //         the same when deallocating, so dropping the transmuted `Box` is sound.
         Box::from_raw(items as *mut Slice1<T>)
     }
 
@@ -61,12 +67,18 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
         }
     }
 
+    #[cfg(target_has_atomic = "ptr")]
+    #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
+    fn into_arc_slice1(self) -> ArcSlice1<T> {
+        ArcSlice1::from_boxed_slice1(self)
+    }
+
     fn into_boxed_slice(self) -> Box<[T]> {
         let items = Box::into_raw(self);
         // SAFETY: This transmutation is safe, because `[T]` and `Slice1<T>` have the same
         //         representation (`Slice1<T>` is `repr(transparent)`). Moreover, the allocator
         //         only requires that the memory location and layout are the same when
-        //         deallocating, so dropping the transmuted box is sound.
+        //         deallocating, so dropping the transmuted `Box` is sound.
         unsafe { Box::from_raw(items as *mut [T]) }
     }
 
