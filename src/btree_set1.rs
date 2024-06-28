@@ -20,7 +20,8 @@ type BTreeSetArity<'a, T> = Arity<&'a mut BTreeSet<T>, &'a mut BTreeSet<T>>;
 pub type BTreeSet1<T> = NonEmpty<BTreeSet<T>>;
 
 impl<T> BTreeSet1<T> {
-    pub(crate) fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
+    /// # Safety
+    pub unsafe fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
         BTreeSet1 { items }
     }
 
@@ -298,7 +299,8 @@ where
     type Output = BTreeSet1<T>;
 
     fn bitor(self, rhs: &'_ R) -> Self::Output {
-        BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_ref())
+        // SAFETY:
+        unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_ref()) }
     }
 }
 
@@ -341,7 +343,8 @@ where
     T: Ord,
 {
     fn from(items: [T; N]) -> Self {
-        BTreeSet1::from_btree_set_unchecked(BTreeSet::from(items))
+        // SAFETY:
+        unsafe { BTreeSet1::from_btree_set_unchecked(BTreeSet::from(items)) }
     }
 }
 
@@ -409,7 +412,8 @@ impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
     fn try_from(items: BTreeSet<T>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(BTreeSet1::from_btree_set_unchecked(items)),
+            // SAFETY:
+            _ => Ok(unsafe { BTreeSet1::from_btree_set_unchecked(items) }),
         }
     }
 }
