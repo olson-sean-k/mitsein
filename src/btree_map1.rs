@@ -545,12 +545,6 @@ impl<K, V> BTreeMap1<K, V> {
     }
 }
 
-impl<K, V> AsRef<BTreeMap<K, V>> for BTreeMap1<K, V> {
-    fn as_ref(&self) -> &BTreeMap<K, V> {
-        &self.items
-    }
-}
-
 impl<K, V> Debug for BTreeMap1<K, V>
 where
     K: Debug,

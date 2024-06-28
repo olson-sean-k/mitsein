@@ -278,12 +278,6 @@ impl<T> BTreeSet1<T> {
     }
 }
 
-impl<T> AsRef<BTreeSet<T>> for BTreeSet1<T> {
-    fn as_ref(&self) -> &BTreeSet<T> {
-        &self.items
-    }
-}
-
 impl<R, T> BitAnd<&'_ R> for &'_ BTreeSet1<T>
 where
     R: AsRef<BTreeSet<T>>,

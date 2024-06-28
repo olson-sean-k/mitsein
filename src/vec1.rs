@@ -226,12 +226,6 @@ impl<T> AsRef<Slice1<T>> for Vec1<T> {
     }
 }
 
-impl<T> AsRef<Vec<T>> for Vec1<T> {
-    fn as_ref(&self) -> &Vec<T> {
-        &self.items
-    }
-}
-
 impl<T> Borrow<[T]> for Vec1<T> {
     fn borrow(&self) -> &[T] {
         self.items.borrow()

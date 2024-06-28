@@ -235,12 +235,6 @@ impl<T> VecDeque1<T> {
     }
 }
 
-impl<T> AsRef<VecDeque<T>> for VecDeque1<T> {
-    fn as_ref(&self) -> &VecDeque<T> {
-        &self.items
-    }
-}
-
 impl<T> Debug for VecDeque1<T>
 where
     T: Debug,

@@ -180,6 +180,12 @@ where
     items: T,
 }
 
+impl<T> AsRef<T> for NonEmpty<T> {
+    fn as_ref(&self) -> &T {
+        &self.items
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Arity<O, M> {
     One(O),

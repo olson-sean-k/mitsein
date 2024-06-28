@@ -220,15 +220,6 @@ where
     }
 }
 
-impl<T, const N: usize> AsRef<ArrayVec<T, N>> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-{
-    fn as_ref(&self) -> &ArrayVec<T, N> {
-        &self.items
-    }
-}
-
 impl<T, const N: usize> Borrow<[T]> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
