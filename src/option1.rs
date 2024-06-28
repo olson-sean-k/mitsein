@@ -81,11 +81,13 @@ impl<T> Option1<T> {
     }
 
     pub fn as_slice1(&self) -> &Slice1<T> {
-        Slice1::from_slice_unchecked(self.items.as_slice())
+        // SAFETY:
+        unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }
 
     pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
-        Slice1::from_mut_slice_unchecked(self.items.as_mut_slice())
+        // SAFETY:
+        unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 
     pub fn as_ref(&self) -> Option1<&T> {

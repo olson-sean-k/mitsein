@@ -35,6 +35,7 @@ macro_rules! with_non_zero_array_size_literals {
 }
 pub(crate) use with_non_zero_array_size_literals;
 
+/// # Safety
 macro_rules! impl_array1_for_array {
     ($N:literal) => {
         impl<T> $crate::array1::Array1 for [T; $N] {
@@ -54,22 +55,26 @@ macro_rules! impl_array1_for_array {
 }
 with_non_zero_array_size_literals!(impl_array1_for_array);
 
+/// # Safety
 macro_rules! impl_as_mut_for_array {
     ($N:literal) => {
         impl<T> core::convert::AsMut<$crate::slice1::Slice1<T>> for [T; $N] {
             fn as_mut(&mut self) -> &mut $crate::slice1::Slice1<T> {
-                $crate::slice1::Slice1::from_mut_slice_unchecked(self.as_mut_slice())
+                // SAFETY:
+                unsafe { $crate::slice1::Slice1::from_mut_slice_unchecked(self.as_mut_slice()) }
             }
         }
     };
 }
 with_non_zero_array_size_literals!(impl_as_mut_for_array);
 
+/// # Safety
 macro_rules! impl_as_ref_for_array {
     ($N:literal) => {
         impl<T> core::convert::AsRef<$crate::slice1::Slice1<T>> for [T; $N] {
             fn as_ref(&self) -> &$crate::slice1::Slice1<T> {
-                $crate::slice1::Slice1::from_slice_unchecked(self.as_slice())
+                // SAFETY:
+                unsafe { $crate::slice1::Slice1::from_slice_unchecked(self.as_slice()) }
             }
         }
     };

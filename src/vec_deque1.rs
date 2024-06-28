@@ -119,7 +119,8 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn make_contiguous(&mut self) -> &mut Slice1<T> {
-        Slice1::from_mut_slice_unchecked(self.items.make_contiguous())
+        // SAFETY:
+        unsafe { Slice1::from_mut_slice_unchecked(self.items.make_contiguous()) }
     }
 
     pub fn rotate_left(&mut self, n: usize) {

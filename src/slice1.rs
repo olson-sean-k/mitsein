@@ -13,27 +13,31 @@ use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 pub type Slice1<T> = NonEmpty<[T]>;
 
 impl<T> Slice1<T> {
-    pub(crate) fn from_slice_unchecked(items: &[T]) -> &Self {
+    /// # Safety
+    pub unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
         // SAFETY:
-        unsafe { mem::transmute::<&'_ [T], &'_ Slice1<T>>(items) }
+        mem::transmute::<&'_ [T], &'_ Slice1<T>>(items)
     }
 
-    pub(crate) fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
+    /// # Safety
+    pub unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
         // SAFETY:
-        unsafe { mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items) }
+        mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items)
     }
 
     pub fn try_from_slice(items: &[T]) -> Result<&Self, &[T]> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(Slice1::from_slice_unchecked(items)),
+            // SAFETY:
+            _ => Ok(unsafe { Slice1::from_slice_unchecked(items) }),
         }
     }
 
     pub fn try_from_mut_slice(items: &mut [T]) -> Result<&mut Self, &mut [T]> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(Slice1::from_mut_slice_unchecked(items)),
+            // SAFETY:
+            _ => Ok(unsafe { Slice1::from_mut_slice_unchecked(items) }),
         }
     }
 
@@ -195,11 +199,13 @@ where
 }
 
 pub fn from_ref<T>(item: &T) -> &Slice1<T> {
-    Slice1::from_slice_unchecked(slice::from_ref(item))
+    // SAFETY:
+    unsafe { Slice1::from_slice_unchecked(slice::from_ref(item)) }
 }
 
 pub fn from_mut<T>(item: &mut T) -> &mut Slice1<T> {
-    Slice1::from_mut_slice_unchecked(slice::from_mut(item))
+    // SAFETY:
+    unsafe { Slice1::from_mut_slice_unchecked(slice::from_mut(item)) }
 }
 
 #[cfg(test)]
