@@ -62,7 +62,8 @@ impl<T> Slice1<T> {
     where
         T: Copy,
     {
-        Vec1::from_vec_unchecked(self.items.repeat(n.into()))
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(self.items.repeat(n.into())) }
     }
 
     pub fn split_first(&self) -> (&T, &[T]) {

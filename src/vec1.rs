@@ -21,32 +21,37 @@ pub type Cow1<'a, T> = Cow<'a, Slice1<T>>;
 pub type Vec1<T> = NonEmpty<Vec<T>>;
 
 impl<T> Vec1<T> {
-    pub(crate) fn from_vec_unchecked(items: Vec<T>) -> Self {
+    /// # Safety
+    pub unsafe fn from_vec_unchecked(items: Vec<T>) -> Self {
         Vec1 { items }
     }
 
     pub fn from_one(item: T) -> Self {
-        Vec1::from_vec_unchecked(alloc::vec![item])
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(alloc::vec![item]) }
     }
 
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
         let mut items = Vec::with_capacity(capacity);
         items.push(item);
-        Vec1::from_vec_unchecked(items)
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(items) }
     }
 
     pub fn from_head_and_tail<I>(head: T, tail: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        Vec1::from_vec_unchecked(Some(head).into_iter().chain(tail).collect())
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(Some(head).into_iter().chain(tail).collect()) }
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        Vec1::from_vec_unchecked(tail.into_iter().chain(Some(head)).collect())
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(tail.into_iter().chain(Some(head)).collect()) }
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
@@ -289,7 +294,8 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        Vec1::from_vec_unchecked(Vec::from(items))
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(Vec::from(items)) }
     }
 }
 
@@ -299,7 +305,8 @@ where
     T: Copy,
 {
     fn from(items: &'a [T; N]) -> Self {
-        Vec1::from_vec_unchecked(items.iter().copied().collect())
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(items.iter().copied().collect()) }
     }
 }
 
@@ -308,13 +315,15 @@ where
     T: Clone,
 {
     fn from(items: &'a Slice1<T>) -> Self {
-        Vec1::from_vec_unchecked(Vec::from(items.as_slice()))
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(Vec::from(items.as_slice())) }
     }
 }
 
 impl<T> From<BoxedSlice1<T>> for Vec1<T> {
     fn from(items: BoxedSlice1<T>) -> Self {
-        Vec1::from_vec_unchecked(Vec::from(items.into_boxed_slice()))
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(Vec::from(items.into_boxed_slice())) }
     }
 }
 
@@ -361,7 +370,8 @@ where
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(Vec1::from_vec_unchecked(Vec::from(items))),
+            // SAFETY:
+            _ => Ok(unsafe { Vec1::from_vec_unchecked(Vec::from(items)) }),
         }
     }
 }
@@ -382,7 +392,8 @@ impl<T> TryFrom<Vec<T>> for Vec1<T> {
     fn try_from(items: Vec<T>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(Vec1::from_vec_unchecked(items)),
+            // SAFETY:
+            _ => Ok(unsafe { Vec1::from_vec_unchecked(items) }),
         }
     }
 }
@@ -396,7 +407,8 @@ impl<T> Vacancy for Vec1<T> {
 #[macro_export]
 macro_rules! vec1 {
     ($($item:expr $(,)?)+) => {
-        $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$($item,)+])
+        // SAFETY:
+        unsafe { $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$($item,)+]) }
     };
 }
 pub use vec1;
