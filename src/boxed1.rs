@@ -13,8 +13,6 @@ use crate::vec1::Vec1;
 pub type BoxedSlice1<T> = Box<Slice1<T>>;
 
 pub trait BoxedSlice1Ext<T>: Sized {
-    // TODO: All non-empty types should provide such a function. Note that this is in the public
-    //       API and, more importantly, is `unsafe`!
     /// # Safety
     unsafe fn from_boxed_slice_unchecked(items: Box<[T]>) -> Self;
 

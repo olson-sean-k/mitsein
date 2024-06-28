@@ -17,7 +17,8 @@ use crate::NonEmpty;
 pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
 
 impl<T> VecDeque1<T> {
-    pub(crate) fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
+    /// # Safety
+    pub unsafe fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
         VecDeque1 { items }
     }
 
@@ -28,21 +29,24 @@ impl<T> VecDeque1<T> {
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
         let mut items = VecDeque::with_capacity(capacity);
         items.push_back(item);
-        VecDeque1::from_vec_deque_unchecked(items)
+        // SAFETY:
+        unsafe { VecDeque1::from_vec_deque_unchecked(items) }
     }
 
     pub fn from_head_and_tail<I>(head: T, tail: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        VecDeque1::from_vec_deque_unchecked(Some(head).into_iter().chain(tail).collect())
+        // SAFETY:
+        unsafe { VecDeque1::from_vec_deque_unchecked(Some(head).into_iter().chain(tail).collect()) }
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        VecDeque1::from_vec_deque_unchecked(tail.into_iter().chain(Some(head)).collect())
+        // SAFETY:
+        unsafe { VecDeque1::from_vec_deque_unchecked(tail.into_iter().chain(Some(head)).collect()) }
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
@@ -261,7 +265,8 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        VecDeque1::from_vec_deque_unchecked(VecDeque::from(items))
+        // SAFETY:
+        unsafe { VecDeque1::from_vec_deque_unchecked(VecDeque::from(items)) }
     }
 }
 
@@ -329,7 +334,8 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
     fn try_from(items: VecDeque<T>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(VecDeque1::from_vec_deque_unchecked(items)),
+            // SAFETY:
+            _ => Ok(unsafe { VecDeque1::from_vec_deque_unchecked(items) }),
         }
     }
 }
