@@ -6,9 +6,9 @@ use core::slice::{self, SliceIndex};
 use {alloc::borrow::ToOwned, alloc::vec::Vec, core::num::NonZeroUsize};
 
 use crate::iter1::Iterator1;
-#[cfg(feature = "alloc")]
-use crate::vec1::Vec1;
 use crate::NonEmpty;
+#[cfg(feature = "alloc")]
+use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 
 pub type Slice1<T> = NonEmpty<[T]>;
 
@@ -43,6 +43,12 @@ impl<T> Slice1<T> {
     where
         T: Clone,
     {
+        Vec1::from(self)
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn into_vec1(self: BoxedSlice1<T>) -> Vec1<T> {
         Vec1::from(self)
     }
 

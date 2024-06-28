@@ -38,13 +38,13 @@ pub mod vec_deque1;
 
 pub mod prelude {
     pub use crate::array1::Array1;
-    #[cfg(feature = "alloc")]
-    pub use crate::btree_map1::OrOnlyExt as _;
     pub use crate::iter1::{
         FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _, Then1,
     };
     pub use crate::option1::OptionExt as _;
     pub use crate::{NonZeroExt as _, Saturate, Saturated, Vacancy};
+    #[cfg(feature = "alloc")]
+    pub use {crate::boxed1::BoxedSlice1Ext as _, crate::btree_map1::OrOnlyExt as _};
 }
 
 #[cfg(feature = "arrayvec")]

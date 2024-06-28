@@ -9,7 +9,7 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
-use crate::boxed1::BoxedSlice1;
+use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
@@ -72,7 +72,8 @@ impl<T> Vec1<T> {
     }
 
     pub fn into_boxed_slice1(self) -> BoxedSlice1<T> {
-        BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice())
+        // SAFETY:
+        unsafe { BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice()) }
     }
 
     fn many_or_else<M, O>(&mut self, many: M, one: O) -> Result<T, &T>
