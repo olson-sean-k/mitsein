@@ -302,11 +302,13 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn into_keys1(self) -> Iterator1<btree_map::IntoKeys<K, V>> {
-        Iterator1::from_iter_unchecked(self.items.into_keys())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.into_keys()) }
     }
 
     pub fn into_values1(self) -> Iterator1<btree_map::IntoValues<K, V>> {
-        Iterator1::from_iter_unchecked(self.items.into_values())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
     fn arity(&mut self) -> BTreeMapArity<'_, K, V> {
@@ -514,23 +516,28 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn iter1(&self) -> Iterator1<btree_map::Iter<'_, K, V>> {
-        Iterator1::from_iter_unchecked(self.items.iter())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<btree_map::IterMut<'_, K, V>> {
-        Iterator1::from_iter_unchecked(self.items.iter_mut())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
     pub fn keys1(&self) -> Iterator1<btree_map::Keys<'_, K, V>> {
-        Iterator1::from_iter_unchecked(self.items.keys())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.keys()) }
     }
 
     pub fn values1(&self) -> Iterator1<btree_map::Values<'_, K, V>> {
-        Iterator1::from_iter_unchecked(self.items.values())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.values()) }
     }
 
     pub fn values1_mut(&mut self) -> Iterator1<btree_map::ValuesMut<'_, K, V>> {
-        Iterator1::from_iter_unchecked(self.items.values_mut())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.values_mut()) }
     }
 
     pub fn contains_key<Q>(&self, query: &Q) -> bool
@@ -611,7 +618,8 @@ impl<K, V> IntoIterator for BTreeMap1<K, V> {
 
 impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        Iterator1::from_iter_unchecked(self.items)
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
 

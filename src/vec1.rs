@@ -345,7 +345,8 @@ impl<T> IntoIterator for Vec1<T> {
 
 impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        Iterator1::from_iter_unchecked(self.items)
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
 

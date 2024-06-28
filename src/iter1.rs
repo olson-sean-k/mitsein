@@ -55,7 +55,8 @@ where
     where
         T: IntoIterator1<Item = I::Item>,
     {
-        Iterator1::from_iter_unchecked(self.chain(items.into_iter1()))
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.chain(items.into_iter1())) }
     }
 
     fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
@@ -173,17 +174,23 @@ where
     where
         T: IntoIterator1<Item = I::Item>,
     {
-        Iterator1::from_iter_unchecked(RemainderExt::into_iter(self).chain(items.into_iter1()))
+        // SAFETY:
+        unsafe {
+            Iterator1::from_iter_unchecked(RemainderExt::into_iter(self).chain(items.into_iter1()))
+        }
     }
 
     fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
     where
         T: IntoIterator1<Item = I::Item>,
     {
-        Iterator1::from_iter_unchecked(match self {
-            Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
-            Err(empty) => empty.chain(empty_or_into(Some(items))),
-        })
+        // SAFETY:
+        unsafe {
+            Iterator1::from_iter_unchecked(match self {
+                Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
+                Err(empty) => empty.chain(empty_or_into(Some(items))),
+            })
+        }
     }
 
     fn or_else_non_empty<F>(self, f: F) -> OrElseNonEmpty<I, F>
@@ -191,10 +198,13 @@ where
         F: FnInto,
         F::Into: IntoIterator1<Item = I::Item>,
     {
-        Iterator1::from_iter_unchecked(match self {
-            Ok(items) => items.into_iter().chain(empty_or_into::<F::Into>(None)),
-            Err(empty) => empty.chain(empty_or_into(Some(f.call()))),
-        })
+        // SAFETY:
+        unsafe {
+            Iterator1::from_iter_unchecked(match self {
+                Ok(items) => items.into_iter().chain(empty_or_into::<F::Into>(None)),
+                Err(empty) => empty.chain(empty_or_into(Some(f.call()))),
+            })
+        }
     }
 }
 
@@ -205,7 +215,8 @@ pub struct Iterator1<I> {
 }
 
 impl<I> Iterator1<I> {
-    pub(crate) fn from_iter_unchecked<T>(items: T) -> Self
+    /// # Safety
+    pub unsafe fn from_iter_unchecked<T>(items: T) -> Self
     where
         T: IntoIterator<IntoIter = I>,
     {
@@ -225,7 +236,8 @@ where
     {
         let mut items = items.into_iter().peekable();
         match items.peek() {
-            Some(_) => Ok(Iterator1::from_iter_unchecked(items)),
+            // SAFETY:
+            Some(_) => Ok(unsafe { Iterator1::from_iter_unchecked(items) }),
             _ => Err(items),
         }
     }
@@ -240,7 +252,7 @@ where
     }
 
     #[inline(always)]
-    fn non_empty<J, F>(self, f: F) -> Iterator1<J>
+    unsafe fn non_empty<J, F>(self, f: F) -> Iterator1<J>
     where
         J: Iterator,
         F: FnOnce(I) -> J,
@@ -358,7 +370,8 @@ where
         T: 'a + Copy,
         I: Iterator<Item = &'a T>,
     {
-        self.non_empty(I::copied)
+        // SAFETY:
+        unsafe { self.non_empty(I::copied) }
     }
 
     pub fn cloned<'a, T>(self) -> Iterator1<Cloned<I>>
@@ -366,58 +379,68 @@ where
         T: 'a + Clone,
         I: Iterator<Item = &'a T>,
     {
-        self.non_empty(I::cloned)
+        // SAFETY:
+        unsafe { self.non_empty(I::cloned) }
     }
 
     pub fn enumerate(self) -> Iterator1<Enumerate<I>> {
-        self.non_empty(I::enumerate)
+        // SAFETY:
+        unsafe { self.non_empty(I::enumerate) }
     }
 
     pub fn map<T, F>(self, f: F) -> Iterator1<Map<I, F>>
     where
         F: FnMut(I::Item) -> T,
     {
-        self.non_empty(move |items| items.map(f))
+        // SAFETY:
+        unsafe { self.non_empty(move |items| items.map(f)) }
     }
 
     pub fn take(self, n: NonZeroUsize) -> Iterator1<Take<I>> {
-        self.non_empty(move |items| items.take(n.into()))
+        // SAFETY:
+        unsafe { self.non_empty(move |items| items.take(n.into())) }
     }
 
     pub fn cycle(self) -> Iterator1<Cycle<I>>
     where
         I: Clone,
     {
-        self.non_empty(I::cycle)
+        // SAFETY:
+        unsafe { self.non_empty(I::cycle) }
     }
 
     pub fn chain<T>(self, chained: T) -> Iterator1<Chain<I, T::IntoIter>>
     where
         T: IntoIterator<Item = I::Item>,
     {
-        self.non_empty(move |items| items.chain(chained))
+        // SAFETY:
+        unsafe { self.non_empty(move |items| items.chain(chained)) }
     }
 
     pub fn step_by(self, step: usize) -> Iterator1<StepBy<I>> {
-        self.non_empty(move |items| items.step_by(step))
+        // SAFETY:
+        unsafe { self.non_empty(move |items| items.step_by(step)) }
     }
 
     pub fn inspect<F>(self, f: F) -> Iterator1<Inspect<I, F>>
     where
         F: FnMut(&I::Item),
     {
-        self.non_empty(move |items| items.inspect(f))
+        // SAFETY:
+        unsafe { self.non_empty(move |items| items.inspect(f)) }
     }
 
     pub fn peekable(self) -> Iterator1<Peekable<I>> {
-        self.non_empty(I::peekable)
+        // SAFETY:
+        unsafe { self.non_empty(I::peekable) }
     }
 
     pub fn rev(self) -> Iterator1<Rev<I>>
     where
         I: DoubleEndedIterator,
     {
-        self.non_empty(I::rev)
+        // SAFETY:
+        unsafe { self.non_empty(I::rev) }
     }
 
     pub fn collect<T>(self) -> T
@@ -438,7 +461,8 @@ where
     where
         I::Item: Into<T>,
     {
-        self.non_empty(I::map_into)
+        // SAFETY:
+        unsafe { self.non_empty(I::map_into) }
     }
 
     pub fn map_ok<F, T, U, E>(self, f: F) -> Iterator1<MapOk<I, F>>
@@ -446,11 +470,13 @@ where
         I: Iterator<Item = Result<T, E>>,
         F: FnMut(T) -> U,
     {
-        self.non_empty(move |items| items.map_ok(f))
+        // SAFETY:
+        unsafe { self.non_empty(move |items| items.map_ok(f)) }
     }
 
     pub fn with_position(self) -> Iterator1<WithPosition<I>> {
-        self.non_empty(I::with_position)
+        // SAFETY:
+        unsafe { self.non_empty(I::with_position) }
     }
 
     pub fn contains<Q>(self, query: &Q) -> (bool, Remainder<I>)
@@ -464,7 +490,8 @@ where
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn multipeek(self) -> Iterator1<MultiPeek<I>> {
-        self.non_empty(I::multipeek)
+        // SAFETY:
+        unsafe { self.non_empty(I::multipeek) }
     }
 
     #[cfg(feature = "alloc")]
@@ -473,7 +500,8 @@ where
     where
         I::Item: Ord,
     {
-        self.non_empty(I::sorted)
+        // SAFETY:
+        unsafe { self.non_empty(I::sorted) }
     }
 }
 
@@ -518,7 +546,8 @@ pub fn from_one_with<F>(f: F) -> ExactlyOneWith<F>
 where
     F: FnInto,
 {
-    Iterator1::from_iter_unchecked(iter::once_with(f))
+    // SAFETY:
+    unsafe { Iterator1::from_iter_unchecked(iter::once_with(f)) }
 }
 
 pub fn from_head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
@@ -539,7 +568,8 @@ pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
 where
     T: Clone,
 {
-    Iterator1::from_iter_unchecked(iter::repeat(item))
+    // SAFETY:
+    unsafe { Iterator1::from_iter_unchecked(iter::repeat(item)) }
 }
 
 fn empty_or_into<T>(items: Option<T>) -> EmptyOrInto<T>

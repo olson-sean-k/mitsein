@@ -235,11 +235,13 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         R: AsRef<BTreeSet<T>>,
     {
-        Iterator1::from_iter_unchecked(self.items.union(other.as_ref()))
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_ref())) }
     }
 
     pub fn iter1(&self) -> Iterator1<btree_set::Iter<'_, T>> {
-        Iterator1::from_iter_unchecked(self.items.iter())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn is_disjoint<R>(&self, other: &R) -> bool
@@ -380,7 +382,8 @@ impl<T> IntoIterator for BTreeSet1<T> {
 
 impl<T> IntoIterator1 for BTreeSet1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        Iterator1::from_iter_unchecked(self.items)
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
 

@@ -67,11 +67,13 @@ impl<T> Option1<T> {
     }
 
     pub fn iter1(&self) -> Iterator1<option::Iter<'_, T>> {
-        Iterator1::from_iter_unchecked(self.items.iter())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<option::IterMut<'_, T>> {
-        Iterator1::from_iter_unchecked(self.items.iter_mut())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
     pub fn as_option(&self) -> &Option<T> {
@@ -168,7 +170,8 @@ impl<T> IntoIterator for Option1<T> {
 
 impl<T> IntoIterator1 for Option1<T> {
     fn into_iter1(self) -> ExactlyOne<T> {
-        Iterator1::from_iter_unchecked(self.items)
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
 

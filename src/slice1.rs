@@ -92,11 +92,13 @@ impl<T> Slice1<T> {
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
-        Iterator1::from_iter_unchecked(self.as_slice().iter())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.as_slice().iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<slice::IterMut<'_, T>> {
-        Iterator1::from_iter_unchecked(self.as_mut_slice().iter_mut())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.as_mut_slice().iter_mut()) }
     }
 
     pub fn as_slice(&self) -> &'_ [T] {

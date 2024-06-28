@@ -359,7 +359,8 @@ impl<T, const N: usize> IntoIterator for ArrayVec1<T, N> {
 
 impl<T, const N: usize> IntoIterator1 for ArrayVec1<T, N> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        Iterator1::from_iter_unchecked(self.items)
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
 

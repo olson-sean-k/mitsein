@@ -223,11 +223,13 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn iter1(&self) -> Iterator1<vec_deque::Iter<'_, T>> {
-        Iterator1::from_iter_unchecked(self.items.iter())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<vec_deque::IterMut<'_, T>> {
-        Iterator1::from_iter_unchecked(self.items.iter_mut())
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
     pub fn as_vec_deque(&self) -> &VecDeque<T> {
@@ -305,7 +307,8 @@ impl<T> IntoIterator for VecDeque1<T> {
 
 impl<T> IntoIterator1 for VecDeque1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        Iterator1::from_iter_unchecked(self.items)
+        // SAFETY:
+        unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
 
