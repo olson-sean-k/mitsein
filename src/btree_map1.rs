@@ -277,7 +277,8 @@ where
 pub type BTreeMap1<K, V> = NonEmpty<BTreeMap<K, V>>;
 
 impl<K, V> BTreeMap1<K, V> {
-    pub(crate) fn from_btree_map_unchecked(items: BTreeMap<K, V>) -> Self {
+    /// # Safety
+    pub unsafe fn from_btree_map_unchecked(items: BTreeMap<K, V>) -> Self {
         BTreeMap1 { items }
     }
 
@@ -573,7 +574,8 @@ where
     K: Ord,
 {
     fn from(items: [(K, V); N]) -> Self {
-        BTreeMap1::from_btree_map_unchecked(BTreeMap::from(items))
+        // SAFETY:
+        unsafe { BTreeMap1::from_btree_map_unchecked(BTreeMap::from(items)) }
     }
 }
 
@@ -629,7 +631,8 @@ impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
     fn try_from(items: BTreeMap<K, V>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(BTreeMap1::from_btree_map_unchecked(items)),
+            // SAFETY:
+            _ => Ok(unsafe { BTreeMap1::from_btree_map_unchecked(items) }),
         }
     }
 }
