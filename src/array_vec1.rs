@@ -22,17 +22,21 @@ impl<T, const N: usize> ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
-    pub(crate) fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
+    /// # Safety
+    pub unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
         ArrayVec1 { items }
     }
 
     pub fn from_one(item: T) -> Self {
-        // SAFETY:
-        ArrayVec1::from_array_vec_unchecked(unsafe {
-            let mut items = ArrayVec::new();
-            items.push_unchecked(item);
-            items
-        })
+        unsafe {
+            // SAFETY:
+            ArrayVec1::from_array_vec_unchecked({
+                let mut items = ArrayVec::new();
+                // SAFETY:
+                items.push_unchecked(item);
+                items
+            })
+        }
     }
 
     pub fn from_head_and_tail<I>(head: T, tail: I) -> (Self, I::IntoIter)
@@ -50,7 +54,10 @@ where
         I: IntoIterator<Item = T>,
     {
         let mut tail_and_head = tail.into_iter().chain(Option1::from_one(head));
-        let items = ArrayVec1::from_array_vec_unchecked(tail_and_head.by_ref().take(N).collect());
+        // SAFETY:
+        let items = unsafe {
+            ArrayVec1::from_array_vec_unchecked(tail_and_head.by_ref().take(N).collect())
+        };
         (items, tail_and_head)
     }
 
@@ -80,7 +87,8 @@ where
     pub fn try_into_array(self) -> Result<[T; N], Self> {
         self.items
             .into_inner()
-            .map_err(ArrayVec1::from_array_vec_unchecked)
+            // SAFETY:
+            .map_err(|items| unsafe { ArrayVec1::from_array_vec_unchecked(items) })
     }
 
     /// # Safety
@@ -301,7 +309,8 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        ArrayVec1::from_array_vec_unchecked(ArrayVec::from(items))
+        // SAFETY:
+        unsafe { ArrayVec1::from_array_vec_unchecked(ArrayVec::from(items)) }
     }
 }
 
@@ -311,7 +320,8 @@ where
     T: Copy,
 {
     fn from(items: &'a [T; N]) -> Self {
-        ArrayVec1::from_array_vec_unchecked(items.iter().copied().collect())
+        // SAFETY:
+        unsafe { ArrayVec1::from_array_vec_unchecked(items.iter().copied().collect()) }
     }
 }
 
@@ -362,7 +372,9 @@ where
 
     fn saturated(items: I) -> (Self, Self::Remainder) {
         let mut remainder = items.into_iter1().into_iter();
-        let items = ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect());
+        // SAFETY:
+        let items =
+            unsafe { ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect()) };
         (items, remainder.try_into_iter1())
     }
 }
@@ -389,7 +401,8 @@ where
 
     fn try_from(items: &'a Slice1<T>) -> Result<Self, Self::Error> {
         ArrayVec::try_from(items.as_slice())
-            .map(ArrayVec1::from_array_vec_unchecked)
+            // SAFETY:
+            .map(|items| unsafe { ArrayVec1::from_array_vec_unchecked(items) })
             .map_err(|_| items)
     }
 }
@@ -416,7 +429,8 @@ where
     fn try_from(items: ArrayVec<T, N>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            _ => Ok(ArrayVec1::from_array_vec_unchecked(items)),
+            // SAFETY:
+            _ => Ok(unsafe { ArrayVec1::from_array_vec_unchecked(items) }),
         }
     }
 }
