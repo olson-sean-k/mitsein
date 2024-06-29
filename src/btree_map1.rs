@@ -278,7 +278,7 @@ pub type BTreeMap1<K, V> = NonEmpty<BTreeMap<K, V>>;
 
 impl<K, V> BTreeMap1<K, V> {
     /// # Safety
-    pub unsafe fn from_btree_map_unchecked(items: BTreeMap<K, V>) -> Self {
+    pub const unsafe fn from_btree_map_unchecked(items: BTreeMap<K, V>) -> Self {
         BTreeMap1 { items }
     }
 
@@ -548,7 +548,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.items.contains_key(query)
     }
 
-    pub fn as_btree_map(&self) -> &BTreeMap<K, V> {
+    pub const fn as_btree_map(&self) -> &BTreeMap<K, V> {
         &self.items
     }
 }

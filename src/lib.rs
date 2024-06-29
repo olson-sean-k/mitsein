@@ -1,6 +1,3 @@
-// TODO: Unchecked constructors (e.g., `Vec1::from_vec_unchecked`) ought to be `unsafe`. If marked
-//       as such, then they can be exposed in the public API.
-// TODO: Some constructors and functions ought to be `const`.
 // TODO: Implement tests. Consider `rstest`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]

@@ -53,7 +53,7 @@ pub type Vec1<T> = NonEmpty<Vec<T>>;
 
 impl<T> Vec1<T> {
     /// # Safety
-    pub unsafe fn from_vec_unchecked(items: Vec<T>) -> Self {
+    pub const unsafe fn from_vec_unchecked(items: Vec<T>) -> Self {
         Vec1 { items }
     }
 
@@ -217,7 +217,7 @@ impl<T> Vec1<T> {
         self.items.splice(range, replacement.into_iter1())
     }
 
-    pub fn as_vec(&self) -> &Vec<T> {
+    pub const fn as_vec(&self) -> &Vec<T> {
         &self.items
     }
 

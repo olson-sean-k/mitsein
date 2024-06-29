@@ -21,7 +21,7 @@ pub type BTreeSet1<T> = NonEmpty<BTreeSet<T>>;
 
 impl<T> BTreeSet1<T> {
     /// # Safety
-    pub unsafe fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
+    pub const unsafe fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
         BTreeSet1 { items }
     }
 
@@ -276,7 +276,7 @@ impl<T> BTreeSet1<T> {
         self.items.contains(item)
     }
 
-    pub fn as_btree_set(&self) -> &BTreeSet<T> {
+    pub const fn as_btree_set(&self) -> &BTreeSet<T> {
         &self.items
     }
 }

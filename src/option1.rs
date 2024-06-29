@@ -25,7 +25,7 @@ impl<T> OptionExt<T> for Option<T> {
 pub type Option1<T> = NonEmpty<Option<T>>;
 
 impl<T> Option1<T> {
-    pub fn from_one(item: T) -> Self {
+    pub const fn from_one(item: T) -> Self {
         NonEmpty { items: Some(item) }
     }
 
@@ -76,7 +76,7 @@ impl<T> Option1<T> {
         unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
-    pub fn as_option(&self) -> &Option<T> {
+    pub const fn as_option(&self) -> &Option<T> {
         &self.items
     }
 

@@ -14,7 +14,7 @@ pub type Slice1<T> = NonEmpty<[T]>;
 
 impl<T> Slice1<T> {
     /// # Safety
-    pub unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
+    pub const unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
         // SAFETY:
         mem::transmute::<&'_ [T], &'_ Slice1<T>>(items)
     }
@@ -106,7 +106,7 @@ impl<T> Slice1<T> {
         unsafe { Iterator1::from_iter_unchecked(self.as_mut_slice().iter_mut()) }
     }
 
-    pub fn as_slice(&self) -> &'_ [T] {
+    pub const fn as_slice(&self) -> &'_ [T] {
         // SAFETY:
         unsafe { mem::transmute::<&'_ Slice1<T>, &'_ [T]>(self) }
     }
@@ -199,7 +199,7 @@ where
     }
 }
 
-pub fn from_ref<T>(item: &T) -> &Slice1<T> {
+pub const fn from_ref<T>(item: &T) -> &Slice1<T> {
     // SAFETY:
     unsafe { Slice1::from_slice_unchecked(slice::from_ref(item)) }
 }

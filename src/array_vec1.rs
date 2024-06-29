@@ -23,7 +23,7 @@ where
     [T; N]: Array1,
 {
     /// # Safety
-    pub unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
+    pub const unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
         ArrayVec1 { items }
     }
 
@@ -167,7 +167,7 @@ where
         self.many_or_get(index, move |items| items.swap_remove(index))
     }
 
-    pub fn len(&self) -> NonZeroUsize {
+    pub const fn len(&self) -> NonZeroUsize {
         // SAFETY:
         unsafe { NonZeroUsize::new_unchecked(self.items.len()) }
     }
@@ -177,7 +177,7 @@ where
         unsafe { NonZeroUsize::new_unchecked(self.items.capacity()) }
     }
 
-    pub fn as_array_vec(&self) -> &ArrayVec<T, N> {
+    pub const fn as_array_vec(&self) -> &ArrayVec<T, N> {
         &self.items
     }
 

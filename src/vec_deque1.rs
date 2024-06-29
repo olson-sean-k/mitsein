@@ -18,7 +18,7 @@ pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
 
 impl<T> VecDeque1<T> {
     /// # Safety
-    pub unsafe fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
+    pub const unsafe fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
         VecDeque1 { items }
     }
 
@@ -237,7 +237,7 @@ impl<T> VecDeque1<T> {
         unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
-    pub fn as_vec_deque(&self) -> &VecDeque<T> {
+    pub const fn as_vec_deque(&self) -> &VecDeque<T> {
         &self.items
     }
 }
