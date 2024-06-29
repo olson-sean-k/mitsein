@@ -280,8 +280,9 @@ where
     }
 
     pub fn count(self) -> NonZeroUsize {
-        // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.count()) }
+        // Though the count must be non-zero here, it may overflow to zero.
+        NonZeroUsize::new(self.items.count())
+            .expect("non-empty iterator has zero items or overflow")
     }
 
     pub fn first(mut self) -> I::Item {
