@@ -7,7 +7,7 @@ use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{FromIterator1, IntoIterator1};
 use crate::slice1::Slice1;
-use crate::vec1::{Cow1, Cow1Ext as _, Vec1};
+use crate::vec1::{CowSlice1, CowSlice1Ext as _, Vec1};
 
 pub type ArcSlice1<T> = Arc<Slice1<T>>;
 
@@ -24,7 +24,7 @@ pub trait ArcSlice1Ext<T>: Sized {
 
     fn from_boxed_slice1(items: BoxedSlice1<T>) -> Self;
 
-    fn from_cow1(items: Cow1<T>) -> Self
+    fn from_cow_slice1(items: CowSlice1<T>) -> Self
     where
         T: Clone;
 
@@ -68,12 +68,12 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
         unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.into_boxed_slice())) }
     }
 
-    fn from_cow1(items: Cow1<T>) -> Self
+    fn from_cow_slice1(items: CowSlice1<T>) -> Self
     where
         T: Clone,
     {
         // SAFETY:
-        unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.into_cow())) }
+        unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.into_cow_slice())) }
     }
 
     fn try_into_arc_array<const N: usize>(self) -> Result<Arc<[T; N]>, Self> {

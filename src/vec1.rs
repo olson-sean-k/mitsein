@@ -18,9 +18,9 @@ use crate::slice1::Slice1;
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::{NonEmpty, Vacancy};
 
-pub type Cow1<'a, T> = Cow<'a, Slice1<T>>;
+pub type CowSlice1<'a, T> = Cow<'a, Slice1<T>>;
 
-pub trait Cow1Ext<'a, T>
+pub trait CowSlice1Ext<'a, T>
 where
     T: Clone,
 {
@@ -28,20 +28,20 @@ where
     #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
     fn into_arc_slice1(self) -> ArcSlice1<T>;
 
-    fn into_cow(self) -> Cow<'a, [T]>;
+    fn into_cow_slice(self) -> Cow<'a, [T]>;
 }
 
-impl<'a, T> Cow1Ext<'a, T> for Cow1<'a, T>
+impl<'a, T> CowSlice1Ext<'a, T> for CowSlice1<'a, T>
 where
     T: Clone,
 {
     #[cfg(target_has_atomic = "ptr")]
     #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
     fn into_arc_slice1(self) -> ArcSlice1<T> {
-        ArcSlice1::from_cow1(self)
+        ArcSlice1::from_cow_slice1(self)
     }
 
-    fn into_cow(self) -> Cow<'a, [T]> {
+    fn into_cow_slice(self) -> Cow<'a, [T]> {
         match self {
             Cow::Borrowed(borrowed) => Cow::Borrowed(borrowed),
             Cow::Owned(owned) => Cow::Owned(owned.into_vec()),

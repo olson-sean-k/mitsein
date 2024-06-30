@@ -50,7 +50,7 @@ pub mod prelude {
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
         crate::btree_map1::OrOnlyExt as _,
-        crate::vec1::{vec1, Cow1Ext as _, Vec1},
+        crate::vec1::{vec1, CowSlice1Ext as _, Vec1},
     };
 }
 
