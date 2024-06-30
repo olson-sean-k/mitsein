@@ -48,8 +48,9 @@ pub mod prelude {
     pub use crate::{NonZeroExt as _, Saturate, Saturated, Vacancy};
     #[cfg(feature = "alloc")]
     pub use {
-        crate::boxed1::BoxedSlice1Ext as _, crate::btree_map1::OrOnlyExt as _,
-        crate::vec1::Cow1Ext as _,
+        crate::boxed1::BoxedSlice1Ext as _,
+        crate::btree_map1::OrOnlyExt as _,
+        crate::vec1::{vec1, Cow1Ext as _, Vec1},
     };
 }
 
