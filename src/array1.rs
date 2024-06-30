@@ -14,21 +14,12 @@ pub trait Array1:
 
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     #[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", target_has_atomic = "ptr"))))]
-    fn into_arc_slice1(self) -> ArcSlice1<Self::Item>
-    where
-        Self::Item: Clone;
+    fn into_arc_slice1(self) -> ArcSlice1<Self::Item>;
 
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     fn into_vec1(self) -> Vec1<Self::Item> {
         self.into_iter1().collect()
-    }
-
-    fn to_arc_slice1(&self) -> ArcSlice1<Self::Item>
-    where
-        Self::Item: Clone,
-    {
-        todo!()
     }
 
     fn as_slice1(&self) -> &Slice1<Self::Item>;
@@ -60,10 +51,7 @@ macro_rules! impl_array1_for_array {
 
             #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
             #[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", target_has_atomic = "ptr"))))]
-            fn into_arc_slice1(self) -> ArcSlice1<Self::Item>
-            where
-                Self::Item: Clone,
-            {
+            fn into_arc_slice1(self) -> $crate::sync1::ArcSlice1<Self::Item> {
                 use $crate::sync1::ArcSlice1Ext as _;
 
                 $crate::sync1::ArcSlice1::from_array1(self)

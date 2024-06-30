@@ -19,8 +19,7 @@ pub trait ArcSlice1Ext<T>: Sized {
 
     fn from_array1<const N: usize>(items: [T; N]) -> Self
     where
-        [T; N]: Array1,
-        T: Clone;
+        [T; N]: Array1;
 
     fn from_boxed_slice1(items: BoxedSlice1<T>) -> Self;
 
@@ -57,10 +56,9 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     fn from_array1<const N: usize>(items: [T; N]) -> Self
     where
         [T; N]: Array1,
-        T: Clone,
     {
         // SAFETY:
-        unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.as_slice())) }
+        unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items)) }
     }
 
     fn from_boxed_slice1(items: BoxedSlice1<T>) -> Self {
