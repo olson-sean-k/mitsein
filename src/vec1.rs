@@ -10,7 +10,7 @@ use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
-use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
@@ -58,8 +58,7 @@ impl<T> Vec1<T> {
     }
 
     pub fn from_one(item: T) -> Self {
-        // SAFETY:
-        unsafe { Vec1::from_vec_unchecked(alloc::vec![item]) }
+        iter1::from_one(item).collect()
     }
 
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
@@ -73,16 +72,14 @@ impl<T> Vec1<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        // SAFETY:
-        unsafe { Vec1::from_vec_unchecked(Some(head).into_iter().chain(tail).collect()) }
+        iter1::from_head_and_tail(head, tail).collect()
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        // SAFETY:
-        unsafe { Vec1::from_vec_unchecked(tail.into_iter().chain(Some(head)).collect()) }
+        iter1::from_tail_and_head(tail, head).collect()
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
@@ -369,10 +366,8 @@ impl<T> FromIterator1<T> for Vec1<T> {
     where
         I: IntoIterator1<Item = T>,
     {
-        Vec1 {
-            //items: items.into_iter1().collect(),
-            items: items.into_iter1().into_iter().collect(),
-        }
+        // SAFETY:
+        unsafe { Vec1::from_vec_unchecked(items.into_iter1().into_iter().collect()) }
     }
 }
 

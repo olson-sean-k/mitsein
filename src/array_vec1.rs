@@ -4,13 +4,12 @@
 use alloc::borrow::{Borrow, BorrowMut};
 use arrayvec::ArrayVec;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{Chain, Peekable};
+use core::iter::Peekable;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut};
 
 use crate::array1::Array1;
-use crate::iter1::{self, AtMostOne, FromIterator1, IntoIterator1, Iterator1, IteratorExt as _};
-use crate::option1::Option1;
+use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, IteratorExt as _};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
@@ -39,26 +38,18 @@ where
         }
     }
 
-    pub fn from_head_and_tail<I>(head: T, tail: I) -> (Self, I::IntoIter)
+    pub fn from_head_and_tail<I>(head: T, tail: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        let mut tail = tail.into_iter();
-        let mut items = ArrayVec1::from_one(head);
-        items.extend(tail.by_ref().take(N - 1));
-        (items, tail)
+        iter1::from_head_and_tail(head, tail).collect()
     }
 
-    pub fn from_tail_and_head<I>(tail: I, head: T) -> (Self, Chain<I::IntoIter, AtMostOne<T>>)
+    pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        let mut tail_and_head = tail.into_iter().chain(Option1::from_one(head));
-        // SAFETY:
-        let items = unsafe {
-            ArrayVec1::from_array_vec_unchecked(tail_and_head.by_ref().take(N).collect())
-        };
-        (items, tail_and_head)
+        iter1::from_tail_and_head(tail, head).collect()
     }
 
     // NOTE: Panics on overflow.
@@ -342,11 +333,8 @@ where
     where
         I: IntoIterator1<Item = T>,
     {
-        ArrayVec1 {
-            //items: items.into_iter1().collect(),
-            // NOTE: This panics if there are too many items.
-            items: items.into_iter1().into_iter().collect(),
-        }
+        // SAFETY:
+        unsafe { ArrayVec1::from_array_vec_unchecked(items.into_iter1().into_iter().collect()) }
     }
 }
 

@@ -32,6 +32,22 @@ impl<T> BTreeSet1<T> {
         iter1::from_one(item).collect()
     }
 
+    pub fn from_head_and_tail<I>(head: T, tail: I) -> Self
+    where
+        T: Ord,
+        I: IntoIterator<Item = T>,
+    {
+        iter1::from_head_and_tail(head, tail).collect()
+    }
+
+    pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
+    where
+        T: Ord,
+        I: IntoIterator<Item = T>,
+    {
+        iter1::from_tail_and_head(tail, head).collect()
+    }
+
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
     where
         T: Ord,
@@ -364,10 +380,8 @@ where
     where
         I: IntoIterator1<Item = T>,
     {
-        BTreeSet1 {
-            //items: items.into_iter1().collect(),
-            items: items.into_iter1().into_iter().collect(),
-        }
+        // SAFETY:
+        unsafe { BTreeSet1::from_btree_set_unchecked(items.into_iter1().into_iter().collect()) }
     }
 }
 

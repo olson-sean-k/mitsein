@@ -37,16 +37,14 @@ impl<T> VecDeque1<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        // SAFETY:
-        unsafe { VecDeque1::from_vec_deque_unchecked(Some(head).into_iter().chain(tail).collect()) }
+        iter1::from_head_and_tail(head, tail).collect()
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        // SAFETY:
-        unsafe { VecDeque1::from_vec_deque_unchecked(tail.into_iter().chain(Some(head)).collect()) }
+        iter1::from_tail_and_head(tail, head).collect()
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
@@ -281,10 +279,8 @@ impl<T> FromIterator1<T> for VecDeque1<T> {
     where
         I: IntoIterator1<Item = T>,
     {
-        VecDeque1 {
-            //items: items.into_iter1().collect(),
-            items: items.into_iter1().into_iter().collect(),
-        }
+        // SAFETY:
+        unsafe { VecDeque1::from_vec_deque_unchecked(items.into_iter1().into_iter().collect()) }
     }
 }
 
