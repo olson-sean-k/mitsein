@@ -12,7 +12,7 @@ use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::NonEmpty;
+use crate::{IntoTailOffset, NonEmpty};
 
 pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
 
@@ -98,18 +98,18 @@ impl<T> VecDeque1<T> {
         self.try_many_or_else(f, move |items| items.get(index))
     }
 
-    pub fn resize(&mut self, len: NonZeroUsize, fill: T)
+    pub fn resize_tail(&mut self, len: usize, fill: T)
     where
         T: Clone,
     {
-        self.resize_with(len, move || fill.clone())
+        self.resize_tail_with(len, move || fill.clone())
     }
 
-    pub fn resize_with<F>(&mut self, len: NonZeroUsize, f: F)
+    pub fn resize_tail_with<F>(&mut self, len: usize, f: F)
     where
         F: FnMut() -> T,
     {
-        self.items.resize_with(len.into(), f)
+        self.items.resize_with(len.into_tail_offset(), f)
     }
 
     pub fn shrink_to(&mut self, capacity: usize) {
@@ -133,17 +133,16 @@ impl<T> VecDeque1<T> {
         self.items.rotate_right(n)
     }
 
-    pub fn truncate(&mut self, len: NonZeroUsize) {
-        self.items.truncate(len.into())
+    pub fn truncate_tail(&mut self, len: usize) {
+        self.items.truncate(len.into_tail_offset())
     }
 
-    pub fn split_off(&mut self, at: NonZeroUsize) -> VecDeque<T> {
-        self.items.split_off(at.into())
+    pub fn split_off_in_tail(&mut self, at: usize) -> VecDeque<T> {
+        self.items.split_off(at.into_tail_offset())
     }
 
-    // NOTE: This is as similar to `VecDeque::clear` as `VecDeque1` can afford.
-    pub fn split_off_front(&mut self) -> VecDeque<T> {
-        self.split_off(NonZeroUsize::MIN)
+    pub fn split_off_tail(&mut self) -> VecDeque<T> {
+        self.split_off_in_tail(0)
     }
 
     pub fn append<R>(&mut self, items: R)
@@ -173,6 +172,10 @@ impl<T> VecDeque1<T> {
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
+    }
+
+    pub fn remove_in_tail(&mut self, index: usize) -> Option<T> {
+        self.items.remove(index.into_tail_offset())
     }
 
     pub fn remove_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {

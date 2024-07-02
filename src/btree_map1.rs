@@ -5,7 +5,6 @@ use alloc::collections::btree_map::{self, BTreeMap, VacantEntry};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::Peekable;
-use core::mem;
 use core::num::NonZeroUsize;
 
 use crate::array1::Array1;
@@ -372,28 +371,13 @@ impl<K, V> BTreeMap1<K, V> {
         }
     }
 
-    pub fn split_off_first(&mut self) -> BTreeMap<K, V>
+    pub fn split_off_tail(&mut self) -> BTreeMap<K, V>
     where
         K: Clone + Ord,
     {
         match self.items.keys().nth(1).cloned() {
             Some(key) => self.items.split_off(&key),
             _ => BTreeMap::new(),
-        }
-    }
-
-    pub fn split_off_last(&mut self) -> BTreeMap<K, V>
-    where
-        K: Clone + Ord,
-    {
-        let key = self.keys1().rev().first().clone();
-        match self.arity() {
-            Arity::One(_) => BTreeMap::new(),
-            Arity::Many(items) => {
-                let mut last = items.split_off(&key);
-                mem::swap(items, &mut last);
-                last
-            },
         }
     }
 

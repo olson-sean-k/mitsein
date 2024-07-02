@@ -16,7 +16,7 @@ use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{NonEmpty, Vacancy};
+use crate::{IntoTailOffset, NonEmpty, Vacancy};
 
 pub type CowSlice1<'a, T> = Cow<'a, Slice1<T>>;
 
@@ -137,18 +137,18 @@ impl<T> Vec1<T> {
         self.many_or_else(f, move |items| &items[index])
     }
 
-    pub fn resize(&mut self, len: NonZeroUsize, fill: T)
+    pub fn resize_tail(&mut self, len: usize, fill: T)
     where
         T: Clone,
     {
-        self.resize_with(len, move || fill.clone())
+        self.resize_tail_with(len, move || fill.clone())
     }
 
-    pub fn resize_with<F>(&mut self, len: NonZeroUsize, f: F)
+    pub fn resize_tail_with<F>(&mut self, len: usize, f: F)
     where
         F: FnMut() -> T,
     {
-        self.items.resize_with(len.into(), f)
+        self.items.resize_with(len.into_tail_offset(), f)
     }
 
     pub fn shrink_to(&mut self, capacity: usize) {
@@ -159,13 +159,12 @@ impl<T> Vec1<T> {
         self.items.shrink_to_fit()
     }
 
-    pub fn split_off(&mut self, at: NonZeroUsize) -> Vec<T> {
-        self.items.split_off(at.into())
+    pub fn split_off_in_tail(&mut self, at: usize) -> Vec<T> {
+        self.items.split_off(at.into_tail_offset())
     }
 
-    // NOTE: This is as similar to `Vec::clear` as `Vec1` can afford.
-    pub fn split_off_first(&mut self) -> Vec<T> {
-        self.split_off(NonZeroUsize::MIN)
+    pub fn split_off_tail(&mut self) -> Vec<T> {
+        self.split_off_in_tail(0)
     }
 
     pub fn append<R>(&mut self, items: R)

@@ -68,6 +68,16 @@ use {alloc::collections::vec_deque::VecDeque, alloc::vec::Vec};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
+trait IntoTailOffset: Sized {
+    fn into_tail_offset(self) -> Self;
+}
+
+impl IntoTailOffset for usize {
+    fn into_tail_offset(self) -> Self {
+        self.checked_add(1).expect("overflow in tail offset")
+    }
+}
+
 pub trait NonZeroExt<T> {
     fn clamped(n: T) -> Self;
 }

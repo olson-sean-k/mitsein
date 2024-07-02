@@ -5,7 +5,6 @@ use alloc::collections::btree_set::{self, BTreeSet};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::Peekable;
-use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
@@ -96,28 +95,13 @@ impl<T> BTreeSet1<T> {
         }
     }
 
-    pub fn split_off_first(&mut self) -> BTreeSet<T>
+    pub fn split_off_tail(&mut self) -> BTreeSet<T>
     where
         T: Clone + Ord,
     {
         match self.items.iter().nth(1).cloned() {
             Some(item) => self.items.split_off(&item),
             _ => BTreeSet::new(),
-        }
-    }
-
-    pub fn split_off_last(&mut self) -> BTreeSet<T>
-    where
-        T: Clone + Ord,
-    {
-        let item = self.iter1().rev().first().clone();
-        match self.arity() {
-            Arity::One(_) => BTreeSet::new(),
-            Arity::Many(items) => {
-                let mut last = items.split_off(&item);
-                mem::swap(items, &mut last);
-                last
-            },
         }
     }
 
