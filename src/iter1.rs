@@ -94,9 +94,10 @@ pub trait FromIterator1<T> {
         I: IntoIterator1<Item = T>;
 }
 
-// TODO: This should work, but `rustc` incorrectly believes that this is a coherence error (E0119).
-//       The error claims that downstream crates may implement `FromIterator` for collection types
-//       in this crate, but they cannot implement foreign traits for foreign types!
+// TODO: This blanket implementation is a coherence error (E0119) at time of writing. However, the
+//       error claims that downstream crates can implement `FromIterator` for types in this crate,
+//       which they cannot. If this is fixed and this implementation becomes possible, provide it
+//       and remove the distinction between `collect` and `collect1` in `Iterator1`.
 //
 // impl<T, U> FromIterator1<U> for T
 // where
@@ -445,6 +446,13 @@ where
     }
 
     pub fn collect<T>(self) -> T
+    where
+        T: FromIterator<I::Item>,
+    {
+        T::from_iter(self)
+    }
+
+    pub fn collect1<T>(self) -> T
     where
         T: FromIterator1<I::Item>,
     {

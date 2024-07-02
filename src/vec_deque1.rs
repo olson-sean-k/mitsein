@@ -23,7 +23,7 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn from_one(item: T) -> Self {
-        iter1::from_one(item).collect()
+        iter1::from_one(item).collect1()
     }
 
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
@@ -37,14 +37,14 @@ impl<T> VecDeque1<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        iter1::from_head_and_tail(head, tail).collect()
+        iter1::from_head_and_tail(head, tail).collect1()
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        iter1::from_tail_and_head(tail, head).collect()
+        iter1::from_tail_and_head(tail, head).collect1()
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
@@ -280,7 +280,7 @@ impl<T> FromIterator1<T> for VecDeque1<T> {
         I: IntoIterator1<Item = T>,
     {
         // SAFETY:
-        unsafe { VecDeque1::from_vec_deque_unchecked(items.into_iter1().into_iter().collect()) }
+        unsafe { VecDeque1::from_vec_deque_unchecked(items.into_iter1().collect()) }
     }
 }
 

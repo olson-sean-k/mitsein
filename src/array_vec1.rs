@@ -42,14 +42,14 @@ where
     where
         I: IntoIterator<Item = T>,
     {
-        iter1::from_head_and_tail(head, tail).collect()
+        iter1::from_head_and_tail(head, tail).collect1()
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        iter1::from_tail_and_head(tail, head).collect()
+        iter1::from_tail_and_head(tail, head).collect1()
     }
 
     // NOTE: Panics on overflow.
@@ -334,7 +334,7 @@ where
         I: IntoIterator1<Item = T>,
     {
         // SAFETY:
-        unsafe { ArrayVec1::from_array_vec_unchecked(items.into_iter1().into_iter().collect()) }
+        unsafe { ArrayVec1::from_array_vec_unchecked(items.into_iter1().collect()) }
     }
 }
 

@@ -19,7 +19,7 @@ pub trait Array1:
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     fn into_vec1(self) -> Vec1<Self::Item> {
-        self.into_iter1().collect()
+        self.into_iter1().collect1()
     }
 
     fn as_slice1(&self) -> &Slice1<Self::Item>;

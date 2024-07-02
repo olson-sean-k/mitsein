@@ -122,7 +122,7 @@ impl<T> FromIterator1<T> for ArcSlice1<T> {
         I: IntoIterator1<Item = T>,
     {
         // SAFETY:
-        unsafe { ArcSlice1::from_arc_slice_unchecked(items.into_iter1().into_iter().collect()) }
+        unsafe { ArcSlice1::from_arc_slice_unchecked(items.into_iter1().collect()) }
     }
 }
 

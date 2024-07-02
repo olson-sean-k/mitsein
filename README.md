@@ -39,7 +39,7 @@ use mitsein::prelude::*;
 use mitsein::vec1::Vec1;
 
 let xs = Vec1::from([0i32, 1, 2]);
-let ys: Vec1<_> = xs.into_iter1().map(|x| x + 1).collect();
+let ys: Vec1<_> = xs.into_iter1().map(|x| x + 1).collect1();
 ```
 
 Bridging between `Iterator` and `Iterator1`:
@@ -50,13 +50,13 @@ use mitsein::prelude::*;
 use mitsein::vec1::Vec1;
 
 let xs = iter1::from_head_and_tail(0i32, [1, 2]);
-let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect();
+let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
 assert_eq!(xs.as_slice(), &[3]);
 
 let xs = Vec1::from([0i32, 1, 2]);
 let (has_zero, remainder) = xs.iter1().any(|x| *x == 0);
 if has_zero {
-    let xs: Vec1<_> = remainder.or_one(&0i32).collect();
+    let xs: Vec1<_> = remainder.or_one(&0i32).collect1();
     assert_eq!(xs.as_slice(), &[&1, &2]);
 }
 ```

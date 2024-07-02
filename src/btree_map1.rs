@@ -286,7 +286,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        iter1::from_one(item).collect()
+        iter1::from_one(item).collect1()
     }
 
     pub fn from_head_and_tail<I>(head: (K, V), tail: I) -> Self
@@ -294,7 +294,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
         I: IntoIterator<Item = (K, V)>,
     {
-        iter1::from_head_and_tail(head, tail).collect()
+        iter1::from_head_and_tail(head, tail).collect1()
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: (K, V)) -> Self
@@ -302,7 +302,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
         I: IntoIterator<Item = (K, V)>,
     {
-        iter1::from_tail_and_head(tail, head).collect()
+        iter1::from_tail_and_head(tail, head).collect1()
     }
 
     pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
@@ -617,7 +617,7 @@ where
         I: IntoIterator1<Item = (K, V)>,
     {
         // SAFETY:
-        unsafe { BTreeMap1::from_btree_map_unchecked(items.into_iter1().into_iter().collect()) }
+        unsafe { BTreeMap1::from_btree_map_unchecked(items.into_iter1().collect()) }
     }
 }
 
