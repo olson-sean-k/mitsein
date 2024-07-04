@@ -1,19 +1,63 @@
 #![cfg(feature = "arrayvec")]
 #![cfg_attr(docsrs, doc(cfg(feature = "arrayvec")))]
 
-use alloc::borrow::{Borrow, BorrowMut};
 use arrayvec::ArrayVec;
+use core::borrow::{Borrow, BorrowMut};
+use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::Peekable;
 use core::num::NonZeroUsize;
-use core::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, IteratorExt as _};
+use crate::segment::{
+    self, PositionalRange, Project, ProjectionExt as _, Ranged, Segment, Segmentation, Segmented,
+};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 use crate::{NonEmpty, Saturated, Vacancy};
+
+impl<T, const N: usize> Ranged for ArrayVec<T, N> {
+    type Range = PositionalRange;
+
+    fn range(&self) -> Self::Range {
+        From::from(0..self.len())
+    }
+
+    fn tail(&self) -> Self::Range {
+        From::from(1..self.len())
+    }
+
+    fn rtail(&self) -> Self::Range {
+        From::from(0..self.len().saturating_sub(1))
+    }
+}
+
+impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        self.segment(Ranged::tail(self))
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        self.segment(Ranged::rtail(self))
+    }
+}
+
+impl<T, const N: usize> Segmented for ArrayVec<T, N> {
+    type Kind = Self;
+    type Target = Self;
+}
+
+impl<T, R, const N: usize> segment::SegmentedBy<R> for ArrayVec<T, N>
+where
+    R: RangeBounds<usize>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect(self, &segment::ordered_range_offsets(range))
+    }
+}
 
 pub type ArrayVec1<T, const N: usize> = NonEmpty<ArrayVec<T, N>>;
 
@@ -370,6 +414,37 @@ where
     }
 }
 
+impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        self.segment(Ranged::tail(&self.items))
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        self.segment(Ranged::rtail(&self.items))
+    }
+}
+
+impl<T, const N: usize> Segmented for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    type Kind = Self;
+    type Target = ArrayVec<T, N>;
+}
+
+impl<T, R, const N: usize> segment::SegmentedBy<R> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    R: RangeBounds<usize>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect_strict_subset(&mut self.items, &segment::ordered_range_offsets(range))
+    }
+}
+
 impl<'a, T, const N: usize> TryFrom<&'a [T]> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
@@ -435,5 +510,286 @@ where
     }
 }
 
+pub type ArrayVecSegment<'a, T, const N: usize> = Segment<'a, ArrayVec<T, N>, ArrayVec<T, N>>;
+
+pub type ArrayVec1Segment<'a, T, const N: usize> = Segment<'a, ArrayVec1<T, N>, ArrayVec<T, N>>;
+
+impl<'a, K, T, const N: usize> Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    pub fn truncate(&mut self, len: usize) {
+        let basis = self.len();
+        if len < basis {
+            let n = basis - len;
+            self.items.drain((self.range.end - n)..self.range.end);
+            self.range.take_from_end(n);
+        }
+    }
+
+    pub fn push(&mut self, item: T) {
+        self.items.insert(self.range.end, item);
+        self.range.put_from_end(1);
+    }
+
+    pub fn pop(&mut self) -> Option<T> {
+        if self.range.is_empty() {
+            None
+        }
+        else {
+            let item = self.items.remove(self.range.end - 1);
+            self.range.take_from_end(1);
+            Some(item)
+        }
+    }
+
+    pub fn insert(&mut self, index: usize, item: T) {
+        let index = self.range.project(&index).expect_in_bounds();
+        self.items.insert(index, item);
+        self.range.put_from_end(1);
+    }
+
+    pub fn remove(&mut self, index: usize) -> T {
+        let index = self.range.project(&index).expect_in_bounds();
+        let item = self.items.remove(index);
+        self.range.take_from_end(1);
+        item
+    }
+
+    pub fn swap_remove(&mut self, index: usize) -> T {
+        if self.range.is_empty() {
+            panic!("index out of bounds")
+        }
+        else {
+            let index = self.range.project(&index).expect_in_bounds();
+            let swapped = self.range.end - 1;
+            self.items.as_mut_slice().swap(index, swapped);
+            let item = self.items.remove(swapped);
+            self.range.take_from_end(1);
+            item
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.items.drain(self.range.get_and_clear_from_end());
+    }
+
+    pub fn len(&self) -> usize {
+        self.range.len()
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        &self.items.as_slice()[self.range.start..self.range.end]
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.items.as_mut_slice()[self.range.start..self.range.end]
+    }
+
+    pub fn as_ptr(&self) -> *const T {
+        self.as_slice().as_ptr()
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        self.as_mut_slice().as_mut_ptr()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl<'a, K, T, const N: usize> AsMut<[T]> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn as_mut(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+}
+
+impl<'a, K, T, const N: usize> AsRef<[T]> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn as_ref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<'a, K, T, const N: usize> Borrow<[T]> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn borrow(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<'a, K, T, const N: usize> BorrowMut<[T]> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn borrow_mut(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+}
+
+impl<'a, K, T, const N: usize> Deref for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl<'a, K, T, const N: usize> DerefMut for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut_slice()
+    }
+}
+
+impl<'a, K, T, const N: usize> Eq for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+    T: Eq,
+{
+}
+
+impl<'a, K, T, const N: usize> Extend<T> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn extend<I>(&mut self, items: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let n = self.items.len();
+        // Split off the remainder beyond the segment to avoid spurious inserts and copying. This
+        // comes at the cost of a necessary array on the stack and bulk copy.
+        let tail: ArrayVec<_, N> = self.items.drain(self.range.end..).collect();
+        self.items.extend(items);
+        self.items.extend(tail);
+        let n = self.items.len() - n;
+        self.range.put_from_end(n);
+    }
+}
+
+impl<'a, K, T, const N: usize> Ord for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+    T: Ord,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_slice().cmp(other.as_slice())
+    }
+}
+
+impl<'a, K, T, const N: usize> PartialEq<Self> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+    T: PartialEq<T>,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<'a, K, T, const N: usize> PartialOrd<Self> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+    T: PartialOrd<T>,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl<'a, K, T, const N: usize> Segmentation for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = self.project(&(1..));
+        Segment::intersect(self.items, &range)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = self.project(&(..self.len().saturating_sub(1)));
+        Segment::intersect(self.items, &range)
+    }
+}
+
+impl<'a, K, T, const N: usize> Segmented for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    type Kind = K;
+    type Target = K::Target;
+}
+
+impl<'a, K, T, R, const N: usize> segment::SegmentedBy<R> for Segment<'a, K, ArrayVec<T, N>>
+where
+    PositionalRange: Project<R, Output = PositionalRange>,
+    K: segment::SegmentedBy<R, Target = ArrayVec<T, N>>,
+    R: RangeBounds<usize>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = self.project(&segment::ordered_range_offsets(range));
+        Segment::intersect(self.items, &range)
+    }
+}
+
+impl<'a, K, T, const N: usize> Vacancy for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+{
+    fn vacancy(&self) -> usize {
+        self.items.vacancy()
+    }
+}
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::array_vec1::ArrayVec1;
+    use crate::Segmentation;
+
+    #[test]
+    fn segmentation() {
+        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+        xs.tail().clear();
+        assert_eq!(xs.as_slice(), &[0]);
+
+        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+        xs.tail().tail().clear();
+        assert_eq!(xs.as_slice(), &[0, 1]);
+
+        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+        xs.rtail().clear();
+        assert_eq!(xs.as_slice(), &[3]);
+
+        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+        xs.tail().rtail().clear();
+        assert_eq!(xs.as_slice(), &[0, 3]);
+
+        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+        xs.tail().rtail().truncate(1);
+        assert_eq!(xs.as_slice(), &[0, 1, 3]);
+
+        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+        xs.tail().clear();
+        xs.tail().extend([4, 5, 6]);
+        assert_eq!(xs.as_slice(), &[0, 4, 5, 6]);
+
+        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+        xs.rtail().clear();
+        xs.rtail().extend([4, 5, 6]);
+        assert_eq!(xs.as_slice(), &[4, 5, 6, 3]);
+    }
+}

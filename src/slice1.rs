@@ -1,3 +1,6 @@
+// TODO: Introduce a `slice1` macro that supports `const` non-empty slice construction without
+//       `unsafe`.
+
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::ops::{Deref, DerefMut, Index, IndexMut};

@@ -2,17 +2,61 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::collections::vec_deque::{self, VecDeque};
+use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::Peekable;
+use core::iter::{self, Peekable};
 use core::num::NonZeroUsize;
-use core::ops::{Index, IndexMut};
+use core::ops::{Index, IndexMut, RangeBounds};
 
 use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
+use crate::segment::{
+    self, PositionalRange, Project, ProjectionExt as _, Ranged, Segment, Segmentation, Segmented,
+};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{IntoTailOffset, NonEmpty};
+use crate::{NonEmpty, Vacancy};
+
+impl<T> Ranged for VecDeque<T> {
+    type Range = PositionalRange;
+
+    fn range(&self) -> Self::Range {
+        From::from(0..self.len())
+    }
+
+    fn tail(&self) -> Self::Range {
+        From::from(1..self.len())
+    }
+
+    fn rtail(&self) -> Self::Range {
+        From::from(0..self.len().saturating_sub(1))
+    }
+}
+
+impl<T> Segmentation for VecDeque<T> {
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect(self, &Ranged::tail(self))
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect(self, &Ranged::rtail(self))
+    }
+}
+
+impl<T> Segmented for VecDeque<T> {
+    type Kind = Self;
+    type Target = Self;
+}
+
+impl<T, R> segment::SegmentedBy<R> for VecDeque<T>
+where
+    R: RangeBounds<usize>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect(self, &segment::ordered_range_offsets(range))
+    }
+}
 
 pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
 
@@ -98,20 +142,6 @@ impl<T> VecDeque1<T> {
         self.try_many_or_else(f, move |items| items.get(index))
     }
 
-    pub fn resize_tail(&mut self, len: usize, fill: T)
-    where
-        T: Clone,
-    {
-        self.resize_tail_with(len, move || fill.clone())
-    }
-
-    pub fn resize_tail_with<F>(&mut self, len: usize, f: F)
-    where
-        F: FnMut() -> T,
-    {
-        self.items.resize_with(len.into_tail_offset(), f)
-    }
-
     pub fn shrink_to(&mut self, capacity: usize) {
         self.items.shrink_to(capacity)
     }
@@ -133,16 +163,8 @@ impl<T> VecDeque1<T> {
         self.items.rotate_right(n)
     }
 
-    pub fn truncate_tail(&mut self, len: usize) {
-        self.items.truncate(len.into_tail_offset())
-    }
-
-    pub fn split_off_in_tail(&mut self, at: usize) -> VecDeque<T> {
-        self.items.split_off(at.into_tail_offset())
-    }
-
     pub fn split_off_tail(&mut self) -> VecDeque<T> {
-        self.split_off_in_tail(0)
+        self.items.split_off(1)
     }
 
     pub fn append<R>(&mut self, items: R)
@@ -172,10 +194,6 @@ impl<T> VecDeque1<T> {
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
-    }
-
-    pub fn remove_in_tail(&mut self, index: usize) -> Option<T> {
-        self.items.remove(index.into_tail_offset())
     }
 
     pub fn remove_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
@@ -317,6 +335,32 @@ impl<T> IntoIterator1 for VecDeque1<T> {
     }
 }
 
+impl<T> Segmentation for VecDeque1<T> {
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = Ranged::tail(&self.items);
+        Segment::intersect_strict_subset(&mut self.items, &range)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = Ranged::rtail(&self.items);
+        Segment::intersect_strict_subset(&mut self.items, &range)
+    }
+}
+
+impl<T> Segmented for VecDeque1<T> {
+    type Kind = Self;
+    type Target = VecDeque<T>;
+}
+
+impl<T, R> segment::SegmentedBy<R> for VecDeque1<T>
+where
+    R: RangeBounds<usize>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect_strict_subset(&mut self.items, &segment::ordered_range_offsets(range))
+    }
+}
+
 #[cfg(feature = "serde")]
 #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl<T> TryFrom<Serde<VecDeque<T>>> for VecDeque1<T> {
@@ -339,5 +383,293 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
     }
 }
 
+pub type VecDequeSegment<'a, T> = Segment<'a, VecDeque<T>, VecDeque<T>>;
+
+pub type VecDeque1Segment<'a, T> = Segment<'a, VecDeque1<T>, VecDeque<T>>;
+
+impl<'a, K, T> Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+{
+    pub fn split_off(&mut self, at: usize) -> VecDeque<T> {
+        let at = self.range.project(&at).expect_in_bounds();
+        let range = From::from(at..self.range.end);
+        let items = self.items.drain(range).collect();
+        self.range = range;
+        items
+    }
+
+    pub fn resize(&mut self, len: usize, fill: T)
+    where
+        T: Clone,
+    {
+        self.resize_with(len, move || fill.clone())
+    }
+
+    pub fn resize_with<F>(&mut self, len: usize, f: F)
+    where
+        F: FnMut() -> T,
+    {
+        let basis = self.len();
+        if len > basis {
+            let n = len - basis;
+            self.extend(iter::repeat_with(f).take(n))
+        }
+        else {
+            self.truncate(len)
+        }
+    }
+
+    pub fn truncate(&mut self, len: usize) {
+        let basis = self.len();
+        if len < basis {
+            let n = basis - len;
+            self.items.drain((self.range.end - n)..self.range.end);
+            self.range.take_from_end(n);
+        }
+    }
+
+    pub fn push_front(&mut self, item: T) {
+        self.items.insert(self.range.start, item);
+        self.range.put_from_end(1);
+    }
+
+    pub fn push_back(&mut self, item: T) {
+        self.items.insert(self.range.end, item);
+        self.range.put_from_end(1);
+    }
+
+    pub fn pop_front(&mut self) -> Option<T> {
+        if self.range.is_empty() {
+            None
+        }
+        else {
+            self.items
+                .remove(self.range.start)
+                .inspect(|_| self.range.take_from_end(1))
+        }
+    }
+
+    pub fn pop_back(&mut self) -> Option<T> {
+        if self.range.is_empty() {
+            None
+        }
+        else {
+            self.items
+                .remove(self.range.end - 1)
+                .inspect(|_| self.range.take_from_end(1))
+        }
+    }
+
+    pub fn insert(&mut self, index: usize, item: T) {
+        let index = self.range.project(&index).expect_in_bounds();
+        self.items.insert(index, item);
+        self.range.put_from_end(1);
+    }
+
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        let index = self.range.project(&index).ok()?;
+        self.items
+            .remove(index)
+            .inspect(|_| self.range.take_from_end(1))
+    }
+
+    pub fn swap_remove_front(&mut self, index: usize) -> Option<T> {
+        let index = self.range.project(&index).ok()?;
+        self.items.swap(index, self.range.start);
+        self.items
+            .remove(self.range.start)
+            .inspect(|_| self.range.take_from_end(1))
+    }
+
+    pub fn swap_remove_back(&mut self, index: usize) -> Option<T> {
+        let index = self.range.project(&index).ok()?;
+        let swapped = self.range.end - 1;
+        self.items.swap(index, swapped);
+        self.items
+            .remove(swapped)
+            .inspect(|_| self.range.take_from_end(1))
+    }
+
+    pub fn clear(&mut self) {
+        self.items.drain(self.range.get_and_clear_from_end());
+    }
+
+    pub fn len(&self) -> usize {
+        self.range.len()
+    }
+
+    pub fn iter(&self) -> vec_deque::Iter<'_, T> {
+        VecDeque::range(self.items, self.range)
+    }
+
+    pub fn iter_mut(&mut self) -> vec_deque::IterMut<'_, T> {
+        self.items.range_mut(self.range)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl<'a, K, T> Eq for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+    T: Eq,
+{
+}
+
+impl<'a, K, T> Extend<T> for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+{
+    fn extend<I>(&mut self, items: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let n = self.items.len();
+        // Split off the remainder beyond the segment to avoid spurious inserts and copying. This
+        // comes at the cost of a necessary allocation and bulk copy, which isn't great when
+        // extending from a small number of items with a small remainder.
+        let tail = self.items.split_off(self.range.end);
+        self.items.extend(items);
+        self.items.extend(tail);
+        let n = self.items.len() - n;
+        self.range.put_from_end(n);
+    }
+}
+
+// TODO: At time of writing, this implementation conflicts with the `Extend` implementation above
+//       (E0119). However, `T` does not generalize `&'i T` here, because the associated `Target`
+//       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
+//       `T`)! This appears to be a limitation rather than a true conflict.
+//
+// impl<'a, 'i, K, T> Extend<&'i T> for Segment<'a, K, VecDeque<T>>
+// where
+//     K: Segmented<Target = VecDeque<T>>,
+//     T: 'i + Copy,
+// {
+//     fn extend<I>(&mut self, items: I)
+//     where
+//         I: IntoIterator<Item = &'i T>,
+//     {
+//         self.extend(items.into_iter().copied())
+//     }
+// }
+
+impl<'a, K, T> Ord for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+    T: Ord,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.iter().cmp(other.iter())
+    }
+}
+
+impl<'a, K, T> PartialEq<Self> for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+    T: PartialEq<T>,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.iter().eq(other.iter())
+    }
+}
+
+impl<'a, K, T> PartialOrd<Self> for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+    T: PartialOrd<T>,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.iter().partial_cmp(other.iter())
+    }
+}
+
+impl<'a, K, T> Segmentation for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+{
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = self.project(&(1..));
+        Segment::intersect(self.items, &range)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = self.project(&(..self.len().saturating_sub(1)));
+        Segment::intersect(self.items, &range)
+    }
+}
+
+impl<'a, K, T> Segmented for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+{
+    type Kind = K;
+    type Target = K::Target;
+}
+
+impl<'a, K, T, R> segment::SegmentedBy<R> for Segment<'a, K, VecDeque<T>>
+where
+    PositionalRange: Project<R, Output = PositionalRange>,
+    K: segment::SegmentedBy<R, Target = VecDeque<T>>,
+    R: RangeBounds<usize>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        let range = self.project(&segment::ordered_range_offsets(range));
+        Segment::intersect(self.items, &range)
+    }
+}
+
+impl<'a, K, T> Vacancy for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+{
+    fn vacancy(&self) -> usize {
+        self.items.vacancy()
+    }
+}
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::vec_deque1::VecDeque1;
+    use crate::Segmentation;
+
+    #[test]
+    fn segmentation() {
+        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
+        xs.tail().clear();
+        assert_eq!(xs.make_contiguous().as_slice(), &[0]);
+
+        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
+        xs.tail().tail().clear();
+        assert_eq!(xs.make_contiguous().as_slice(), &[0, 1]);
+
+        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
+        xs.tail().rtail().clear();
+        assert_eq!(xs.make_contiguous().as_slice(), &[0, 3]);
+
+        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
+        xs.rtail().clear();
+        assert_eq!(xs.make_contiguous().as_slice(), &[3]);
+
+        let mut xs = VecDeque1::from([0i32]);
+        assert_eq!(xs.tail().len(), 0);
+        xs.tail().clear();
+        assert_eq!(xs.make_contiguous().as_slice(), &[0]);
+
+        let mut xs = VecDeque1::from([0i32]);
+        assert_eq!(xs.rtail().len(), 0);
+        xs.rtail().clear();
+        assert_eq!(xs.make_contiguous().as_slice(), &[0]);
+
+        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
+        xs.tail().pop_front();
+        assert_eq!(xs.make_contiguous().as_slice(), &[0, 2, 3]);
+
+        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
+        xs.segment(1..1).pop_front();
+        assert_eq!(xs.make_contiguous().as_slice(), &[0, 1, 2, 3]);
+    }
+}

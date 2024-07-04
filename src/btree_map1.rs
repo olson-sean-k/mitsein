@@ -6,12 +6,90 @@ use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::Peekable;
 use core::num::NonZeroUsize;
+use core::ops::RangeBounds;
 
 use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
+use crate::segment::{self, Intersect, Ranged, RelationalRange, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::{Arity, NonEmpty};
+
+impl<K, V> Ranged for BTreeMap<K, V>
+where
+    // This is a defensive bound. A `Segment` cannot reference items in a `BTreeMap` to form a
+    // range since it must also have a mutable reference to the `BTreeMap`. This means that items
+    // must be copied to form the range, which could cause segmentation to be very costly for
+    // non-trivial `Clone` types. Consider `BTreeMap<Vec<i64>, _>`, for example.
+    K: Copy + Ord,
+{
+    type Range = RelationalRange<K>;
+
+    fn range(&self) -> Self::Range {
+        self.keys()
+            .next()
+            .copied()
+            .zip(self.keys().next_back().copied())
+            .into()
+    }
+
+    fn tail(&self) -> Self::Range {
+        self.keys()
+            .nth(1)
+            .copied()
+            .zip(self.keys().next_back().copied())
+            .into()
+    }
+
+    fn rtail(&self) -> Self::Range {
+        self.keys()
+            .next()
+            .copied()
+            .zip(self.keys().rev().nth(1).copied())
+            .into()
+    }
+}
+
+impl<K, V> Segmentation for BTreeMap<K, V>
+where
+    K: Copy + Ord,
+{
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        match Ranged::tail(self).try_into_range_inclusive() {
+            Some(range) => self.segment(range),
+            _ => Segment::empty(self),
+        }
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        match Ranged::rtail(self).try_into_range_inclusive() {
+            Some(range) => self.segment(range),
+            _ => Segment::empty(self),
+        }
+    }
+}
+
+impl<K, V> Segmented for BTreeMap<K, V>
+where
+    K: Copy + Ord,
+{
+    type Kind = Self;
+    type Target = Self;
+}
+
+// TODO: Support borrowing a key from items and querying with a range over such a key (rather than
+//       only a range over the key `K`). Note that this is less useful for `Copy` types than
+//       non-`Copy` types though.
+impl<K, V, R> segment::SegmentedBy<R> for BTreeMap<K, V>
+where
+    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    K: Copy + Ord,
+    R: RangeBounds<K>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect(self, &segment::ordered_range_bounds(range))
+    }
+}
 
 type BTreeMapArity<'a, K, V> = Arity<&'a mut BTreeMap<K, V>, &'a mut BTreeMap<K, V>>;
 
@@ -621,6 +699,44 @@ impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
     }
 }
 
+impl<K, V> Segmentation for BTreeMap1<K, V>
+where
+    K: Copy + Ord,
+{
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        match Ranged::tail(&self.items).try_into_range_inclusive() {
+            Some(range) => self.segment(range),
+            _ => Segment::empty(&mut self.items),
+        }
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        match Ranged::rtail(&self.items).try_into_range_inclusive() {
+            Some(range) => self.segment(range),
+            _ => Segment::empty(&mut self.items),
+        }
+    }
+}
+
+impl<K, V> Segmented for BTreeMap1<K, V>
+where
+    K: Copy + Ord,
+{
+    type Kind = Self;
+    type Target = BTreeMap<K, V>;
+}
+
+impl<K, V, R> segment::SegmentedBy<R> for BTreeMap1<K, V>
+where
+    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    K: Copy + Ord,
+    R: RangeBounds<K>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect_strict_subset(&mut self.items, &segment::ordered_range_bounds(range))
+    }
+}
+
 #[cfg(feature = "serde")]
 #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl<K, V> TryFrom<Serde<BTreeMap<K, V>>> for BTreeMap1<K, V> {
@@ -643,5 +759,195 @@ impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
     }
 }
 
+pub type BTreeMapSegment<'a, K, V> = Segment<'a, BTreeMap<K, V>, BTreeMap<K, V>>;
+
+pub type BTreeMap1Segment<'a, K, V> = Segment<'a, BTreeMap1<K, V>, BTreeMap<K, V>>;
+
+impl<'a, S, K, V> Segment<'a, S, BTreeMap<K, V>>
+where
+    S: Segmented<Target = BTreeMap<K, V>>,
+    K: Copy + Ord,
+{
+    pub fn insert_in_range(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)> {
+        if self.range.contains(&key) {
+            Ok(self.items.insert(key, value))
+        }
+        else {
+            Err((key, value))
+        }
+    }
+
+    pub fn append_in_range(&mut self, other: &mut BTreeMap<K, V>) {
+        if let RelationalRange::NonEmpty { ref start, ref end } = self.range {
+            let low = other;
+            let mut middle = low.split_off(start);
+            let mut high = middle.split_off(end);
+            self.items.append(&mut middle);
+            if let Some(first) = high.remove(end) {
+                self.items.insert(*end, first);
+            }
+            low.append(&mut high);
+        }
+    }
+
+    // This function cannot query the map via some `Q` where `K: Borrow<Q>`, because it is possible
+    // that the ordering of `Q` disagrees with the ordering of `K` and so items outside of the
+    // segment could be removed. Removing an item outside of the segment is unsound!
+    pub fn remove(&mut self, key: &K) -> Option<V> {
+        if self.range.contains(key) {
+            self.items.remove(key)
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn clear(&mut self) {
+        if let Some(range) = self.range.try_into_range_inclusive() {
+            self.items.retain(|key, _| !range.contains(key));
+        }
+    }
+
+    pub fn get<Q>(&self, query: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        if self.range.contains(query) {
+            self.items.get(query)
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn first_key_value(&self) -> Option<(&K, &V)> {
+        match self.range {
+            RelationalRange::Empty => None,
+            RelationalRange::NonEmpty { ref start, .. } => {
+                self.items.get(start).map(|first| (start, first))
+            },
+        }
+    }
+
+    pub fn last_key_value(&self) -> Option<(&K, &V)> {
+        match self.range {
+            RelationalRange::Empty => None,
+            RelationalRange::NonEmpty { ref end, .. } => {
+                self.items.get(end).map(|last| (end, last))
+            },
+        }
+    }
+
+    pub fn contains_key<Q>(&self, query: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.range.contains(query) && self.items.contains_key(query)
+    }
+}
+
+impl<'a, S, K, V> Segmentation for Segment<'a, S, BTreeMap<K, V>>
+where
+    S: Segmented<Target = BTreeMap<K, V>>,
+    S::Target: Ranged<Range = RelationalRange<K>>,
+    K: Copy + Ord,
+{
+    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        match self.range.try_into_range_inclusive() {
+            Some(range) => match BTreeMap::range(self.items, range.clone()).nth(1) {
+                Some((start, _)) => {
+                    Segment::unchecked(self.items, RelationalRange::unchecked(*start, *range.end()))
+                },
+                _ => Segment::empty(self.items),
+            },
+            _ => Segment::empty(self.items),
+        }
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+        match self.range.try_into_range_inclusive() {
+            Some(range) => match BTreeMap::range(self.items, range.clone()).rev().nth(1) {
+                Some((end, _)) => {
+                    Segment::unchecked(self.items, RelationalRange::unchecked(*range.start(), *end))
+                },
+                _ => Segment::empty(self.items),
+            },
+            _ => Segment::empty(self.items),
+        }
+    }
+}
+
+impl<'a, S, K, V> Segmented for Segment<'a, S, BTreeMap<K, V>>
+where
+    S: Segmented<Target = BTreeMap<K, V>>,
+    K: Copy + Ord,
+{
+    type Kind = S;
+    type Target = S::Target;
+}
+
+impl<'a, S, K, V, R> segment::SegmentedBy<R> for Segment<'a, S, BTreeMap<K, V>>
+where
+    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    S: segment::SegmentedBy<R, Target = BTreeMap<K, V>>,
+    K: Copy + Ord,
+    R: RangeBounds<K>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+        Segment::intersect(self.items, &segment::ordered_range_bounds(range))
+    }
+}
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use alloc::vec::Vec;
+
+    use crate::btree_map1::BTreeMap1;
+    use crate::Segmentation;
+
+    #[test]
+    fn segmentation() {
+        const VALUE: &str = "value";
+
+        fn items<const N: usize>() -> [(i32, &'static str); N] {
+            assert!(N as u128 <= i32::MAX as u128);
+            let mut items = [(0, VALUE); N];
+            for (index, item) in items.iter_mut().enumerate() {
+                item.0 = index as i32;
+            }
+            items
+        }
+
+        let mut xs = BTreeMap1::from(items::<4>());
+        xs.tail().clear();
+        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(0, VALUE)]);
+
+        let mut xs = BTreeMap1::from(items::<4>());
+        xs.rtail().clear();
+        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(3, VALUE)]);
+
+        let mut xs = BTreeMap1::from(items::<4>());
+        xs.tail().rtail().clear();
+        assert_eq!(
+            xs.into_iter().collect::<Vec<_>>().as_slice(),
+            &[(0, VALUE), (3, VALUE)],
+        );
+
+        let mut xs = BTreeMap1::from(items::<1>());
+        xs.tail().clear();
+        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(0, VALUE)]);
+
+        let mut xs = BTreeMap1::from(items::<1>());
+        xs.rtail().clear();
+        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(0, VALUE)]);
+
+        let mut xs = BTreeMap1::from([(0i32, VALUE), (9, VALUE)]);
+        let mut segment = xs.segment(4..);
+        assert_eq!(segment.insert_in_range(4, VALUE), Ok(None));
+        assert_eq!(segment.insert_in_range(9, VALUE), Ok(Some(VALUE)));
+        assert_eq!(segment.insert_in_range(0, VALUE), Err((0, VALUE)));
+        assert_eq!(segment.insert_in_range(1, VALUE), Err((1, VALUE)));
+    }
+}

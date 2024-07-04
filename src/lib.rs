@@ -1,4 +1,5 @@
 // TODO: Implement tests. Consider `rstest`.
+// TODO: Provide a feature for integration with `std`-only APIs, namely `std::io`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
@@ -23,6 +24,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+mod segment;
 mod serde;
 
 pub mod array1;
@@ -45,6 +47,8 @@ pub mod prelude {
     pub use crate::option1::OptionExt as _;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
+    #[cfg(any(feature = "alloc", feature = "arrayvec"))]
+    pub use crate::Segmentation;
     pub use crate::{NonZeroExt as _, Saturate, Saturated, Vacancy};
     #[cfg(feature = "alloc")]
     pub use {
@@ -68,16 +72,10 @@ use {alloc::collections::vec_deque::VecDeque, alloc::vec::Vec};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
-trait IntoTailOffset: Sized {
-    fn into_tail_offset(self) -> Self;
-}
+#[cfg(any(feature = "alloc", feature = "arrayvec"))]
+pub use segment::{Segment, Segmentation, SegmentedBy};
 
-impl IntoTailOffset for usize {
-    fn into_tail_offset(self) -> Self {
-        self.checked_add(1).expect("overflow in tail offset")
-    }
-}
-
+// TODO: Remove this and avoid the use of `NonZeroUsize` for inputs.
 pub trait NonZeroExt<T> {
     fn clamped(n: T) -> Self;
 }
@@ -158,6 +156,7 @@ where
     }
 }
 
+// TODO: Remove this.
 pub trait FnInto: FnOnce() -> Self::Into {
     type Into;
 

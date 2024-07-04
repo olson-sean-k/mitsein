@@ -6,7 +6,7 @@ description = "Strongly typed APIs for non-empty collections and views."
 repository = "https://github.com/olson-sean-k/mitsein"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.75.0"
+rust-version = "1.76.0"
 license = "MIT"
 keywords = [
     "collection",

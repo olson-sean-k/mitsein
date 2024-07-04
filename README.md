@@ -32,14 +32,24 @@ let xs = Vec1::try_from(&[0i32, 1, 2])?;
 let xs = Vec1::try_from_iter([0i32, 1, 2])?;
 ```
 
-Mapping over items in `Vec1`s:
+Mapping over items in a `Vec1`:
 
 ```rust
 use mitsein::prelude::*;
-use mitsein::vec1::Vec1;
 
 let xs = Vec1::from([0i32, 1, 2]);
 let ys: Vec1<_> = xs.into_iter1().map(|x| x + 1).collect1();
+```
+
+Removing items from a `Vec1`:
+
+```rust
+use mitsein::prelude::*;
+
+let mut xs = Vec1::from([0i32, 1, 2]);
+while let Ok(item) = xs.pop_or_only() { ... }
+
+xs.tail().clear();
 ```
 
 Bridging between `Iterator` and `Iterator1`:
@@ -47,7 +57,6 @@ Bridging between `Iterator` and `Iterator1`:
 ```rust
 use mitsein::iter1;
 use mitsein::prelude::*;
-use mitsein::vec1::Vec1;
 
 let xs = iter1::from_head_and_tail(0i32, [1, 2]);
 let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
@@ -78,19 +87,54 @@ copy-on-write via the standard `Cow` type**, unlike many other non-empty
 collection implementations.
 
 Non-empty iterator APIs are largely compatible with standard iterators, allowing
-non-empty collections to interact ergonomically with collection of zero or more
+non-empty collections to interact ergonomically with collections of zero or more
 items. **Mitsein views and collections use more familiar syntax for mapping,
 taking, chaining, etc.**
 
-**Items are stored contiguously or otherwise in a homogeneous manner in
-Mitsein**. This means that no head item is allocated diffently. For example, the
-[`nonempty`] crate directly exposes a head item that is, unlike tail items,
-**not** allocated on the heap. This can potentially cause surprising or poor
-performance when the item type is large, as the head item is stack allocated.
+**Items are stored contiguously or otherwise consistently in Mitsein**. This
+means that no head item is allocated diffently. For example, the [`nonempty`]
+crate directly exposes a head item that is, unlike tail items, **not** allocated
+on the heap. This can potentially cause surprising behavior or poor performance
+when the item type is large, for example.
 
-**Mitsein is a `no_std` library, and `alloc` is optional**. Non-empty slices and
-iterators (and their relationship with arrays) can be used in embedded contexts,
-or any other environment where `std` or allocation are not available.
+Non-empty APIs in collections that exhibit different behavior are distinct from
+counterparts in Mitsein. For example, the [`vec1`] crate presents `Vec1::pop`
+and `Vec1::remove`, which may be unclear in context. Mitsein instead presents
+`Vec1::pop_or_only` and `Vec1::remove_or_only`.
+
+**Mitsein separates many non-empty error concerns into a segmentation API**. The
+segmentation API provides a view (segments) into collections that supports
+**topological** mutations (unlike slices, for example). This works well for
+non-empty collections, which can be segmented prior to otherwise fallible
+operations. The [`nonempty`] and [`nunny`] crates have limited (or no) support
+for removals while the [`vec1`] crate provides fallible but bespoke
+counterparts.
+
+```rust
+use mitsein::prelude::*;
+
+let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
+xs.tail().clear();
+assert_eq!(xs.as_slice(), &[0i32]);
+
+let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
+xs.tail().rtail().drain(..);
+assert_eq!(xs.as_slice(), &[0i32, 4]);
+
+let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
+xs.segment(1..).truncate(2);
+assert_eq!(xs.as_slice(), &[0i32, 1, 2]);
+```
+
+**Mitsein provides complete coverage of ordered collections and heap container
+APIs in `core` and `alloc`**. This notably includes `slice`, `BTreeMap`,
+`BTreeSet`, `Box`, and `Arc`. The [`nonempty`] and [`vec1`] crates lack support
+for primitive types like `slice` and positional collections in `alloc` beyond
+`Vec`.
+
+Mitsein is a `no_std` library and `alloc` is optional. **Non-empty slices,
+iterators, and arrays can be used in embedded contexts, or any other environment
+where OS features or allocation are not available.**
 
 ## Cargo Features
 
@@ -107,5 +151,6 @@ features.
 [`arrayvec`]: https://crates.io/crates/arrayvec
 [`itertools`]: https://crates.io/crates/itertools
 [`nonempty`]: https://crates.io/crates/nonempty
+[`nunny`]: https://crates.io/crates/nunny
 [`serde`]: https://crates.io/crates/serde
 [`vec1`]: https://crates.io/crates/vec1
