@@ -6,7 +6,7 @@ use core::mem;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::{self, SliceIndex};
 #[cfg(feature = "alloc")]
-use {alloc::borrow::ToOwned, alloc::vec::Vec, core::num::NonZeroUsize};
+use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
 use crate::NonEmpty;
@@ -61,12 +61,17 @@ impl<T> Slice1<T> {
 
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-    pub fn repeat(&self, n: NonZeroUsize) -> Vec1<T>
+    pub fn once_and_then_repeat(&self, n: usize) -> Vec1<T>
     where
         T: Copy,
     {
         // SAFETY:
-        unsafe { Vec1::from_vec_unchecked(self.items.repeat(n.into())) }
+        unsafe {
+            Vec1::from_vec_unchecked(
+                self.items
+                    .repeat(n.checked_add(1).expect("overflow in slice repetition")),
+            )
+        }
     }
 
     pub fn split_first(&self) -> (&T, &[T]) {

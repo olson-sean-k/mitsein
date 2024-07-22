@@ -49,7 +49,7 @@ pub mod prelude {
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
     #[cfg(any(feature = "alloc", feature = "arrayvec"))]
     pub use crate::Segmentation;
-    pub use crate::{NonZeroExt as _, Saturate, Saturated, Vacancy};
+    pub use crate::{Saturate, Saturated, Vacancy};
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
@@ -75,8 +75,7 @@ use crate::serde::{EmptyError, Serde};
 #[cfg(any(feature = "alloc", feature = "arrayvec"))]
 pub use segment::{Segment, Segmentation, SegmentedBy};
 
-// TODO: Remove this and avoid the use of `NonZeroUsize` for inputs.
-pub trait NonZeroExt<T> {
+trait NonZeroExt<T> {
     fn clamped(n: T) -> Self;
 }
 
