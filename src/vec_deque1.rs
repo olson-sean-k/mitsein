@@ -174,12 +174,12 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_or_only(&mut self) -> Result<T, &T> {
+    pub fn pop_front_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
         self.many_or_only(|items| unsafe { items.pop_front().unwrap_unchecked() })
     }
 
-    pub fn pop_back_or_only(&mut self) -> Result<T, &T> {
+    pub fn pop_back_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
         self.many_or_only(|items| unsafe { items.pop_back().unwrap_unchecked() })
     }
@@ -188,15 +188,15 @@ impl<T> VecDeque1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
+    pub fn remove_or_get_only(&mut self, index: usize) -> Option<Result<T, &T>> {
         self.try_many_or_get(index, move |items| items.remove(index))
     }
 
-    pub fn swap_remove_front_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
+    pub fn swap_remove_front_or_get_only(&mut self, index: usize) -> Option<Result<T, &T>> {
         self.try_many_or_get(index, move |items| items.swap_remove_front(index))
     }
 
-    pub fn swap_remove_back_or_only(&mut self, index: usize) -> Option<Result<T, &T>> {
+    pub fn swap_remove_back_or_get_only(&mut self, index: usize) -> Option<Result<T, &T>> {
         self.try_many_or_get(index, move |items| items.swap_remove_back(index))
     }
 

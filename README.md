@@ -47,7 +47,7 @@ Removing items from a `Vec1`:
 use mitsein::prelude::*;
 
 let mut xs = Vec1::from([0i32, 1, 2]);
-while let Ok(item) = xs.pop_or_only() { ... }
+while let Ok(item) = xs.pop_or_get_only() { ... }
 
 xs.tail().clear();
 ```
@@ -100,12 +100,12 @@ when the item type is large, for example.
 Non-empty APIs in collections that exhibit different behavior are distinct from
 counterparts in Mitsein. For example, the [`vec1`] crate presents `Vec1::pop`
 and `Vec1::remove`, which may be unclear in context. Mitsein instead presents
-`Vec1::pop_or_only` and `Vec1::remove_or_only`.
+`Vec1::pop_or_get_only` and `Vec1::remove_or_get_only`.
 
 **Mitsein separates many non-empty error concerns into a segmentation API**. The
-segmentation API provides a view (segments) into collections that supports
-**topological** mutations (unlike slices, for example). This works well for
-non-empty collections, which can be segmented prior to otherwise fallible
+segmentation API provides a view (called a segment) into collections that
+supports **topological** mutations (unlike slices, for example). This works well
+for non-empty collections, which can be segmented prior to otherwise fallible
 operations. The [`nonempty`] and [`nunny`] crates have limited (or no) support
 for removals while the [`vec1`] crate provides fallible but bespoke
 counterparts.

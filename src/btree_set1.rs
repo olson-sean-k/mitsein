@@ -187,7 +187,7 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_or_only(&mut self) -> Result<T, &T>
+    pub fn pop_first_or_get_only(&mut self) -> Result<T, &T>
     where
         T: Ord,
     {
@@ -195,7 +195,7 @@ impl<T> BTreeSet1<T> {
         self.many_or_only(|items| unsafe { items.pop_first().unwrap_unchecked() })
     }
 
-    pub fn pop_last_or_only(&mut self) -> Result<T, &T>
+    pub fn pop_last_or_get_only(&mut self) -> Result<T, &T>
     where
         T: Ord,
     {
@@ -203,7 +203,7 @@ impl<T> BTreeSet1<T> {
         self.many_or_only(|items| unsafe { items.pop_last().unwrap_unchecked() })
     }
 
-    pub fn remove_or_only<Q>(&mut self, query: &Q) -> Result<bool, &T>
+    pub fn remove_or_get_only<Q>(&mut self, query: &Q) -> Result<bool, &T>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -217,7 +217,7 @@ impl<T> BTreeSet1<T> {
         }
     }
 
-    pub fn take_or_only<Q>(&mut self, query: &Q) -> Option<Result<T, &T>>
+    pub fn take_or_get_only<Q>(&mut self, query: &Q) -> Option<Result<T, &T>>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,

@@ -211,7 +211,7 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop_or_only(&mut self) -> Result<T, &T> {
+    pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
         self.many_or_only(|items| unsafe { items.pop().unwrap_unchecked() })
     }
@@ -220,11 +220,11 @@ impl<T> Vec1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or_only(&mut self, index: usize) -> Result<T, &T> {
+    pub fn remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
         self.many_or_get(index, move |items| items.remove(index))
     }
 
-    pub fn swap_remove_or_only(&mut self, index: usize) -> Result<T, &T> {
+    pub fn swap_remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
         self.many_or_get(index, move |items| items.swap_remove(index))
     }
 

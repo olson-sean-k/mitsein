@@ -146,14 +146,14 @@ where
         }
     }
 
-    pub fn remove_key_value_or_only(self) -> KeyValueOrOnly<'a, K, V> {
+    pub fn remove_key_value_or_get_only(self) -> KeyValueOrOnly<'a, K, V> {
         match self {
             OccupiedEntry::Many(many) => Ok(many.remove_entry()),
             OccupiedEntry::One(only) => Err(only),
         }
     }
 
-    pub fn remove_or_only(self) -> ValueOrOnly<'a, K, V> {
+    pub fn remove_or_get_only(self) -> ValueOrOnly<'a, K, V> {
         match self {
             OccupiedEntry::Many(many) => Ok(many.remove()),
             OccupiedEntry::One(only) => Err(only),
@@ -476,7 +476,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.items.insert(key, value)
     }
 
-    pub fn pop_first_key_value_or_only(&mut self) -> KeyValueOrOnly<'_, K, V>
+    pub fn pop_first_key_value_or_get_only(&mut self) -> KeyValueOrOnly<'_, K, V>
     where
         K: Ord,
     {
@@ -484,15 +484,15 @@ impl<K, V> BTreeMap1<K, V> {
         self.many_or_only(|items| unsafe { items.pop_first().unwrap_unchecked() })
     }
 
-    pub fn pop_first_or_only(&mut self) -> ValueOrOnly<'_, K, V>
+    pub fn pop_first_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
     where
         K: Ord,
     {
-        self.pop_first_key_value_or_only()
+        self.pop_first_key_value_or_get_only()
             .map(|(_key, value)| value)
     }
 
-    pub fn pop_last_key_value_or_only(&mut self) -> KeyValueOrOnly<'_, K, V>
+    pub fn pop_last_key_value_or_get_only(&mut self) -> KeyValueOrOnly<'_, K, V>
     where
         K: Ord,
     {
@@ -500,14 +500,15 @@ impl<K, V> BTreeMap1<K, V> {
         self.many_or_only(|items| unsafe { items.pop_last().unwrap_unchecked() })
     }
 
-    pub fn pop_last_or_only(&mut self) -> ValueOrOnly<'_, K, V>
+    pub fn pop_last_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
     where
         K: Ord,
     {
-        self.pop_last_key_value_or_only().map(|(_key, value)| value)
+        self.pop_last_key_value_or_get_only()
+            .map(|(_key, value)| value)
     }
 
-    pub fn remove_key_value_or_only<'a, Q>(
+    pub fn remove_key_value_or_get_only<'a, Q>(
         &'a mut self,
         query: &Q,
     ) -> Option<KeyValueOrOnly<'a, K, V>>
@@ -518,7 +519,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.many_or_get(query, move |items| items.remove_entry(query))
     }
 
-    pub fn remove_or_only<'a, Q>(&'a mut self, query: &Q) -> Option<ValueOrOnly<'a, K, V>>
+    pub fn remove_or_get_only<'a, Q>(&'a mut self, query: &Q) -> Option<ValueOrOnly<'a, K, V>>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
