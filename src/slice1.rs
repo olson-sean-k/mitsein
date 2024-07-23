@@ -1,6 +1,3 @@
-// TODO: Introduce a `slice1` macro that supports `const` non-empty slice construction without
-//       `unsafe`.
-
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
@@ -216,6 +213,15 @@ pub fn from_mut<T>(item: &mut T) -> &mut Slice1<T> {
     // SAFETY:
     unsafe { Slice1::from_mut_slice_unchecked(slice::from_mut(item)) }
 }
+
+#[macro_export]
+macro_rules! slice1 {
+    ($($item:expr $(,)?)+) => {{
+        // SAFETY:
+        unsafe { $crate::slice1::Slice1::from_slice_unchecked(&[$($item,)+]) }
+    }};
+}
+pub use slice1;
 
 #[cfg(test)]
 mod tests {}
