@@ -978,10 +978,12 @@ impl DrainRange {
 
 #[macro_export]
 macro_rules! vec1 {
-    ($($item:expr $(,)?)+) => {
+    ($($item:expr $(,)?)+) => {{
+        extern crate alloc;
+
         // SAFETY:
         unsafe { $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$($item,)+]) }
-    };
+    }};
 }
 pub use vec1;
 
