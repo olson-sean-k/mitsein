@@ -297,6 +297,24 @@ where
         unsafe { self.items.last().unwrap_unchecked() }
     }
 
+    pub fn with_first_and_then<F>(self, mut f: F) -> Remainder<I>
+    where
+        F: FnMut(I::Item),
+    {
+        let (_, remainder) = self.maybe_empty(move |items| {
+            // SAFETY:
+            unsafe { f(items.next().unwrap_unchecked()) }
+        });
+        remainder
+    }
+
+    pub fn into_head_and_tail(self) -> (I::Item, Remainder<I>) {
+        self.maybe_empty(|items| {
+            // SAFETY:
+            unsafe { items.next().unwrap_unchecked() }
+        })
+    }
+
     pub fn min(self) -> I::Item
     where
         I::Item: Ord,
