@@ -173,6 +173,10 @@ where
         })
     }
 
+    pub fn push(&mut self, item: T) {
+        self.items.push(item)
+    }
+
     pub fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
         self.vacant_or_get_last(item, |item, items| items.push(item))
     }
