@@ -86,14 +86,14 @@ where
     where
         I: IntoIterator<Item = T>,
     {
-        iter1::from_head_and_tail(head, tail).collect1()
+        iter1::head_and_tail(head, tail).collect1()
     }
 
     pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        iter1::from_tail_and_head(tail, head).collect1()
+        iter1::tail_and_head(tail, head).collect1()
     }
 
     // NOTE: Panics on overflow.

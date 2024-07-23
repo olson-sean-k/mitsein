@@ -58,7 +58,7 @@ Bridging between `Iterator` and `Iterator1`:
 use mitsein::iter1;
 use mitsein::prelude::*;
 
-let xs = iter1::from_head_and_tail(0i32, [1, 2]);
+let xs = iter1::head_and_tail(0i32, [1, 2]);
 let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
 assert_eq!(xs.as_slice(), &[3]);
 

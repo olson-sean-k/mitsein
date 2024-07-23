@@ -566,12 +566,12 @@ where
     }
 }
 
-pub fn from_one<T>(item: T) -> ExactlyOne<T> {
+pub fn one<T>(item: T) -> ExactlyOne<T> {
     // SAFETY:
     unsafe { Iterator1::from_iter_unchecked(Some(item)) }
 }
 
-pub fn from_one_with<T, F>(f: F) -> ExactlyOneWith<F>
+pub fn one_with<T, F>(f: F) -> ExactlyOneWith<F>
 where
     F: FnOnce() -> T,
 {
@@ -579,18 +579,18 @@ where
     unsafe { Iterator1::from_iter_unchecked(iter::once_with(f)) }
 }
 
-pub fn from_head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
+pub fn head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
 where
     I: IntoIterator<Item = T>,
 {
-    self::from_one(head).chain(tail)
+    self::one(head).chain(tail)
 }
 
-pub fn from_tail_and_head<I, T>(tail: I, head: T) -> TailAndHead<I>
+pub fn tail_and_head<I, T>(tail: I, head: T) -> TailAndHead<I>
 where
     I: IntoIterator<Item = T>,
 {
-    tail.into_iter().chain_non_empty(self::from_one(head))
+    tail.into_iter().chain_non_empty(self::one(head))
 }
 
 pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
