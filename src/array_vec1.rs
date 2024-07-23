@@ -5,7 +5,6 @@ use arrayvec::ArrayVec;
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::Peekable;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
@@ -93,14 +92,6 @@ where
         I: IntoIterator<Item = T>,
     {
         iter1::tail_and_head(tail, head).collect1()
-    }
-
-    // NOTE: Panics on overflow.
-    pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
-    where
-        I: IntoIterator<Item = T>,
-    {
-        Iterator1::try_from_iter(items).map(ArrayVec1::from_iter1)
     }
 
     pub fn into_head_and_tail(mut self) -> (T, ArrayVec<T, N>) {

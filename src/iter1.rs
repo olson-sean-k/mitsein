@@ -77,6 +77,13 @@ where
 
 pub trait IteratorExt: Iterator + Sized + Then1<Self> {
     fn try_into_iter1(self) -> Remainder<Self>;
+
+    fn try_collect1<T>(self) -> Result<T, Peekable<Self>>
+    where
+        T: FromIterator1<Self::Item>,
+    {
+        T::try_from_iter(self)
+    }
 }
 
 impl<I> IteratorExt for I
@@ -92,6 +99,14 @@ pub trait FromIterator1<T> {
     fn from_iter1<I>(items: I) -> Self
     where
         I: IntoIterator1<Item = T>;
+
+    fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
+    where
+        Self: Sized,
+        I: IntoIterator<Item = T>,
+    {
+        Iterator1::try_from_iter(items.into_iter()).map(Self::from_iter1)
+    }
 }
 
 // TODO: This blanket implementation is a coherence error (E0119) at time of writing. However, the

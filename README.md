@@ -23,7 +23,7 @@ let xs = vec1![0i32, 1, 2];
 Allocating a `Vec1` from zero or more items (fallibly):
 
 ```rust
-use mitsein::vec1::Vec1;
+use mitsein::prelude::*;
 
 let ys = vec![0i32, 1, 2];
 

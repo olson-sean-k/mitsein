@@ -4,7 +4,6 @@
 use alloc::collections::btree_set::{self, BTreeSet};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::Peekable;
 use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
@@ -114,14 +113,6 @@ impl<T> BTreeSet1<T> {
         I: IntoIterator<Item = T>,
     {
         iter1::tail_and_head(tail, head).collect1()
-    }
-
-    pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
-    where
-        T: Ord,
-        I: IntoIterator<Item = T>,
-    {
-        Iterator1::try_from_iter(items).map(BTreeSet1::from_iter1)
     }
 
     pub fn into_btree_set(self) -> BTreeSet<T> {

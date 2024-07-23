@@ -10,7 +10,7 @@ use alloc::borrow::{Borrow, BorrowMut, Cow};
 use alloc::vec::{self, Drain, Splice, Vec};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{self, FusedIterator, Peekable};
+use core::iter::{self, FusedIterator};
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
@@ -130,13 +130,6 @@ impl<T> Vec1<T> {
         I: IntoIterator<Item = T>,
     {
         iter1::tail_and_head(tail, head).collect1()
-    }
-
-    pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
-    where
-        I: IntoIterator<Item = T>,
-    {
-        Iterator1::try_from_iter(items).map(Vec1::from_iter1)
     }
 
     pub fn into_head_and_tail(mut self) -> (T, Vec<T>) {

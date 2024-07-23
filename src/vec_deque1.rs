@@ -4,7 +4,7 @@
 use alloc::collections::vec_deque::{self, VecDeque};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{self, Peekable};
+use core::iter;
 use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut, RangeBounds};
 
@@ -88,13 +88,6 @@ impl<T> VecDeque1<T> {
         I: IntoIterator<Item = T>,
     {
         iter1::tail_and_head(tail, head).collect1()
-    }
-
-    pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
-    where
-        I: IntoIterator<Item = T>,
-    {
-        Iterator1::try_from_iter(items).map(VecDeque1::from_iter1)
     }
 
     pub fn into_vec_deque(self) -> VecDeque<T> {

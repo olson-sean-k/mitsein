@@ -4,7 +4,6 @@
 use alloc::collections::btree_map::{self, BTreeMap, VacantEntry};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::Peekable;
 use core::num::NonZeroUsize;
 use core::ops::RangeBounds;
 
@@ -381,14 +380,6 @@ impl<K, V> BTreeMap1<K, V> {
         I: IntoIterator<Item = (K, V)>,
     {
         iter1::tail_and_head(tail, head).collect1()
-    }
-
-    pub fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
-    where
-        K: Ord,
-        I: IntoIterator<Item = (K, V)>,
-    {
-        Iterator1::try_from_iter(items).map(BTreeMap1::from_iter1)
     }
 
     pub fn into_btree_map(self) -> BTreeMap<K, V> {
