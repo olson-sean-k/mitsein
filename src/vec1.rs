@@ -159,7 +159,7 @@ impl<T> Vec1<T> {
         }
     }
 
-    fn many_or_only<F>(&mut self, f: F) -> Result<T, &T>
+    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
     where
         F: FnOnce(&mut Vec<T>) -> T,
     {
@@ -213,7 +213,7 @@ impl<T> Vec1<T> {
 
     pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {

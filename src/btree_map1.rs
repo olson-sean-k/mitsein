@@ -404,7 +404,7 @@ impl<K, V> BTreeMap1<K, V> {
         }
     }
 
-    fn many_or_only<'a, T, F>(&'a mut self, f: F) -> Result<T, OnlyEntry<'a, K, V>>
+    fn many_or_get_only<'a, T, F>(&'a mut self, f: F) -> Result<T, OnlyEntry<'a, K, V>>
     where
         K: Ord,
         F: FnOnce(&'a mut BTreeMap<K, V>) -> T,
@@ -483,7 +483,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_first_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
@@ -499,7 +499,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_last_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
@@ -563,7 +563,8 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        match self.many_or_only(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() }) {
+        match self.many_or_get_only(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() })
+        {
             Ok(many) => many.into(),
             Err(only) => only.into(),
         }
@@ -582,7 +583,8 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        match self.many_or_only(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() }) {
+        match self.many_or_get_only(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() })
+        {
             Ok(many) => many.into(),
             Err(only) => only.into(),
         }

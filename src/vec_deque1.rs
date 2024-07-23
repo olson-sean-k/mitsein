@@ -118,7 +118,7 @@ impl<T> VecDeque1<T> {
         }
     }
 
-    fn many_or_only<F>(&mut self, f: F) -> Result<T, &T>
+    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
     where
         F: FnOnce(&mut VecDeque<T>) -> T,
     {
@@ -176,12 +176,12 @@ impl<T> VecDeque1<T> {
 
     pub fn pop_front_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_front().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop_front().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_back_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_back().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop_back().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {

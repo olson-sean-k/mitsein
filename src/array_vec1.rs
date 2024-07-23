@@ -133,7 +133,7 @@ where
         }
     }
 
-    fn many_or_only<F>(&mut self, f: F) -> Result<T, &T>
+    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
     where
         F: FnOnce(&mut ArrayVec<T, N>) -> T,
     {
@@ -163,7 +163,7 @@ where
         }
     }
 
-    fn vacant_or_last<U, F>(&mut self, item: T, f: F) -> Result<U, (T, &T)>
+    fn vacant_or_get_last<U, F>(&mut self, item: T, f: F) -> Result<U, (T, &T)>
     where
         F: FnOnce(T, &mut ArrayVec<T, N>) -> U,
     {
@@ -173,17 +173,17 @@ where
         })
     }
 
-    pub fn push_or_last(&mut self, item: T) -> Result<(), (T, &T)> {
-        self.vacant_or_last(item, |item, items| items.push(item))
+    pub fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
+        self.vacant_or_get_last(item, |item, items| items.push(item))
     }
 
     pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
-    pub fn insert_or_last(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
-        self.vacant_or_last(item, move |item, items| items.insert(index, item))
+    pub fn insert_or_get_last(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
+        self.vacant_or_get_last(item, move |item, items| items.insert(index, item))
     }
 
     pub fn remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {

@@ -127,7 +127,7 @@ impl<T> BTreeSet1<T> {
         }
     }
 
-    fn many_or_only<F>(&mut self, f: F) -> Result<T, &T>
+    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
     where
         T: Ord,
         F: FnOnce(&mut BTreeSet<T>) -> T,
@@ -192,7 +192,7 @@ impl<T> BTreeSet1<T> {
         T: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_last_or_get_only(&mut self) -> Result<T, &T>
@@ -200,7 +200,7 @@ impl<T> BTreeSet1<T> {
         T: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
+        self.many_or_get_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
     }
 
     pub fn remove_or_get_only<Q>(&mut self, query: &Q) -> Result<bool, &T>
