@@ -186,6 +186,10 @@ where
         self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
+    pub fn insert(&mut self, index: usize, item: T) {
+        self.items.insert(index, item)
+    }
+
     pub fn insert_or_get_last(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
         self.vacant_or_get_last(item, move |item, items| items.insert(index, item))
     }
