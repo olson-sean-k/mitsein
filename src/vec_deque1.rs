@@ -297,16 +297,22 @@ impl<T> FromIterator1<T> for VecDeque1<T> {
     }
 }
 
-impl<T> Index<usize> for VecDeque1<T> {
-    type Output = <VecDeque<T> as Index<usize>>::Output;
+impl<T, I> Index<I> for VecDeque1<T>
+where
+    VecDeque<T>: Index<I>,
+{
+    type Output = <VecDeque<T> as Index<I>>::Output;
 
-    fn index(&self, at: usize) -> &Self::Output {
+    fn index(&self, at: I) -> &Self::Output {
         self.items.index(at)
     }
 }
 
-impl<T> IndexMut<usize> for VecDeque1<T> {
-    fn index_mut(&mut self, at: usize) -> &mut Self::Output {
+impl<T, I> IndexMut<I> for VecDeque1<T>
+where
+    VecDeque<T>: IndexMut<I>,
+{
+    fn index_mut(&mut self, at: I) -> &mut Self::Output {
         self.items.index_mut(at)
     }
 }

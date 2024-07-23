@@ -1,7 +1,7 @@
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
-use core::slice::{self, SliceIndex};
+use core::slice;
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
@@ -173,9 +173,9 @@ where
 
 impl<T, I> Index<I> for Slice1<T>
 where
-    I: SliceIndex<[T]>,
+    [T]: Index<I>,
 {
-    type Output = <I as SliceIndex<[T]>>::Output;
+    type Output = <[T] as Index<I>>::Output;
 
     fn index(&self, at: I) -> &Self::Output {
         self.items.index(at)
@@ -184,7 +184,7 @@ where
 
 impl<T, I> IndexMut<I> for Slice1<T>
 where
-    I: SliceIndex<[T]>,
+    [T]: IndexMut<I>,
 {
     fn index_mut(&mut self, at: I) -> &mut Self::Output {
         self.items.index_mut(at)

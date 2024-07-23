@@ -1,18 +1,13 @@
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
-// TODO: Implement `Index` and `IndexMut`. Note that while `Index` and `IndexMut` can be used via
-//       `Deref` and `DerefMut`, this alone does not support using `Vec1` for type parameters that
-//       are bound on these traits. Moreover, `Vec` implements these traits directly, so types here
-//       ought to follow suit.
-
 use alloc::borrow::{Borrow, BorrowMut, Cow};
 use alloc::vec::{self, Drain, Splice, Vec};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::{self, FusedIterator};
 use core::num::NonZeroUsize;
-use core::ops::{Deref, DerefMut, RangeBounds};
+use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
@@ -405,6 +400,26 @@ impl<T> FromIterator1<T> for Vec1<T> {
     {
         // SAFETY:
         unsafe { Vec1::from_vec_unchecked(items.into_iter1().collect()) }
+    }
+}
+
+impl<T, I> Index<I> for Vec1<T>
+where
+    Vec<T>: Index<I>,
+{
+    type Output = <Vec<T> as Index<I>>::Output;
+
+    fn index(&self, at: I) -> &Self::Output {
+        self.items.index(at)
+    }
+}
+
+impl<T, I> IndexMut<I> for Vec1<T>
+where
+    Vec<T>: IndexMut<I>,
+{
+    fn index_mut(&mut self, at: I) -> &mut Self::Output {
+        self.items.index_mut(at)
     }
 }
 
