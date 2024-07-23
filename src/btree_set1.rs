@@ -13,7 +13,7 @@ use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::segment::{self, Intersect, Ranged, RelationalRange, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
-use crate::{Arity, NonEmpty};
+use crate::NonEmpty;
 
 impl<T> Ranged for BTreeSet<T>
 where
@@ -82,7 +82,7 @@ where
     }
 }
 
-type BTreeSetArity<'a, T> = Arity<&'a mut BTreeSet<T>, &'a mut BTreeSet<T>>;
+type Cardinality<'a, T> = crate::Cardinality<&'a mut BTreeSet<T>, &'a mut BTreeSet<T>>;
 
 pub type BTreeSet1<T> = NonEmpty<BTreeSet<T>>;
 
@@ -127,11 +127,11 @@ impl<T> BTreeSet1<T> {
         self.items
     }
 
-    fn arity(&mut self) -> BTreeSetArity<'_, T> {
+    fn arity(&mut self) -> Cardinality<'_, T> {
         match self.items.len() {
             0 => unreachable!(),
-            1 => Arity::One(&mut self.items),
-            _ => Arity::Many(&mut self.items),
+            1 => Cardinality::One(&mut self.items),
+            _ => Cardinality::Many(&mut self.items),
         }
     }
 
@@ -142,8 +142,8 @@ impl<T> BTreeSet1<T> {
     {
         match self.arity() {
             // SAFETY:
-            Arity::One(one) => Err(unsafe { one.first().unwrap_unchecked() }),
-            Arity::Many(many) => Ok(f(many)),
+            Cardinality::One(one) => Err(unsafe { one.first().unwrap_unchecked() }),
+            Cardinality::Many(many) => Ok(f(many)),
         }
     }
 
@@ -154,8 +154,8 @@ impl<T> BTreeSet1<T> {
         F: FnOnce(&mut BTreeSet<T>) -> Option<T>,
     {
         let result = match self.arity() {
-            Arity::One(one) => Err(one.get(query)),
-            Arity::Many(many) => Ok(f(many)),
+            Cardinality::One(one) => Err(one.get(query)),
+            Cardinality::Many(many) => Ok(f(many)),
         };
         match result {
             Err(one) => one.map(Err),

@@ -70,6 +70,9 @@ use {alloc::collections::vec_deque::VecDeque, alloc::vec::Vec};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
+// TODO: It is a bit inconsistent that these items are feature gated, but similar items like
+//       `Vacancy`, `Cardinality`, etc. are not. Attribute annotations in documentation can be
+//       noisey, so it may be better to unconditionally define these items.
 #[cfg(any(feature = "alloc", feature = "arrayvec"))]
 pub use segment::{Segment, Segmentation, SegmentedBy};
 
@@ -182,55 +185,55 @@ impl<T> AsRef<T> for NonEmpty<T> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Arity<O, M> {
+pub enum Cardinality<O, M> {
     One(O),
     Many(M),
 }
 
-impl<O, M> Arity<O, M> {
+impl<O, M> Cardinality<O, M> {
     pub fn one(self) -> Option<O> {
         match self {
-            Arity::One(one) => Some(one),
+            Cardinality::One(one) => Some(one),
             _ => None,
         }
     }
 
     pub fn many(self) -> Option<M> {
         match self {
-            Arity::Many(many) => Some(many),
+            Cardinality::Many(many) => Some(many),
             _ => None,
         }
     }
 
-    pub fn map_one<U, F>(self, f: F) -> Arity<U, M>
+    pub fn map_one<U, F>(self, f: F) -> Cardinality<U, M>
     where
         F: FnOnce(O) -> U,
     {
         match self {
-            Arity::One(one) => Arity::One(f(one)),
-            Arity::Many(many) => Arity::Many(many),
+            Cardinality::One(one) => Cardinality::One(f(one)),
+            Cardinality::Many(many) => Cardinality::Many(many),
         }
     }
 
-    pub fn map_many<U, F>(self, f: F) -> Arity<O, U>
+    pub fn map_many<U, F>(self, f: F) -> Cardinality<O, U>
     where
         F: FnOnce(M) -> U,
     {
         match self {
-            Arity::One(one) => Arity::One(one),
-            Arity::Many(many) => Arity::Many(f(many)),
+            Cardinality::One(one) => Cardinality::One(one),
+            Cardinality::Many(many) => Cardinality::Many(f(many)),
         }
     }
 }
 
-impl<T> Arity<T, T> {
-    pub fn map<U, F>(self, f: F) -> Arity<U, U>
+impl<T> Cardinality<T, T> {
+    pub fn map<U, F>(self, f: F) -> Cardinality<U, U>
     where
         F: FnOnce(T) -> U,
     {
         match self {
-            Arity::One(one) => Arity::One(f(one)),
-            Arity::Many(many) => Arity::Many(f(many)),
+            Cardinality::One(one) => Cardinality::One(f(one)),
+            Cardinality::Many(many) => Cardinality::Many(f(many)),
         }
     }
 }

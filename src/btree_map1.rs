@@ -13,7 +13,7 @@ use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::segment::{self, Intersect, Ranged, RelationalRange, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
-use crate::{Arity, NonEmpty};
+use crate::NonEmpty;
 
 impl<K, V> Ranged for BTreeMap<K, V>
 where
@@ -91,7 +91,7 @@ where
     }
 }
 
-type BTreeMapArity<'a, K, V> = Arity<&'a mut BTreeMap<K, V>, &'a mut BTreeMap<K, V>>;
+type Cardinality<'a, K, V> = crate::Cardinality<&'a mut BTreeMap<K, V>, &'a mut BTreeMap<K, V>>;
 
 pub type ManyEntry<'a, K, V> = btree_map::OccupiedEntry<'a, K, V>;
 
@@ -133,7 +133,7 @@ where
     }
 }
 
-pub type OccupiedEntry<'a, K, V> = Arity<OnlyEntry<'a, K, V>, ManyEntry<'a, K, V>>;
+pub type OccupiedEntry<'a, K, V> = crate::Cardinality<OnlyEntry<'a, K, V>, ManyEntry<'a, K, V>>;
 
 impl<'a, K, V> OccupiedEntry<'a, K, V>
 where
@@ -404,11 +404,11 @@ impl<K, V> BTreeMap1<K, V> {
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
-    fn arity(&mut self) -> BTreeMapArity<'_, K, V> {
+    fn arity(&mut self) -> Cardinality<'_, K, V> {
         match self.items.len() {
             0 => unreachable!(),
-            1 => Arity::One(&mut self.items),
-            _ => Arity::Many(&mut self.items),
+            1 => Cardinality::One(&mut self.items),
+            _ => Cardinality::Many(&mut self.items),
         }
     }
 
@@ -419,10 +419,10 @@ impl<K, V> BTreeMap1<K, V> {
     {
         match self.arity() {
             // SAFETY:
-            Arity::One(one) => Err(OnlyEntry::from_occupied_entry(unsafe {
+            Cardinality::One(one) => Err(OnlyEntry::from_occupied_entry(unsafe {
                 one.first_entry().unwrap_unchecked()
             })),
-            Arity::Many(many) => Ok(f(many)),
+            Cardinality::Many(many) => Ok(f(many)),
         }
     }
 
@@ -438,10 +438,10 @@ impl<K, V> BTreeMap1<K, V> {
     {
         let result = match self.arity() {
             // SAFETY:
-            Arity::One(one) => Err(one.contains_key(query).then(|| {
+            Cardinality::One(one) => Err(one.contains_key(query).then(|| {
                 OnlyEntry::from_occupied_entry(unsafe { one.first_entry().unwrap_unchecked() })
             })),
-            Arity::Many(many) => Ok(f(many)),
+            Cardinality::Many(many) => Ok(f(many)),
         };
         match result {
             Err(one) => one.map(Err),
@@ -472,8 +472,8 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         match self.arity() {
-            Arity::One(one) => Entry::from_entry_only(one.entry(key)),
-            Arity::Many(many) => Entry::from_entry_many(many.entry(key)),
+            Cardinality::One(one) => Entry::from_entry_only(one.entry(key)),
+            Cardinality::Many(many) => Entry::from_entry_many(many.entry(key)),
         }
     }
 
