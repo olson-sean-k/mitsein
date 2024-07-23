@@ -105,7 +105,7 @@ pub trait FromIterator1<T> {
         Self: Sized,
         I: IntoIterator<Item = T>,
     {
-        Iterator1::try_from_iter(items.into_iter()).map(Self::from_iter1)
+        Iterator1::try_from_iter(items).map(Self::from_iter1)
     }
 }
 
