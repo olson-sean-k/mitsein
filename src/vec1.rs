@@ -21,7 +21,7 @@ use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{NonEmpty, Vacancy};
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
 
 impl<T> Ranged for Vec<T> {
     type Range = PositionalRange;
@@ -134,7 +134,7 @@ impl<T> Vec1<T> {
 
     pub fn into_tail_and_head(mut self) -> (Vec<T>, T) {
         // SAFETY:
-        let head = unsafe { self.items.pop().unwrap_unchecked() };
+        let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
     }
 
@@ -213,7 +213,7 @@ impl<T> Vec1<T> {
 
     pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -230,12 +230,12 @@ impl<T> Vec1<T> {
 
     pub fn len(&self) -> NonZeroUsize {
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.len()) }
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.capacity()) }
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
     pub fn splice<R, I>(&mut self, range: R, replacement: I) -> Splice<'_, I::IntoIter>

@@ -13,7 +13,7 @@ use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
-use crate::NonEmpty;
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _};
 
 impl<T> Ranged for BTreeSet<T>
 where
@@ -134,7 +134,7 @@ impl<T> BTreeSet1<T> {
     {
         match self.arity() {
             // SAFETY:
-            Cardinality::One(one) => Err(unsafe { one.first().unwrap_unchecked() }),
+            Cardinality::One(one) => Err(unsafe { one.first().unwrap_maybe_unchecked() }),
             Cardinality::Many(many) => Ok(f(many)),
         }
     }
@@ -192,7 +192,7 @@ impl<T> BTreeSet1<T> {
         T: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_first().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_last_or_get_only(&mut self) -> Result<T, &T>
@@ -200,7 +200,7 @@ impl<T> BTreeSet1<T> {
         T: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_last().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
     }
 
     pub fn remove_or_get_only<Q>(&mut self, query: &Q) -> Result<bool, &T>
@@ -235,7 +235,7 @@ impl<T> BTreeSet1<T> {
 
     pub fn len(&self) -> NonZeroUsize {
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.len()) }
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn first(&self) -> &T
@@ -243,7 +243,7 @@ impl<T> BTreeSet1<T> {
         T: Ord,
     {
         // SAFETY:
-        unsafe { self.items.first().unwrap_unchecked() }
+        unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
     pub fn last(&self) -> &T
@@ -251,7 +251,7 @@ impl<T> BTreeSet1<T> {
         T: Ord,
     {
         // SAFETY:
-        unsafe { self.items.last().unwrap_unchecked() }
+        unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn range<Q, R>(&self, range: R) -> btree_set::Range<'_, T>

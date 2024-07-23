@@ -13,7 +13,7 @@ use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
-use crate::NonEmpty;
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _};
 
 impl<K, V> Ranged for BTreeMap<K, V>
 where
@@ -412,7 +412,7 @@ impl<K, V> BTreeMap1<K, V> {
         match self.arity() {
             // SAFETY:
             Cardinality::One(one) => Err(OnlyEntry::from_occupied_entry(unsafe {
-                one.first_entry().unwrap_unchecked()
+                one.first_entry().unwrap_maybe_unchecked()
             })),
             Cardinality::Many(many) => Ok(f(many)),
         }
@@ -431,7 +431,9 @@ impl<K, V> BTreeMap1<K, V> {
         let result = match self.arity() {
             // SAFETY:
             Cardinality::One(one) => Err(one.contains_key(query).then(|| {
-                OnlyEntry::from_occupied_entry(unsafe { one.first_entry().unwrap_unchecked() })
+                OnlyEntry::from_occupied_entry(unsafe {
+                    one.first_entry().unwrap_maybe_unchecked()
+                })
             })),
             Cardinality::Many(many) => Ok(f(many)),
         };
@@ -481,7 +483,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_first().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_first_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
@@ -497,7 +499,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_last().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_last_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
@@ -545,7 +547,7 @@ impl<K, V> BTreeMap1<K, V> {
 
     pub fn len(&self) -> NonZeroUsize {
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.len()) }
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn first_key_value(&self) -> (&K, &V)
@@ -553,7 +555,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        unsafe { self.items.first_key_value().unwrap_unchecked() }
+        unsafe { self.items.first_key_value().unwrap_maybe_unchecked() }
     }
 
     pub fn first_entry(&mut self) -> OccupiedEntry<'_, K, V>
@@ -561,7 +563,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        match self.many_or_only(|items| unsafe { items.first_entry().unwrap_unchecked() }) {
+        match self.many_or_only(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() }) {
             Ok(many) => many.into(),
             Err(only) => only.into(),
         }
@@ -572,7 +574,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        unsafe { self.items.last_key_value().unwrap_unchecked() }
+        unsafe { self.items.last_key_value().unwrap_maybe_unchecked() }
     }
 
     pub fn last_entry(&mut self) -> OccupiedEntry<'_, K, V>
@@ -580,7 +582,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         // SAFETY:
-        match self.many_or_only(|items| unsafe { items.last_entry().unwrap_unchecked() }) {
+        match self.many_or_only(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() }) {
             Ok(many) => many.into(),
             Err(only) => only.into(),
         }

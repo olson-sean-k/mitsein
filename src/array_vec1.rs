@@ -15,7 +15,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, Saturated, Vacancy};
+use crate::{NonEmpty, OptionExt as _, Saturated, Vacancy};
 
 impl<T, const N: usize> Ranged for ArrayVec<T, N> {
     type Range = PositionalRange;
@@ -101,7 +101,7 @@ where
 
     pub fn into_tail_and_head(mut self) -> (ArrayVec<T, N>, T) {
         // SAFETY:
-        let head = unsafe { self.items.pop().unwrap_unchecked() };
+        let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
     }
 
@@ -168,7 +168,9 @@ where
         F: FnOnce(T, &mut ArrayVec<T, N>) -> U,
     {
         // SAFETY:
-        self.vacant_or_else(item, f, |items| unsafe { items.last().unwrap_unchecked() })
+        self.vacant_or_else(item, f, |items| unsafe {
+            items.last().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn push_or_last(&mut self, item: T) -> Result<(), (T, &T)> {
@@ -177,7 +179,7 @@ where
 
     pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
     pub fn insert_or_last(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
@@ -192,14 +194,38 @@ where
         self.many_or_get(index, move |items| items.swap_remove(index))
     }
 
+    // This function does not use `NonZeroExt`, because at time of writing it is not possible to
+    // implement constant functions in traits.
     pub const fn len(&self) -> NonZeroUsize {
+        #[cfg(all(not(miri), test))]
+        {
+            match NonZeroUsize::new(self.items.len()) {
+                Some(len) => len,
+                _ => panic!(),
+            }
+        }
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.len()) }
+        #[cfg(not(all(not(miri), test)))]
+        unsafe {
+            NonZeroUsize::new_unchecked(self.items.len())
+        }
     }
 
+    // This function does not use `NonZeroExt`, because at time of writing it is not possible to
+    // implement constant functions in traits.
     pub const fn capacity(&self) -> NonZeroUsize {
+        #[cfg(all(not(miri), test))]
+        {
+            match NonZeroUsize::new(self.items.capacity()) {
+                Some(capacity) => capacity,
+                _ => panic!(),
+            }
+        }
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.capacity()) }
+        #[cfg(not(all(not(miri), test)))]
+        unsafe {
+            NonZeroUsize::new_unchecked(self.items.capacity())
+        }
     }
 
     pub const fn as_array_vec(&self) -> &ArrayVec<T, N> {

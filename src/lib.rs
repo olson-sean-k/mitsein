@@ -71,12 +71,62 @@ use crate::serde::{EmptyError, Serde};
 pub use segment::{Segment, Segmentation, SegmentedBy};
 
 trait NonZeroExt<T> {
+    unsafe fn new_maybe_unchecked(n: T) -> Self;
+
     fn clamped(n: T) -> Self;
 }
 
 impl NonZeroExt<usize> for NonZeroUsize {
+    #[cfg(all(not(miri), test))]
+    unsafe fn new_maybe_unchecked(n: usize) -> Self {
+        NonZeroUsize::new(n).unwrap()
+    }
+
+    #[cfg(not(all(not(miri), test)))]
+    #[inline(always)]
+    unsafe fn new_maybe_unchecked(n: usize) -> Self {
+        NonZeroUsize::new_unchecked(n)
+    }
+
     fn clamped(n: usize) -> Self {
         NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
+    }
+}
+
+trait OptionExt<T> {
+    unsafe fn unwrap_maybe_unchecked(self) -> T;
+}
+
+impl<T> OptionExt<T> for Option<T> {
+    #[cfg(all(not(miri), test))]
+    unsafe fn unwrap_maybe_unchecked(self) -> T {
+        self.unwrap()
+    }
+
+    #[cfg(not(all(not(miri), test)))]
+    #[inline(always)]
+    unsafe fn unwrap_maybe_unchecked(self) -> T {
+        self.unwrap_unchecked()
+    }
+}
+
+trait ResultExt<T, E> {
+    unsafe fn unwrap_maybe_unchecked(self) -> T;
+}
+
+impl<T, E> ResultExt<T, E> for Result<T, E> {
+    #[cfg(all(not(miri), test))]
+    unsafe fn unwrap_maybe_unchecked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(_) => panic!("called `Result::unwrap_maybe_unchecked` on an `Err` value"),
+        }
+    }
+
+    #[cfg(not(all(not(miri), test)))]
+    #[inline(always)]
+    unsafe fn unwrap_maybe_unchecked(self) -> T {
+        self.unwrap_unchecked()
     }
 }
 

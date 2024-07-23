@@ -15,7 +15,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, Vacancy};
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
 
 impl<T> Ranged for VecDeque<T> {
     type Range = PositionalRange;
@@ -123,7 +123,7 @@ impl<T> VecDeque1<T> {
         F: FnOnce(&mut VecDeque<T>) -> T,
     {
         // SAFETY:
-        self.many_or_else(f, |items| unsafe { items.front().unwrap_unchecked() })
+        self.many_or_else(f, |items| unsafe { items.front().unwrap_maybe_unchecked() })
     }
 
     fn try_many_or_get<F>(&mut self, index: usize, f: F) -> Option<Result<T, &T>>
@@ -176,12 +176,12 @@ impl<T> VecDeque1<T> {
 
     pub fn pop_front_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_front().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_front().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_back_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
-        self.many_or_only(|items| unsafe { items.pop_back().unwrap_unchecked() })
+        self.many_or_only(|items| unsafe { items.pop_back().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -210,32 +210,32 @@ impl<T> VecDeque1<T> {
 
     pub fn len(&self) -> NonZeroUsize {
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.len()) }
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
         // SAFETY:
-        unsafe { NonZeroUsize::new_unchecked(self.items.capacity()) }
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
     pub fn front(&self) -> &T {
         // SAFETY:
-        unsafe { self.items.front().unwrap_unchecked() }
+        unsafe { self.items.front().unwrap_maybe_unchecked() }
     }
 
     pub fn front_mut(&mut self) -> &mut T {
         // SAFETY:
-        unsafe { self.items.front_mut().unwrap_unchecked() }
+        unsafe { self.items.front_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn back(&self) -> &T {
         // SAFETY:
-        unsafe { self.items.back().unwrap_unchecked() }
+        unsafe { self.items.back().unwrap_maybe_unchecked() }
     }
 
     pub fn back_mut(&mut self) -> &mut T {
         // SAFETY:
-        unsafe { self.items.back_mut().unwrap_unchecked() }
+        unsafe { self.items.back_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<vec_deque::Iter<'_, T>> {

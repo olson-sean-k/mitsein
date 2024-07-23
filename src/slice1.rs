@@ -6,7 +6,7 @@ use core::slice;
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
-use crate::NonEmpty;
+use crate::{NonEmpty, OptionExt as _};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 
@@ -73,32 +73,32 @@ impl<T> Slice1<T> {
 
     pub fn split_first(&self) -> (&T, &[T]) {
         // SAFETY:
-        unsafe { self.items.split_first().unwrap_unchecked() }
+        unsafe { self.items.split_first().unwrap_maybe_unchecked() }
     }
 
     pub fn split_first_mut(&mut self) -> (&mut T, &mut [T]) {
         // SAFETY:
-        unsafe { self.items.split_first_mut().unwrap_unchecked() }
+        unsafe { self.items.split_first_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn first(&self) -> &T {
         // SAFETY:
-        unsafe { self.items.first().unwrap_unchecked() }
+        unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
     pub fn first_mut(&mut self) -> &mut T {
         // SAFETY:
-        unsafe { self.items.first_mut().unwrap_unchecked() }
+        unsafe { self.items.first_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn last(&self) -> &T {
         // SAFETY:
-        unsafe { self.items.last().unwrap_unchecked() }
+        unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn last_mut(&mut self) -> &mut T {
         // SAFETY:
-        unsafe { self.items.last_mut().unwrap_unchecked() }
+        unsafe { self.items.last_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {

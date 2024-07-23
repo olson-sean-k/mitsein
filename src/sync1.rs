@@ -8,6 +8,7 @@ use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{FromIterator1, IntoIterator1};
 use crate::slice1::Slice1;
 use crate::vec1::{CowSlice1, CowSlice1Ext as _, Vec1};
+use crate::ResultExt as _;
 
 pub type ArcSlice1<T> = Arc<Slice1<T>>;
 
@@ -77,7 +78,7 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     fn try_into_arc_array<const N: usize>(self) -> Result<Arc<[T; N]>, Self> {
         if self.len() == N {
             // SAFETY:
-            Ok(unsafe { self.into_arc_slice().try_into().unwrap_unchecked() })
+            Ok(unsafe { self.into_arc_slice().try_into().unwrap_maybe_unchecked() })
         }
         else {
             Err(self)

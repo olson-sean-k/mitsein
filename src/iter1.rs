@@ -12,7 +12,7 @@ use {
     itertools::{Itertools, MapInto, MapOk, WithPosition},
 };
 
-use crate::NonZeroExt as _;
+use crate::{NonZeroExt as _, OptionExt as _};
 
 pub trait Then1<I>
 where
@@ -304,12 +304,12 @@ where
 
     pub fn first(mut self) -> I::Item {
         // SAFETY:
-        unsafe { self.items.next().unwrap_unchecked() }
+        unsafe { self.items.next().unwrap_maybe_unchecked() }
     }
 
     pub fn last(self) -> I::Item {
         // SAFETY:
-        unsafe { self.items.last().unwrap_unchecked() }
+        unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn with_first<F>(self, mut f: F) -> Remainder<I>
@@ -318,7 +318,7 @@ where
     {
         let (_, remainder) = self.maybe_empty(move |items| {
             // SAFETY:
-            unsafe { f(items.next().unwrap_unchecked()) }
+            unsafe { f(items.next().unwrap_maybe_unchecked()) }
         });
         remainder
     }
@@ -326,7 +326,7 @@ where
     pub fn into_head_and_tail(self) -> (I::Item, Remainder<I>) {
         self.maybe_empty(|items| {
             // SAFETY:
-            unsafe { items.next().unwrap_unchecked() }
+            unsafe { items.next().unwrap_maybe_unchecked() }
         })
     }
 
@@ -335,7 +335,7 @@ where
         I::Item: Ord,
     {
         // SAFETY:
-        unsafe { self.items.min().unwrap_unchecked() }
+        unsafe { self.items.min().unwrap_maybe_unchecked() }
     }
 
     pub fn max(self) -> I::Item
@@ -343,7 +343,7 @@ where
         I::Item: Ord,
     {
         // SAFETY:
-        unsafe { self.items.max().unwrap_unchecked() }
+        unsafe { self.items.max().unwrap_maybe_unchecked() }
     }
 
     pub fn reduce<F>(self, f: F) -> I::Item
@@ -351,7 +351,7 @@ where
         F: FnMut(I::Item, I::Item) -> I::Item,
     {
         // SAFETY:
-        unsafe { self.items.reduce(f).unwrap_unchecked() }
+        unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
     }
 
     pub fn any<F>(self, f: F) -> (bool, Remainder<I>)
@@ -569,7 +569,7 @@ where
 {
     pub fn peek(&mut self) -> &I::Item {
         // SAFETY:
-        unsafe { self.items.peek().unwrap_unchecked() }
+        unsafe { self.items.peek().unwrap_maybe_unchecked() }
     }
 }
 
