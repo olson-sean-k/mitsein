@@ -10,7 +10,8 @@ use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
 use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
-use crate::segment::{self, Intersect, Ranged, RelationalRange, Segment, Segmentation, Segmented};
+use crate::segment::range::{self, Intersect, RelationalRange};
+use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::NonEmpty;
@@ -78,7 +79,7 @@ where
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
-        Segment::intersect(self, &segment::ordered_range_bounds(range))
+        Segment::intersect(self, &range::ordered_range_bounds(range))
     }
 }
 
@@ -487,7 +488,7 @@ where
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
-        Segment::intersect_strict_subset(&mut self.items, &segment::ordered_range_bounds(range))
+        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_bounds(range))
     }
 }
 
@@ -670,7 +671,7 @@ where
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
-        Segment::intersect(self.items, &segment::ordered_range_bounds(range))
+        Segment::intersect(self.items, &range::ordered_range_bounds(range))
     }
 }
 

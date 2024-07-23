@@ -45,9 +45,7 @@ pub mod prelude {
     };
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
-    #[cfg(any(feature = "alloc", feature = "arrayvec"))]
-    pub use crate::Segmentation;
-    pub use crate::{Saturate, Saturated, Vacancy};
+    pub use crate::{Saturate, Saturated, Segmentation, Vacancy};
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
@@ -70,10 +68,6 @@ use {alloc::collections::vec_deque::VecDeque, alloc::vec::Vec};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
-// TODO: It is a bit inconsistent that these items are feature gated, but similar items like
-//       `Vacancy`, `Cardinality`, etc. are not. Attribute annotations in documentation can be
-//       noisey, so it may be better to unconditionally define these items.
-#[cfg(any(feature = "alloc", feature = "arrayvec"))]
 pub use segment::{Segment, Segmentation, SegmentedBy};
 
 trait NonZeroExt<T> {

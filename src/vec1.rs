@@ -17,10 +17,10 @@ use core::ops::{Deref, DerefMut, RangeBounds};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
-use crate::segment::{
-    self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _, Ranged,
-    Segment, Segmentation, Segmented,
+use crate::segment::range::{
+    self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
 };
+use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
@@ -64,7 +64,7 @@ where
     R: RangeBounds<usize>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
-        Segment::intersect(self, &segment::ordered_range_offsets(range))
+        Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
 
@@ -451,7 +451,7 @@ where
     R: RangeBounds<usize>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
-        Segment::intersect_strict_subset(&mut self.items, &segment::ordered_range_offsets(range))
+        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }
 
@@ -584,7 +584,7 @@ impl<'a, T> VecSegment<'a, T> {
             intersection,
             before,
             after,
-        } = DrainRange::project_and_intersect(&self.range, &segment::ordered_range_offsets(range));
+        } = DrainRange::project_and_intersect(&self.range, &range::ordered_range_offsets(range));
         self.range = before;
         DrainSegment {
             drain: self.items.drain(intersection),
@@ -610,7 +610,7 @@ impl<'a, T> Vec1Segment<'a, T> {
             mut intersection,
             before,
             after,
-        } = DrainRange::project_and_intersect(&self.range, &segment::ordered_range_offsets(range));
+        } = DrainRange::project_and_intersect(&self.range, &range::ordered_range_offsets(range));
         if self.range.is_prefix() && intersection.is_prefix() {
             // If both the segment and drain ranges are prefixes, then the target `Vec` may be left
             // empty if the drain iterator leaks (e.g., via `mem::forget`). Before the drain
@@ -937,7 +937,7 @@ where
     R: RangeBounds<usize>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
-        let range = self.project(&segment::ordered_range_offsets(range));
+        let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
     }
 }

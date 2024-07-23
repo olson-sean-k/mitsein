@@ -1,14 +1,63 @@
 #![cfg(any(feature = "alloc", feature = "arrayvec"))]
-#![cfg_attr(docsrs, doc(cfg(any(feature = "alloc", feature = "arrayvec"))))]
 
 #[cfg(feature = "alloc")]
 use core::borrow::Borrow;
 use core::cmp;
-use core::fmt::{self, Debug, Formatter};
+use core::fmt::Debug;
 use core::mem;
 use core::ops::{
     Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
+
+use crate::segment::{Indexer, Ranged, Segment, Segmented};
+
+impl<'a, K, T> Segment<'a, K, T>
+where
+    K: Segmented<Target = T> + ?Sized,
+    T: Ranged + ?Sized,
+{
+    pub(crate) fn unchecked(items: &'a mut T, range: <K::Target as Ranged>::Range) -> Self {
+        Segment { items, range }
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn empty<I>(items: &'a mut T) -> Self
+    where
+        T: Ranged<Range = RelationalRange<I>>,
+    {
+        Segment::unchecked(items, RelationalRange::Empty)
+    }
+
+    pub(crate) fn intersect<R>(items: &'a mut T, range: &R) -> Self
+    where
+        T::Range: Intersect<R, Output = T::Range>,
+    {
+        let range = items.range().intersect(range).expect_in_bounds();
+        Segment::unchecked(items, range)
+    }
+
+    pub(crate) fn intersect_strict_subset<R>(items: &'a mut T, range: &R) -> Self
+    where
+        T::Range: Intersect<R, Output = T::Range> + IsStrictSubset<T::Range>,
+    {
+        let basis = items.range();
+        let range = basis.intersect(range).expect_in_bounds();
+        if range.is_strict_subset(&basis) {
+            Segment::unchecked(items, range)
+        }
+        else {
+            panic!("segment is not a strict subset")
+        }
+    }
+
+    pub(crate) fn project<R>(&self, range: &R) -> <T::Range as Project<R>>::Output
+    where
+        T::Range: Project<R>,
+        R: RangeBounds<<T::Range as Indexer>::Index>,
+    {
+        self.range.project(range).expect_in_bounds()
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct PositionalRange {
@@ -115,6 +164,10 @@ impl From<Range<usize>> for PositionalRange {
     }
 }
 
+impl Indexer for PositionalRange {
+    type Index = usize;
+}
+
 impl RangeBounds<usize> for PositionalRange {
     fn start_bound(&self) -> Bound<&usize> {
         Bound::Included(&self.start)
@@ -181,6 +234,10 @@ impl<T> From<Option<(T, T)>> for RelationalRange<T> {
             _ => RelationalRange::Empty,
         }
     }
+}
+
+impl<T> Indexer for RelationalRange<T> {
+    type Index = T;
 }
 
 pub type Projection<T> = Result<T, T>;
@@ -455,145 +512,6 @@ where
                 },
             ) => from < start || to > end,
         }
-    }
-}
-
-pub trait Indexer {
-    type Index;
-}
-
-impl Indexer for PositionalRange {
-    type Index = usize;
-}
-
-impl<T> Indexer for RelationalRange<T> {
-    type Index = T;
-}
-
-pub trait Ranged {
-    type Range: Indexer;
-
-    fn range(&self) -> Self::Range;
-
-    fn tail(&self) -> Self::Range;
-
-    fn rtail(&self) -> Self::Range;
-}
-
-pub trait Segmented {
-    type Kind: Segmented<Target = Self::Target>;
-    type Target: Ranged;
-}
-
-// This trait implements `segment` rather than `Segmentation` so that implementors can apply
-// arbitrary bounds to `R` while `Segmentation::segment` can lower those bounds into the function
-// (rather than the trait).
-pub trait SegmentedBy<R>: Segmented {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target>;
-}
-
-pub trait Segmentation: Segmented {
-    fn segment<R>(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target>
-    where
-        Self: SegmentedBy<R>,
-    {
-        SegmentedBy::segment(self, range)
-    }
-
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target>;
-
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target>;
-}
-
-// TODO: The input type parameter `T` ought not be necessary here, but, at time of writing, the
-//       following `impl`s are considered duplicate definitions (E0592):
-//
-//       impl<'a, K, T> Segment<'a, K>
-//       where
-//           K: Segmented<Target = Vec<T>>,
-//       {
-//           fn noop(&self) {}
-//       }
-//
-//       impl<'a, K, T> Segment<'a, K>
-//       where
-//           K: Segmented<Target = VecDeque<T>>,
-//       {
-//           fn noop(&self) {}
-//       }
-//
-//       Note that the associated `Target` types in the bounds on `K` differ. There is no `K` that
-//       can satisfy both of these bounds, but `rustc` cannot yet reason about this. Remove this
-//       redundant input type parameter if and when such `impl`s no longer conflict.
-pub struct Segment<'a, K, T>
-where
-    K: Segmented<Target = T> + ?Sized,
-    T: Ranged + ?Sized,
-{
-    pub(crate) items: &'a mut T,
-    pub(crate) range: <K::Target as Ranged>::Range,
-}
-
-impl<'a, K, T> Segment<'a, K, T>
-where
-    K: Segmented<Target = T> + ?Sized,
-    T: Ranged + ?Sized,
-{
-    pub(crate) fn unchecked(items: &'a mut T, range: <K::Target as Ranged>::Range) -> Self {
-        Segment { items, range }
-    }
-
-    #[cfg(feature = "alloc")]
-    pub(crate) fn empty<I>(items: &'a mut T) -> Self
-    where
-        T: Ranged<Range = RelationalRange<I>>,
-    {
-        Segment::unchecked(items, RelationalRange::Empty)
-    }
-
-    pub(crate) fn intersect<R>(items: &'a mut T, range: &R) -> Self
-    where
-        T::Range: Intersect<R, Output = T::Range>,
-    {
-        let range = items.range().intersect(range).expect_in_bounds();
-        Segment::unchecked(items, range)
-    }
-
-    pub(crate) fn intersect_strict_subset<R>(items: &'a mut T, range: &R) -> Self
-    where
-        T::Range: Intersect<R, Output = T::Range> + IsStrictSubset<T::Range>,
-    {
-        let basis = items.range();
-        let range = basis.intersect(range).expect_in_bounds();
-        if range.is_strict_subset(&basis) {
-            Segment::unchecked(items, range)
-        }
-        else {
-            panic!("segment is not a strict subset")
-        }
-    }
-
-    pub(crate) fn project<R>(&self, range: &R) -> <T::Range as Project<R>>::Output
-    where
-        T::Range: Project<R>,
-        R: RangeBounds<<T::Range as Indexer>::Index>,
-    {
-        self.range.project(range).expect_in_bounds()
-    }
-}
-
-impl<'a, K, T> Debug for Segment<'a, K, T>
-where
-    K: Segmented<Target = T> + ?Sized,
-    <K::Target as Ranged>::Range: Debug,
-    T: Debug + Ranged + ?Sized,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("Segment")
-            .field("items", &self.items)
-            .field("range", &self.range)
-            .finish()
     }
 }
 
