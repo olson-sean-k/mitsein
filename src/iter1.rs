@@ -297,7 +297,7 @@ where
         unsafe { self.items.last().unwrap_unchecked() }
     }
 
-    pub fn with_first_and_then<F>(self, mut f: F) -> Remainder<I>
+    pub fn with_first<F>(self, mut f: F) -> Remainder<I>
     where
         F: FnMut(I::Item),
     {
@@ -417,9 +417,13 @@ where
         unsafe { self.non_empty(move |items| items.map(f)) }
     }
 
-    pub fn take(self, n: NonZeroUsize) -> Iterator1<Take<I>> {
+    pub fn take_first_and_then(self, n: usize) -> Iterator1<Take<I>> {
         // SAFETY:
-        unsafe { self.non_empty(move |items| items.take(n.into())) }
+        unsafe {
+            self.non_empty(move |items| {
+                items.take(n.checked_add(1).expect("overflow in item count"))
+            })
+        }
     }
 
     pub fn cycle(self) -> Iterator1<Cycle<I>>
