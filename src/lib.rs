@@ -33,7 +33,6 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod iter1;
-pub mod option1;
 pub mod slice1;
 pub mod sync1;
 pub mod vec1;
@@ -44,7 +43,6 @@ pub mod prelude {
     pub use crate::iter1::{
         FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _, Then1,
     };
-    pub use crate::option1::OptionExt as _;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
     #[cfg(any(feature = "alloc", feature = "arrayvec"))]
@@ -152,24 +150,6 @@ where
         let mut items = items.into_iter();
         self.extend(items.by_ref().take(n));
         items
-    }
-}
-
-// TODO: Remove this.
-pub trait FnInto: FnOnce() -> Self::Into {
-    type Into;
-
-    fn call(self) -> Self::Into;
-}
-
-impl<T, F> FnInto for F
-where
-    F: FnOnce() -> T,
-{
-    type Into = T;
-
-    fn call(self) -> Self::Into {
-        (self)()
     }
 }
 

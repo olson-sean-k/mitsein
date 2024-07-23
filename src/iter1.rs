@@ -12,8 +12,7 @@ use {
     itertools::{Itertools, MapInto, MapOk, WithPosition},
 };
 
-use crate::option1::Option1;
-use crate::{FnInto, NonZeroExt as _};
+use crate::NonZeroExt as _;
 
 pub trait Then1<I>
 where
@@ -31,11 +30,11 @@ where
         Self: Sized,
         T: IntoIterator1<Item = I::Item>;
 
-    fn or_else_non_empty<F>(self, f: F) -> OrElseNonEmpty<I, F>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<I, T>
     where
         Self: Sized,
-        F: FnInto,
-        F::Into: IntoIterator1<Item = I::Item>;
+        T: IntoIterator1<Item = I::Item>,
+        F: FnOnce() -> T;
 
     fn or_one<T>(self, item: I::Item) -> OrNonEmpty<I, [I::Item; 1]>
     where
@@ -66,10 +65,11 @@ where
         Iterator1::try_from_iter(self).or_non_empty(items)
     }
 
-    fn or_else_non_empty<F>(self, f: F) -> OrElseNonEmpty<I, F>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<I, T>
     where
-        F: FnInto,
-        F::Into: IntoIterator1<Item = I::Item>,
+        Self: Sized,
+        T: IntoIterator1<Item = I::Item>,
+        F: FnOnce() -> T,
     {
         Iterator1::try_from_iter(self).or_else_non_empty(f)
     }
@@ -142,7 +142,7 @@ pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
 
 pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
-pub type OrElseNonEmpty<I, F> = Iterator1<Chain<Peekable<I>, EmptyOrInto<<F as FnInto>::Into>>>;
+pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 pub type Remainder<I> = Result<Iterator1<Peekable<I>>, Peekable<I>>;
 
@@ -194,16 +194,17 @@ where
         }
     }
 
-    fn or_else_non_empty<F>(self, f: F) -> OrElseNonEmpty<I, F>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<I, T>
     where
-        F: FnInto,
-        F::Into: IntoIterator1<Item = I::Item>,
+        Self: Sized,
+        T: IntoIterator1<Item = I::Item>,
+        F: FnOnce() -> T,
     {
         // SAFETY:
         unsafe {
             Iterator1::from_iter_unchecked(match self {
-                Ok(items) => items.into_iter().chain(empty_or_into::<F::Into>(None)),
-                Err(empty) => empty.chain(empty_or_into(Some(f.call()))),
+                Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
+                Err(empty) => empty.chain(empty_or_into(Some(f()))),
             })
         }
     }
@@ -548,12 +549,13 @@ where
 }
 
 pub fn from_one<T>(item: T) -> ExactlyOne<T> {
-    Option1::from_one(item).into_iter1()
+    // SAFETY:
+    unsafe { Iterator1::from_iter_unchecked(Some(item)) }
 }
 
-pub fn from_one_with<F>(f: F) -> ExactlyOneWith<F>
+pub fn from_one_with<T, F>(f: F) -> ExactlyOneWith<F>
 where
-    F: FnInto,
+    F: FnOnce() -> T,
 {
     // SAFETY:
     unsafe { Iterator1::from_iter_unchecked(iter::once_with(f)) }
@@ -563,14 +565,14 @@ pub fn from_head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
 where
     I: IntoIterator<Item = T>,
 {
-    Option1::from_one(head).into_iter1().chain(tail)
+    self::from_one(head).chain(tail)
 }
 
 pub fn from_tail_and_head<I, T>(tail: I, head: T) -> TailAndHead<I>
 where
     I: IntoIterator<Item = T>,
 {
-    tail.into_iter().chain_non_empty(Option1::from_one(head))
+    tail.into_iter().chain_non_empty(self::from_one(head))
 }
 
 pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
