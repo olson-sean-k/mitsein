@@ -1,4 +1,5 @@
 #![cfg(any(feature = "alloc", feature = "arrayvec"))]
+#![cfg_attr(docsrs, doc(cfg(any(feature = "alloc", feature = "arrayvec"))))]
 
 #[cfg(feature = "alloc")]
 use core::borrow::Borrow;
