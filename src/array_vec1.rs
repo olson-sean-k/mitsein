@@ -9,7 +9,7 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
-use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, IteratorExt as _};
+use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
@@ -427,14 +427,14 @@ where
     [T; N]: Array1,
     I: IntoIterator1<Item = T>,
 {
-    type Remainder = iter1::Remainder<I::IntoIter>;
+    type Remainder = I::IntoIter;
 
     fn saturated(items: I) -> (Self, Self::Remainder) {
         let mut remainder = items.into_iter1().into_iter();
         // SAFETY:
         let items =
             unsafe { ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect()) };
-        (items, remainder.try_into_iter1())
+        (items, remainder)
     }
 }
 

@@ -1,9 +1,11 @@
+use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, Flatten, Inspect, Map, Peekable, Repeat, Rev,
     StepBy, Take,
 };
 use core::num::NonZeroUsize;
 use core::option;
+use core::result;
 #[cfg(all(feature = "alloc", feature = "itertools"))]
 use {alloc::vec, itertools::MultiPeek};
 #[cfg(feature = "itertools")]
@@ -14,7 +16,7 @@ use {
 
 use crate::{NonZeroExt as _, OptionExt as _};
 
-pub trait Then1<I>
+pub trait ThenIterator1<I>
 where
     I: Iterator,
 {
@@ -44,7 +46,7 @@ where
     }
 }
 
-impl<I> Then1<I> for I
+impl<I> ThenIterator1<I> for I
 where
     I: Iterator,
 {
@@ -75,10 +77,10 @@ where
     }
 }
 
-pub trait IteratorExt: Iterator + Sized + Then1<Self> {
-    fn try_into_iter1(self) -> Remainder<Self>;
+pub trait IteratorExt: Iterator + Sized + ThenIterator1<Self> {
+    fn try_into_iter1(self) -> Result<Self>;
 
-    fn try_collect1<T>(self) -> Result<T, Peekable<Self>>
+    fn try_collect1<T>(self) -> result::Result<T, Peekable<Self>>
     where
         T: FromIterator1<Self::Item>,
     {
@@ -90,7 +92,7 @@ impl<I> IteratorExt for I
 where
     I: Iterator,
 {
-    fn try_into_iter1(self) -> Remainder<Self> {
+    fn try_into_iter1(self) -> Result<Self> {
         Iterator1::try_from_iter(self)
     }
 }
@@ -100,7 +102,7 @@ pub trait FromIterator1<T> {
     where
         I: IntoIterator1<Item = T>;
 
-    fn try_from_iter<I>(items: I) -> Result<Self, Peekable<I::IntoIter>>
+    fn try_from_iter<I>(items: I) -> result::Result<Self, Peekable<I::IntoIter>>
     where
         Self: Sized,
         I: IntoIterator<Item = T>,
@@ -159,28 +161,9 @@ pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
-pub type Remainder<I> = Result<Iterator1<Peekable<I>>, Peekable<I>>;
+pub type Result<I> = result::Result<Iterator1<Peekable<I>>, Peekable<I>>;
 
-pub trait RemainderExt<I>: Then1<I>
-where
-    I: Iterator,
-{
-    fn into_iter(self) -> Peekable<I>;
-}
-
-impl<I> RemainderExt<I> for Remainder<I>
-where
-    I: Iterator,
-{
-    fn into_iter(self) -> Peekable<I> {
-        match self {
-            Ok(items) => items.into_iter(),
-            Err(empty) => empty,
-        }
-    }
-}
-
-impl<I> Then1<I> for Remainder<I>
+impl<I> ThenIterator1<I> for Result<I>
 where
     I: Iterator,
 {
@@ -192,7 +175,13 @@ where
     {
         // SAFETY:
         unsafe {
-            Iterator1::from_iter_unchecked(RemainderExt::into_iter(self).chain(items.into_iter1()))
+            Iterator1::from_iter_unchecked(
+                match self {
+                    Ok(items) => items.into_iter(),
+                    Err(empty) => empty,
+                }
+                .chain(items.into_iter1()),
+            )
         }
     }
 
@@ -225,6 +214,111 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Query<T, I> {
+    pub output: T,
+    pub remainder: I,
+}
+
+impl<T, I> Query<T, I> {
+    pub fn with_output_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(T),
+    {
+        let Query { output, remainder } = self;
+        f(output);
+        remainder
+    }
+
+    pub fn with_remainder_and_then_output<F>(self, f: F) -> T
+    where
+        F: FnOnce(I),
+    {
+        let Query { output, remainder } = self;
+        f(remainder);
+        output
+    }
+}
+
+impl<T, I> From<Query<T, I>> for (T, I) {
+    fn from(query: Query<T, I>) -> Self {
+        let Query { output, remainder } = query;
+        (output, remainder)
+    }
+}
+
+pub type Matched<T, I> = Query<Option<T>, I>;
+
+impl<T, I> Matched<T, I> {
+    pub fn matched(self) -> Option<T> {
+        Into::into(self)
+    }
+
+    pub fn some_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(T),
+    {
+        let Matched { output, remainder } = self;
+        if let Some(output) = output {
+            f(output);
+        }
+        remainder
+    }
+
+    pub fn none_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(),
+    {
+        let Matched { output, remainder } = self;
+        if output.is_none() {
+            f();
+        }
+        remainder
+    }
+}
+
+impl<T, I> From<Matched<T, I>> for Option<T> {
+    fn from(query: Matched<T, I>) -> Self {
+        query.output
+    }
+}
+
+pub type IsMatch<I> = Query<bool, I>;
+
+impl<I> IsMatch<I> {
+    pub fn is_match(self) -> bool {
+        Into::into(self)
+    }
+
+    pub fn if_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(),
+    {
+        let IsMatch { output, remainder } = self;
+        if output {
+            f();
+        }
+        remainder
+    }
+
+    pub fn if_not_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(),
+    {
+        let IsMatch { output, remainder } = self;
+        if !output {
+            f();
+        }
+        remainder
+    }
+}
+
+impl<I> From<IsMatch<I>> for bool {
+    fn from(query: IsMatch<I>) -> Self {
+        query.output
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct Iterator1<I> {
@@ -247,7 +341,7 @@ impl<I> Iterator1<I>
 where
     I: Iterator,
 {
-    pub fn try_from_iter<T>(items: T) -> Remainder<I>
+    pub fn try_from_iter<T>(items: T) -> Result<I>
     where
         T: IntoIterator<IntoIter = I>,
     {
@@ -260,12 +354,15 @@ where
     }
 
     #[inline(always)]
-    fn maybe_empty<T, F>(mut self, f: F) -> (T, Remainder<I>)
+    fn maybe_empty<T, F>(mut self, f: F) -> Query<T, I>
     where
         F: FnOnce(&mut I) -> T,
     {
         let output = f(&mut self.items);
-        (output, Iterator1::try_from_iter(self.items))
+        Query {
+            output,
+            remainder: self.items,
+        }
     }
 
     #[inline(always)]
@@ -299,7 +396,7 @@ where
     pub fn count(self) -> NonZeroUsize {
         // Though the count must be non-zero here, it may overflow to zero.
         NonZeroUsize::new(self.items.count())
-            .expect("non-empty iterator has zero items or overflow")
+            .expect("non-empty iterator has zero items or overflow in count")
     }
 
     pub fn first(mut self) -> I::Item {
@@ -312,22 +409,12 @@ where
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
-    pub fn with_first<F>(self, mut f: F) -> Remainder<I>
-    where
-        F: FnMut(I::Item),
-    {
-        let (_, remainder) = self.maybe_empty(move |items| {
-            // SAFETY:
-            unsafe { f(items.next().unwrap_maybe_unchecked()) }
-        });
-        remainder
-    }
-
-    pub fn into_head_and_tail(self) -> (I::Item, Remainder<I>) {
-        self.maybe_empty(|items| {
+    pub fn into_head_and_tail(self) -> (I::Item, I) {
+        let Query { output, remainder } = self.maybe_empty(|items| {
             // SAFETY:
             unsafe { items.next().unwrap_maybe_unchecked() }
-        })
+        });
+        (output, remainder)
     }
 
     pub fn min(self) -> I::Item
@@ -354,46 +441,46 @@ where
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
     }
 
-    pub fn any<F>(self, f: F) -> (bool, Remainder<I>)
+    pub fn any<F>(self, f: F) -> IsMatch<I>
     where
         F: FnMut(I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.any(f))
     }
 
-    pub fn all<F>(self, f: F) -> (bool, Remainder<I>)
+    pub fn all<F>(self, f: F) -> IsMatch<I>
     where
         F: FnMut(I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.all(f))
     }
 
-    pub fn nth(self, n: usize) -> (Option<I::Item>, Remainder<I>) {
+    pub fn nth(self, n: usize) -> Matched<I::Item, I> {
         self.maybe_empty(move |items| items.nth(n))
     }
 
-    pub fn find<F>(self, f: F) -> (Option<I::Item>, Remainder<I>)
+    pub fn find<F>(self, f: F) -> Matched<I::Item, I>
     where
         F: FnMut(&I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.find(f))
     }
 
-    pub fn find_map<T, F>(self, f: F) -> (Option<T>, Remainder<I>)
+    pub fn find_map<T, F>(self, f: F) -> Matched<T, I>
     where
         F: FnMut(I::Item) -> Option<T>,
     {
         self.maybe_empty(move |items| items.find_map(f))
     }
 
-    pub fn position<F>(self, f: F) -> (Option<usize>, Remainder<I>)
+    pub fn position<F>(self, f: F) -> Matched<usize, I>
     where
         F: FnMut(I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.position(f))
     }
 
-    pub fn rposition<F>(self, f: F) -> (Option<usize>, Remainder<I>)
+    pub fn rposition<F>(self, f: F) -> Matched<usize, I>
     where
         I: DoubleEndedIterator + ExactSizeIterator,
         F: FnMut(I::Item) -> bool,
@@ -432,7 +519,7 @@ where
         unsafe { self.non_empty(move |items| items.map(f)) }
     }
 
-    pub fn take_first_and_then(self, n: usize) -> Iterator1<Take<I>> {
+    pub fn first_and_then_take(self, n: usize) -> Iterator1<Take<I>> {
         // SAFETY:
         unsafe {
             self.non_empty(move |items| {
@@ -514,7 +601,7 @@ where
 
     pub fn map_ok<F, T, U, E>(self, f: F) -> Iterator1<MapOk<I, F>>
     where
-        I: Iterator<Item = Result<T, E>>,
+        I: Iterator<Item = result::Result<T, E>>,
         F: FnMut(T) -> U,
     {
         // SAFETY:
@@ -526,7 +613,7 @@ where
         unsafe { self.non_empty(I::with_position) }
     }
 
-    pub fn contains<Q>(self, query: &Q) -> (bool, Remainder<I>)
+    pub fn contains<Q>(self, query: &Q) -> IsMatch<I>
     where
         I::Item: Borrow<Q>,
         Q: PartialEq,
@@ -628,4 +715,27 @@ where
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::iter1;
+
+    #[test]
+    fn maybe_empty_query() {
+        let (has_zero, remainder) = iter1::head_and_tail(0i32, [1]).any(|x| x == 0).into();
+        assert!(has_zero);
+        assert_eq!(remainder.into_iter().next(), Some(1));
+
+        let x = iter1::head_and_tail(0i32, [1, 2, 3])
+            .map(|x| x + 1)
+            .find(|&x| x == 3)
+            .matched();
+        assert_eq!(x, Some(3));
+
+        let x = iter1::head_and_tail(0i32, [1, 2, 3])
+            .map(|x| x + 1)
+            .find(|&x| x == 3)
+            .with_remainder_and_then_output(|remainder| {
+                assert_eq!(remainder.count(), 1);
+            });
+        assert_eq!(x, Some(3));
+    }
+}

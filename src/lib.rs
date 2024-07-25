@@ -40,9 +40,7 @@ pub mod vec_deque1;
 
 pub mod prelude {
     pub use crate::array1::Array1;
-    pub use crate::iter1::{
-        FromIterator1, IntoIterator1, IteratorExt as _, RemainderExt as _, Then1,
-    };
+    pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
     pub use crate::{Saturate, Saturated, Segmentation, Vacancy};

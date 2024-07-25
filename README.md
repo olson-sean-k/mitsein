@@ -63,11 +63,15 @@ let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
 assert_eq!(xs.as_slice(), &[3]);
 
 let xs = Vec1::from([0i32, 1, 2]);
-let (has_zero, remainder) = xs.iter1().any(|x| *x == 0);
-if has_zero {
-    let xs: Vec1<_> = remainder.or_one(&0i32).collect1();
-    assert_eq!(xs.as_slice(), &[&1, &2]);
-}
+let ys: Vec1<_> = xs
+    .iter1()
+    .all(|x| *x == 0)
+    .if_not_and_then_remainder(|| {
+        eprintln!("non-zero");
+    })
+    .or_one(&0i32)
+    .collect1();
+assert_eq!(ys.as_slice(), &[&2]);
 ```
 
 ## Features and Comparisons
