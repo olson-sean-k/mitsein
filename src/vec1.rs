@@ -40,11 +40,11 @@ impl<T> Ranged for Vec<T> {
 }
 
 impl<T> Segmentation for Vec<T> {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> VecSegment<'_, T> {
         self.segment(Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> VecSegment<'_, T> {
         self.segment(Ranged::rtail(self))
     }
 }
@@ -58,7 +58,7 @@ impl<T, R> segment::SegmentedBy<R> for Vec<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> VecSegment<'_, T> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
@@ -440,11 +440,11 @@ impl<T> IntoIterator1 for Vec1<T> {
 }
 
 impl<T> Segmentation for Vec1<T> {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> Vec1Segment<'_, T> {
         self.segment(Ranged::tail(&self.items))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> Vec1Segment<'_, T> {
         self.segment(Ranged::rtail(&self.items))
     }
 }
@@ -458,7 +458,7 @@ impl<T, R> segment::SegmentedBy<R> for Vec1<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> Vec1Segment<'_, T> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }

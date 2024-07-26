@@ -34,11 +34,11 @@ impl<T, const N: usize> Ranged for ArrayVec<T, N> {
 }
 
 impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> ArrayVecSegment<'_, T, N> {
         self.segment(Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> ArrayVecSegment<'_, T, N> {
         self.segment(Ranged::rtail(self))
     }
 }
@@ -52,7 +52,7 @@ impl<T, R, const N: usize> segment::SegmentedBy<R> for ArrayVec<T, N>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> ArrayVecSegment<'_, T, N> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
@@ -442,11 +442,11 @@ impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> ArrayVec1Segment<'_, T, N> {
         self.segment(Ranged::tail(&self.items))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> ArrayVec1Segment<'_, T, N> {
         self.segment(Ranged::rtail(&self.items))
     }
 }
@@ -464,7 +464,7 @@ where
     [T; N]: Array1,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> ArrayVec1Segment<'_, T, N> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }

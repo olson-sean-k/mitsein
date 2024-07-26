@@ -34,11 +34,11 @@ impl<T> Ranged for VecDeque<T> {
 }
 
 impl<T> Segmentation for VecDeque<T> {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> VecDequeSegment<'_, T> {
         Segment::intersect(self, &Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> VecDequeSegment<'_, T> {
         Segment::intersect(self, &Ranged::rtail(self))
     }
 }
@@ -52,7 +52,7 @@ impl<T, R> segment::SegmentedBy<R> for VecDeque<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> VecDequeSegment<'_, T> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
@@ -334,12 +334,12 @@ impl<T> IntoIterator1 for VecDeque1<T> {
 }
 
 impl<T> Segmentation for VecDeque1<T> {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> VecDeque1Segment<'_, T> {
         let range = Ranged::tail(&self.items);
         Segment::intersect_strict_subset(&mut self.items, &range)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> VecDeque1Segment<'_, T> {
         let range = Ranged::rtail(&self.items);
         Segment::intersect_strict_subset(&mut self.items, &range)
     }
@@ -354,7 +354,7 @@ impl<T, R> segment::SegmentedBy<R> for VecDeque1<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> VecDeque1Segment<'_, T> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }

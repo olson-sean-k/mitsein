@@ -54,14 +54,14 @@ impl<K, V> Segmentation for BTreeMap<K, V>
 where
     K: Copy + Ord,
 {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> BTreeMapSegment<'_, K, V> {
         match Ranged::tail(self).try_into_range_inclusive() {
             Some(range) => self.segment(range),
             _ => Segment::empty(self),
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> BTreeMapSegment<'_, K, V> {
         match Ranged::rtail(self).try_into_range_inclusive() {
             Some(range) => self.segment(range),
             _ => Segment::empty(self),
@@ -86,7 +86,7 @@ where
     K: Copy + Ord,
     R: RangeBounds<K>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> BTreeMapSegment<'_, K, V> {
         Segment::intersect(self, &range::ordered_range_bounds(range))
     }
 }
@@ -700,14 +700,14 @@ impl<K, V> Segmentation for BTreeMap1<K, V>
 where
     K: Copy + Ord,
 {
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn tail(&mut self) -> BTreeMap1Segment<'_, K, V> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
             Some(range) => self.segment(range),
             _ => Segment::empty(&mut self.items),
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
+    fn rtail(&mut self) -> BTreeMap1Segment<'_, K, V> {
         match Ranged::rtail(&self.items).try_into_range_inclusive() {
             Some(range) => self.segment(range),
             _ => Segment::empty(&mut self.items),
@@ -729,7 +729,7 @@ where
     K: Copy + Ord,
     R: RangeBounds<K>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
+    fn segment(&mut self, range: R) -> BTreeMap1Segment<'_, K, V> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_bounds(range))
     }
 }
