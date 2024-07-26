@@ -155,6 +155,8 @@ pub type HeadAndTail<T> =
 pub type TailAndHead<T> =
     Iterator1<Chain<<T as IntoIterator>::IntoIter, AtMostOne<<T as IntoIterator>::Item>>>;
 
+pub type FirstAndThen<T, I> = Iterator1<Chain<AtMostOne<T>, I>>;
+
 pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
 
 pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
@@ -519,13 +521,27 @@ where
         unsafe { self.non_empty(move |items| items.map(f)) }
     }
 
-    pub fn first_and_then_take(self, n: usize) -> Iterator1<Take<I>> {
+    pub fn map_first_and_then<U, J, H, T>(mut self, head: H, tail: T) -> FirstAndThen<U, J>
+    where
+        J: Iterator<Item = U>,
+        H: FnOnce(I::Item) -> U,
+        T: FnOnce(I) -> J,
+    {
+        let first = self.items.next().map(head);
         // SAFETY:
-        unsafe {
-            self.non_empty(move |items| {
-                items.take(n.checked_add(1).expect("overflow in item count"))
-            })
-        }
+        unsafe { Iterator1::from_iter_unchecked(first.into_iter().chain(tail(self.items))) }
+    }
+
+    pub fn first_and_then<J, F>(self, f: F) -> FirstAndThen<I::Item, J>
+    where
+        J: Iterator<Item = I::Item>,
+        F: FnOnce(I) -> J,
+    {
+        self.map_first_and_then(|first| first, f)
+    }
+
+    pub fn first_and_then_take(self, n: usize) -> FirstAndThen<I::Item, Take<I>> {
+        self.first_and_then(|items| items.take(n))
     }
 
     pub fn cycle(self) -> Iterator1<Cycle<I>>
