@@ -217,8 +217,9 @@ pub fn from_mut<T>(item: &mut T) -> &mut Slice1<T> {
 #[macro_export]
 macro_rules! slice1 {
     ($($item:expr $(,)?)+) => {{
+        let slice: &[_] = &[$($item,)+];
         // SAFETY:
-        unsafe { $crate::slice1::Slice1::from_slice_unchecked(&[$($item,)+]) }
+        unsafe { $crate::slice1::Slice1::from_slice_unchecked(slice) }
     }};
 }
 pub use slice1;
