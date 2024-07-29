@@ -450,6 +450,14 @@ where
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
     }
 
+    pub fn eq<J>(self, other: J) -> bool
+    where
+        J: IntoIterator,
+        I::Item: PartialEq<J::Item>,
+    {
+        self.into_iter().eq(other)
+    }
+
     pub fn any<F>(self, f: F) -> IsMatch<I>
     where
         F: FnMut(I::Item) -> bool,
@@ -745,27 +753,115 @@ where
 }
 
 #[cfg(test)]
+pub mod harness {
+    use core::fmt::Debug;
+    use rstest::fixture;
+
+    use crate::iter1::{self, AndRemainder, HeadAndTail, Matched};
+
+    #[fixture]
+    pub fn xs1() -> HeadAndTail<[u8; 3]> {
+        iter1::head_and_tail(0, [1, 2, 3])
+    }
+
+    #[fixture]
+    pub fn matched_some_non_empty() -> Matched<u8, impl Iterator<Item = u8>> {
+        Matched {
+            output: Some(0),
+            remainder: [1, 2, 3].into_iter(),
+        }
+    }
+
+    #[fixture]
+    pub fn matched_none_non_empty() -> Matched<u8, impl Iterator<Item = u8>> {
+        Matched {
+            output: None,
+            remainder: [2, 3].into_iter(),
+        }
+    }
+
+    pub fn assert_and_remainder_eq<T, U>(
+        lhs: AndRemainder<T, impl IntoIterator<Item = U>>,
+        rhs: AndRemainder<T, impl IntoIterator<Item = U>>,
+    ) where
+        T: Debug + PartialEq<T>,
+        U: PartialEq<U>,
+    {
+        assert_eq!(lhs.output, rhs.output);
+        assert!(lhs.remainder.into_iter().eq(rhs.remainder.into_iter()));
+    }
+}
+
+#[cfg(test)]
 mod tests {
-    use crate::iter1;
+    use rstest::rstest;
 
-    #[test]
-    fn maybe_empty_query() {
-        let (has_zero, remainder) = iter1::head_and_tail(0i32, [1]).any(|x| x == 0).into();
-        assert!(has_zero);
-        assert_eq!(remainder.into_iter().next(), Some(1));
+    use crate::iter1::harness::{self, matched_none_non_empty, matched_some_non_empty, xs1};
+    use crate::iter1::{HeadAndTail, IntoIterator1, IsMatch, Matched, ThenIterator1};
+    use crate::slice1::{slice1, Slice1};
 
-        let x = iter1::head_and_tail(0i32, [1, 2, 3])
-            .map(|x| x + 1)
-            .find(|&x| x == 3)
-            .matched();
-        assert_eq!(x, Some(3));
+    #[rstest]
+    #[case::non_empty_iter([0], [255], slice1![0])]
+    #[case::empty_iter([], [255], slice1![255])]
+    fn iter_or_non_empty_then_eq(
+        #[case] xs: impl IntoIterator<Item = u8>,
+        #[case] xs1: impl IntoIterator1<Item = u8>,
+        #[case] expected: &Slice1<u8>,
+    ) {
+        assert!(xs
+            .into_iter()
+            .or_non_empty(xs1)
+            .eq(expected.iter1().copied()));
+    }
 
-        let x = iter1::head_and_tail(0i32, [1, 2, 3])
-            .map(|x| x + 1)
-            .find(|&x| x == 3)
-            .with_remainder_and_then_output(|remainder| {
-                assert_eq!(remainder.count(), 1);
-            });
-        assert_eq!(x, Some(3));
+    #[rstest]
+    #[should_panic]
+    fn some_and_then_remainder_with_some_matched_then_called(
+        matched_some_non_empty: Matched<u8, impl Iterator<Item = u8>>,
+    ) {
+        let _remainder = matched_some_non_empty.some_and_then_remainder(|_| panic!());
+    }
+
+    #[rstest]
+    fn some_and_then_remainder_with_none_matched_then_not_called(
+        matched_none_non_empty: Matched<u8, impl Iterator<Item = u8>>,
+    ) {
+        let _remainder = matched_none_non_empty.some_and_then_remainder(|_| panic!());
+    }
+
+    #[rstest]
+    #[case::first(0, IsMatch { output: true, remainder: [1, 2, 3] })]
+    #[case::last(3, IsMatch { output: true, remainder: [] })]
+    #[case::none(4, IsMatch { output: false, remainder: [] })]
+    fn any_eq_in_iter1_then_is_match_eq(
+        xs1: HeadAndTail<[u8; 3]>,
+        #[case] any: u8,
+        #[case] expected: IsMatch<impl IntoIterator<Item = u8>>,
+    ) {
+        harness::assert_and_remainder_eq(xs1.any(|x| x == any), expected);
+    }
+
+    #[rstest]
+    #[case::first(0, IsMatch { output: false, remainder: [2, 3] })]
+    #[case::last(3, IsMatch { output: false, remainder: [1, 2, 3] })]
+    #[case::none(4, IsMatch { output: false, remainder: [1, 2, 3] })]
+    fn all_eq_in_iter1_then_is_match_eq(
+        xs1: HeadAndTail<[u8; 3]>,
+        #[case] any: u8,
+        #[case] expected: IsMatch<impl IntoIterator<Item = u8>>,
+    ) {
+        harness::assert_and_remainder_eq(xs1.all(|x| x == any), expected);
+    }
+
+    #[rstest]
+    #[case::first(0, Matched { output: Some(0), remainder: [1, 2, 3] })]
+    #[case::last(3, Matched { output: Some(3), remainder: [] })]
+    #[case::none(4, Matched { output: None, remainder: [] })]
+    fn find_eq_in_iter1_then_matched_eq(
+        xs1: HeadAndTail<[u8; 3]>,
+        #[case] find: u8,
+        #[case] expected: Matched<u8, impl IntoIterator<Item = u8>>,
+    ) {
+        harness::assert_and_remainder_eq(xs1.find(|&x| x == find), expected);
     }
 }
