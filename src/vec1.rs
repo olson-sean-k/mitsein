@@ -1085,89 +1085,127 @@ macro_rules! vec1 {
 pub use vec1;
 
 #[cfg(test)]
+pub mod harness {
+    use rstest::fixture;
+
+    use crate::iter1::{self, FromIterator1};
+    use crate::vec1::Vec1;
+
+    #[fixture]
+    pub fn xs1(#[default(4)] end: u8) -> Vec1<u8> {
+        Vec1::from_iter1(iter1::harness::xs1(end))
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use core::mem;
+    use core::ops::RangeBounds;
+    use rstest::rstest;
 
-    use crate::vec1::vec1;
+    use crate::segment::range::{PositionalRange, Project};
+    use crate::slice1::{slice1, Slice1};
+    use crate::vec1::harness::{self, xs1};
+    use crate::vec1::Vec1;
     use crate::Segmentation;
 
-    #[test]
-    fn segmentation() {
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.tail().clear();
-        assert_eq!(xs.as_slice(), &[0]);
+    #[rstest]
+    fn pop_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
+        let first = *xs1.first();
+        let mut tail = xs1.as_slice()[1..].to_vec();
+        while let Ok(item) = xs1.pop_or_get_only() {
+            assert_eq!(tail.pop().unwrap(), item);
+        }
+        for _ in 0..3 {
+            assert_eq!(xs1.pop_or_get_only(), Err(&first));
+        }
+        assert_eq!(xs1.as_slice(), &[first]);
+    }
 
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.tail().tail().clear();
-        assert_eq!(xs.as_slice(), &[0, 1]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn clear_tail_of_vec1_then_vec1_eq_head(#[case] mut xs1: Vec1<u8>) {
+        xs1.tail().clear();
+        assert_eq!(xs1.as_slice(), &[0]);
+    }
 
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.tail().rtail().clear();
-        assert_eq!(xs.as_slice(), &[0, 3]);
+    #[rstest]
+    #[case::empty_rtail(harness::xs1(0))]
+    #[case::one_rtail(harness::xs1(1))]
+    #[case::many_rtail(harness::xs1(2))]
+    fn clear_rtail_of_vec1_then_vec1_eq_tail(#[case] mut xs1: Vec1<u8>) {
+        let tail = *xs1.last();
+        xs1.rtail().clear();
+        assert_eq!(xs1.as_slice(), &[tail]);
+    }
 
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.rtail().drain(..);
-        assert_eq!(xs.as_slice(), &[3]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail_empty_rtail(harness::xs1(1))]
+    #[case::many_tail_one_rtail(harness::xs1(2))]
+    #[case::many_tail_many_rtail(harness::xs1(3))]
+    fn clear_tail_rtail_of_vec1_then_vec1_eq_head_and_tail(#[case] mut xs1: Vec1<u8>) {
+        let n = xs1.len().get();
+        let head_and_tail = [0, *xs1.last()];
+        xs1.tail().rtail().clear();
+        assert_eq!(
+            xs1.as_slice(),
+            if n > 1 {
+                &head_and_tail[..]
+            }
+            else {
+                &head_and_tail[..1]
+            }
+        );
+    }
 
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.rtail().drain(0..0);
-        assert_eq!(xs.as_slice(), &[0, 1, 2, 3]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0), 1.., .., slice1![0])]
+    #[case::one_tail(harness::xs1(1), 1.., .., slice1![0])]
+    #[case::many_tail(harness::xs1(2), 1.., .., slice1![0])]
+    #[case::many_tail(harness::xs1(2), 1.., 1.., slice1![0, 1])]
+    #[case::many_tail(harness::xs1(2), 1.., ..1, slice1![0, 2])]
+    #[case::empty_rtail(harness::xs1(0), ..0, .., slice1![0])]
+    #[case::one_rtail(harness::xs1(1), ..1, .., slice1![1])]
+    #[case::many_rtail(harness::xs1(2), ..2, .., slice1![2])]
+    #[case::many_rtail(harness::xs1(2), ..2, 1.., slice1![0, 2])]
+    fn drain_vec1_segment_then_vec1_eq<S, D>(
+        #[case] mut xs1: Vec1<u8>,
+        #[case] segment: S,
+        #[case] drain: D,
+        #[case] expected: &Slice1<u8>,
+    ) where
+        PositionalRange: Project<D, Output = PositionalRange>,
+        S: RangeBounds<usize>,
+        D: RangeBounds<usize>,
+    {
+        xs1.segment(segment).drain(drain);
+        assert_eq!(xs1.as_slice1(), expected);
+    }
 
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.tail().drain(0..0);
-        assert_eq!(xs.as_slice(), &[0, 1, 2, 3]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.tail().rtail().drain(..);
-        assert_eq!(xs.as_slice(), &[0, 3]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.tail().rtail().drain(0..2);
-        assert_eq!(xs.as_slice(), &[0, 3]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        let mut rtail = xs.rtail();
-        let drain = rtail.drain(0..2);
-        mem::forget(drain);
-        assert_eq!(xs.as_slice(), &[2]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        let mut tail = xs.tail();
-        let mut rtail = tail.rtail();
-        let drain = rtail.drain(0..2);
-        mem::forget(drain);
-        assert_eq!(xs.as_slice(), &[0]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        let mut rtail = xs.rtail();
-        let drain = rtail.drain(0..0);
-        mem::forget(drain);
-        assert_eq!(xs.as_slice(), &[0]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        let mut rtail = xs.rtail();
-        let drain = rtail.drain(1..1);
-        mem::forget(drain);
-        assert_eq!(xs.as_slice(), &[0]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        let mut tail = xs.tail();
-        let drain = tail.drain(0..0);
-        mem::forget(drain);
-        assert_eq!(xs.as_slice(), &[0]);
-
-        let mut xs = vec1![0i32, 1, 2, 3];
-        xs.rtail().clear();
-        assert_eq!(xs.as_slice(), &[3]);
-
-        let mut xs = vec1![0i32];
-        assert_eq!(xs.tail().len(), 0);
-        xs.tail().clear();
-        assert_eq!(xs.as_slice(), &[0]);
-
-        let mut xs = vec1![0i32];
-        assert_eq!(xs.rtail().len(), 0);
-        xs.rtail().clear();
-        assert_eq!(xs.as_slice(), &[0]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0), 1.., .., slice1![0])]
+    #[case::one_tail(harness::xs1(1), 1.., .., slice1![0])]
+    #[case::many_tail(harness::xs1(2), 1.., .., slice1![0])]
+    #[case::many_tail(harness::xs1(2), 1.., 1.., slice1![0, 1])]
+    #[case::empty_rtail(harness::xs1(0), ..0, .., slice1![0])]
+    #[case::one_rtail(harness::xs1(1), ..1, .., slice1![1])]
+    #[case::many_rtail(harness::xs1(2), ..2, .., slice1![2])]
+    #[case::many_rtail(harness::xs1(2), ..2, 1.., slice1![0])]
+    fn leak_drain_of_vec1_segment_then_vec1_eq<S, D>(
+        #[case] mut xs1: Vec1<u8>,
+        #[case] segment: S,
+        #[case] drain: D,
+        #[case] expected: &Slice1<u8>,
+    ) where
+        PositionalRange: Project<D, Output = PositionalRange>,
+        S: RangeBounds<usize>,
+        D: RangeBounds<usize>,
+    {
+        let mut segment = xs1.segment(segment);
+        mem::forget(segment.drain(drain));
+        assert_eq!(xs1.as_slice1(), expected);
     }
 }

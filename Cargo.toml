@@ -69,3 +69,6 @@ optional = true
 version = "1.0"
 default-features = false
 optional = true
+
+[dev-dependencies]
+rstest = "^0.21.0"

@@ -923,53 +923,113 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use alloc::vec::Vec;
+pub mod harness {
+    use rstest::fixture;
 
     use crate::btree_map1::BTreeMap1;
+    use crate::iter1::{self, FromIterator1};
+
+    pub const VALUE: &str = "value";
+
+    pub trait KeyValueRef {
+        type Cloned;
+
+        fn cloned(&self) -> Self::Cloned;
+    }
+
+    impl<'a, K, V> KeyValueRef for (&'a K, &'a V)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        type Cloned = (K, V);
+
+        fn cloned(&self) -> Self::Cloned {
+            (self.0.clone(), self.1.clone())
+        }
+    }
+
+    #[fixture]
+    pub fn xs1(#[default(4)] end: u8) -> BTreeMap1<u8, &'static str> {
+        BTreeMap1::from_iter1(iter1::harness::xs1(end).map(|x| (x, VALUE)))
+    }
+
+    #[fixture]
+    pub fn terminals1(
+        #[default(0)] first: u8,
+        #[default(9)] last: u8,
+    ) -> BTreeMap1<u8, &'static str> {
+        BTreeMap1::from_iter1([(first, VALUE), (last, VALUE)])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use crate::btree_map1::harness::{self, terminals1, KeyValueRef, VALUE};
+    use crate::btree_map1::BTreeMap1;
+    use crate::iter1::FromIterator1;
     use crate::Segmentation;
 
-    #[test]
-    fn segmentation() {
-        const VALUE: &str = "value";
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn clear_tail_of_btree_map1_then_btree_map1_eq_head(
+        #[case] mut xs1: BTreeMap1<u8, &'static str>,
+    ) {
+        xs1.tail().clear();
+        assert_eq!(xs1, BTreeMap1::from_one((0, VALUE)));
+    }
 
-        fn items<const N: usize>() -> [(i32, &'static str); N] {
-            assert!(N as u128 <= i32::MAX as u128);
-            let mut items = [(0, VALUE); N];
-            for (index, item) in items.iter_mut().enumerate() {
-                item.0 = index as i32;
-            }
-            items
-        }
+    #[rstest]
+    #[case::empty_rtail(harness::xs1(0))]
+    #[case::one_rtail(harness::xs1(1))]
+    #[case::many_rtail(harness::xs1(2))]
+    fn clear_rtail_of_btree_map1_then_btree_map1_eq_tail(
+        #[case] mut xs1: BTreeMap1<u8, &'static str>,
+    ) {
+        let tail = xs1.last_key_value().cloned();
+        xs1.rtail().clear();
+        assert_eq!(xs1, BTreeMap1::from_one(tail));
+    }
 
-        let mut xs = BTreeMap1::from(items::<4>());
-        xs.tail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(0, VALUE)]);
-
-        let mut xs = BTreeMap1::from(items::<4>());
-        xs.rtail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(3, VALUE)]);
-
-        let mut xs = BTreeMap1::from(items::<4>());
-        xs.tail().rtail().clear();
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail_empty_rtail(harness::xs1(1))]
+    #[case::many_tail_one_rtail(harness::xs1(2))]
+    #[case::many_tail_many_rtail(harness::xs1(3))]
+    fn clear_tail_rtail_of_btree_map1_then_btree_map1_eq_head_and_tail(
+        #[case] mut xs1: BTreeMap1<u8, &'static str>,
+    ) {
+        let n = xs1.len().get();
+        let head_and_tail = [(0, VALUE), xs1.last_key_value().cloned()];
+        xs1.tail().rtail().clear();
         assert_eq!(
-            xs.into_iter().collect::<Vec<_>>().as_slice(),
-            &[(0, VALUE), (3, VALUE)],
+            xs1,
+            BTreeMap1::try_from_iter(if n > 1 {
+                head_and_tail[..].iter().copied()
+            }
+            else {
+                head_and_tail[..1].iter().copied()
+            })
+            .unwrap(),
         );
+    }
 
-        let mut xs = BTreeMap1::from(items::<1>());
-        xs.tail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(0, VALUE)]);
-
-        let mut xs = BTreeMap1::from(items::<1>());
-        xs.rtail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[(0, VALUE)]);
-
-        let mut xs = BTreeMap1::from([(0i32, VALUE), (9, VALUE)]);
-        let mut segment = xs.segment(4..);
-        assert_eq!(segment.insert_in_range(4, VALUE), Ok(None));
-        assert_eq!(segment.insert_in_range(9, VALUE), Ok(Some(VALUE)));
-        assert_eq!(segment.insert_in_range(0, VALUE), Err((0, VALUE)));
-        assert_eq!(segment.insert_in_range(1, VALUE), Err((1, VALUE)));
+    #[rstest]
+    #[case::absent_in_range(4, 4, Ok(None))]
+    #[case::present_in_range(4, 9, Ok(Some(VALUE)))]
+    #[case::out_of_range(4, 0, Err((0, VALUE)))]
+    #[case::out_of_range(4, 1, Err((1, VALUE)))]
+    fn insert_into_btree_map1_segment_range_from_then_output_eq(
+        #[from(terminals1)] mut xs1: BTreeMap1<u8, &'static str>,
+        #[case] from: u8,
+        #[case] key: u8,
+        #[case] expected: Result<Option<&'static str>, (u8, &'static str)>,
+    ) {
+        let mut segment = xs1.segment(from..);
+        assert_eq!(segment.insert_in_range(key, VALUE), expected);
     }
 }

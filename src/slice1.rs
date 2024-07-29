@@ -224,6 +224,3 @@ macro_rules! slice1 {
     }};
 }
 pub use slice1;
-
-#[cfg(test)]
-mod tests {}

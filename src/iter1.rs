@@ -574,6 +574,14 @@ where
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
     }
 
+    pub fn eq<J>(self, other: J) -> bool
+    where
+        J: IntoIterator,
+        I::Item: PartialEq<J::Item>,
+    {
+        self.into_iter().eq(other)
+    }
+
     pub fn copied<'a, T>(self) -> Iterator1<Copied<I>>
     where
         T: 'a + Copy,
@@ -891,27 +899,113 @@ where
 }
 
 #[cfg(test)]
+pub mod harness {
+    use core::fmt::Debug;
+    use core::iter::Peekable;
+    use core::ops::RangeInclusive;
+    use rstest::fixture;
+
+    use crate::iter1::{Feed, Iterator1, Matched};
+
+    pub type Xs1 = Iterator1<Peekable<RangeInclusive<u8>>>;
+
+    #[fixture]
+    pub fn xs1(#[default(4)] end: u8) -> Xs1 {
+        Iterator1::try_from_iter(0..=end).unwrap_or_else(|_| panic!("range `0..={}` is empty", end))
+    }
+
+    #[fixture]
+    pub fn matched_some_non_empty() -> Matched<u8, impl Iterator<Item = u8>> {
+        Feed(Some(0), [1, 2, 3].into_iter())
+    }
+
+    #[fixture]
+    pub fn matched_none_non_empty() -> Matched<u8, impl Iterator<Item = u8>> {
+        Feed(None, [2, 3].into_iter())
+    }
+
+    pub fn assert_feed_eq<T, U>(
+        lhs: Feed<T, impl IntoIterator<Item = U>>,
+        rhs: Feed<T, impl IntoIterator<Item = U>>,
+    ) where
+        T: Debug + PartialEq<T>,
+        U: PartialEq<U>,
+    {
+        assert_eq!(lhs.0, rhs.0);
+        assert!(lhs.1.into_iter().eq(rhs.1.into_iter()));
+    }
+}
+
+#[cfg(test)]
 mod tests {
-    use crate::iter1::{self, Feed, QueryAnd};
+    use rstest::rstest;
 
-    #[test]
-    fn and_remainder() {
-        let Feed(has_zero, remainder) = iter1::head_and_tail(0i32, [1]).any_and(|x| x == 0);
-        assert!(has_zero);
-        assert_eq!(remainder.into_iter().next(), Some(1));
+    use crate::iter1::harness::{self, matched_none_non_empty, matched_some_non_empty, xs1, Xs1};
+    use crate::iter1::{Feed, IntoIterator1, IsMatch, Matched, QueryAnd, ThenIterator1};
+    use crate::slice1::{slice1, Slice1};
 
-        let x = iter1::head_and_tail(0i32, [1, 2, 3])
-            .map(|x| x + 1)
-            .find_and(|&x| x == 3)
-            .matched();
-        assert_eq!(x, Some(3));
+    #[rstest]
+    #[case::non_empty_iter([0], [255], slice1![0])]
+    #[case::empty_iter([], [255], slice1![255])]
+    fn iter_or_non_empty_then_eq(
+        #[case] xs: impl IntoIterator<Item = u8>,
+        #[case] xs1: impl IntoIterator1<Item = u8>,
+        #[case] expected: &Slice1<u8>,
+    ) {
+        assert!(xs
+            .into_iter()
+            .or_non_empty(xs1)
+            .eq(expected.iter1().copied()));
+    }
 
-        let x = iter1::head_and_tail(0i32, [1, 2, 3])
-            .map(|x| x + 1)
-            .find_and(|&x| x == 3)
-            .with_remainder_and_then_output(|remainder| {
-                assert_eq!(remainder.count(), 1);
-            });
-        assert_eq!(x, Some(3));
+    #[rstest]
+    #[should_panic]
+    fn some_and_then_remainder_with_some_matched_then_call(
+        matched_some_non_empty: Matched<u8, impl Iterator<Item = u8>>,
+    ) {
+        let _remainder = matched_some_non_empty.some_and_then_remainder(|_| panic!());
+    }
+
+    #[rstest]
+    fn some_and_then_remainder_with_none_matched_then_no_call(
+        matched_none_non_empty: Matched<u8, impl Iterator<Item = u8>>,
+    ) {
+        let _remainder = matched_none_non_empty.some_and_then_remainder(|_| panic!());
+    }
+
+    #[rstest]
+    #[case::first(0, Feed(true, [1, 2, 3, 4]))]
+    #[case::last(4, Feed(true, []))]
+    #[case::none(5, Feed(false, []))]
+    fn any_and_with_iter1_then_is_match_eq(
+        xs1: Xs1,
+        #[case] any: u8,
+        #[case] expected: IsMatch<impl IntoIterator<Item = u8>>,
+    ) {
+        harness::assert_feed_eq(xs1.any_and(|x| x == any), expected);
+    }
+
+    #[rstest]
+    #[case::first(0, Feed(false, [2, 3, 4]))]
+    #[case::last(3, Feed(false, [1, 2, 3, 4]))]
+    #[case::none(4, Feed(false, [1, 2, 3, 4]))]
+    fn all_and_with_iter1_then_is_match_eq(
+        xs1: Xs1,
+        #[case] all: u8,
+        #[case] expected: IsMatch<impl IntoIterator<Item = u8>>,
+    ) {
+        harness::assert_feed_eq(xs1.all_and(|x| x == all), expected);
+    }
+
+    #[rstest]
+    #[case::first(0, Feed(Some(0), [1, 2, 3, 4]))]
+    #[case::last(4, Feed(Some(4), []))]
+    #[case::none(5, Feed(None, []))]
+    fn find_and_with_iter1_then_matched_eq(
+        xs1: Xs1,
+        #[case] find: u8,
+        #[case] expected: Matched<u8, impl IntoIterator<Item = u8>>,
+    ) {
+        harness::assert_feed_eq(xs1.find_and(|&x| x == find), expected);
     }
 }

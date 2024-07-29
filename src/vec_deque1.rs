@@ -721,46 +721,64 @@ where
 }
 
 #[cfg(test)]
+pub mod harness {
+    use rstest::fixture;
+
+    use crate::iter1::{self, FromIterator1};
+    use crate::vec_deque1::VecDeque1;
+
+    #[fixture]
+    pub fn xs1(#[default(4)] end: u8) -> VecDeque1<u8> {
+        VecDeque1::from_iter1(iter1::harness::xs1(end))
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
+    use crate::vec_deque1::harness;
     use crate::vec_deque1::VecDeque1;
     use crate::Segmentation;
 
-    #[test]
-    fn segmentation() {
-        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        xs.tail().clear();
-        assert_eq!(xs.make_contiguous().as_slice(), &[0]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn clear_tail_of_vec_deque1_then_vec_deque1_eq_head(#[case] mut xs1: VecDeque1<u8>) {
+        xs1.tail().clear();
+        assert_eq!(xs1.make_contiguous().as_slice(), &[0]);
+    }
 
-        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        xs.tail().tail().clear();
-        assert_eq!(xs.make_contiguous().as_slice(), &[0, 1]);
+    #[rstest]
+    #[case::empty_rtail(harness::xs1(0))]
+    #[case::one_rtail(harness::xs1(1))]
+    #[case::many_rtail(harness::xs1(2))]
+    fn clear_rtail_of_vec_deque1_then_vec_deque1_eq_tail(#[case] mut xs1: VecDeque1<u8>) {
+        let tail = *xs1.back();
+        xs1.rtail().clear();
+        assert_eq!(xs1.make_contiguous().as_slice(), &[tail]);
+    }
 
-        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        xs.tail().rtail().clear();
-        assert_eq!(xs.make_contiguous().as_slice(), &[0, 3]);
-
-        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        xs.rtail().clear();
-        assert_eq!(xs.make_contiguous().as_slice(), &[3]);
-
-        let mut xs = VecDeque1::from([0i32]);
-        assert_eq!(xs.tail().len(), 0);
-        xs.tail().clear();
-        assert_eq!(xs.make_contiguous().as_slice(), &[0]);
-
-        let mut xs = VecDeque1::from([0i32]);
-        assert_eq!(xs.rtail().len(), 0);
-        xs.rtail().clear();
-        assert_eq!(xs.make_contiguous().as_slice(), &[0]);
-
-        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        xs.tail().remove(0);
-        assert_eq!(xs.make_contiguous().as_slice(), &[0, 2, 3]);
-
-        let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        let mut segment = xs.segment(1..1);
-        assert_eq!(segment.len(), 0);
-        segment.insert(0, 10);
-        assert_eq!(xs.make_contiguous().as_slice(), &[0, 10, 1, 2, 3]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail_empty_rtail(harness::xs1(1))]
+    #[case::many_tail_one_rtail(harness::xs1(2))]
+    #[case::many_tail_many_rtail(harness::xs1(3))]
+    fn clear_tail_rtail_of_vec_deque1_then_vec_deque1_eq_head_and_tail(
+        #[case] mut xs1: VecDeque1<u8>,
+    ) {
+        let n = xs1.len().get();
+        let head_and_tail = [0, *xs1.back()];
+        xs1.tail().rtail().clear();
+        assert_eq!(
+            xs1.make_contiguous().as_slice(),
+            if n > 1 {
+                &head_and_tail[..]
+            }
+            else {
+                &head_and_tail[..1]
+            }
+        );
     }
 }

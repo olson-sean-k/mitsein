@@ -685,39 +685,86 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use alloc::vec::Vec;
+pub mod harness {
+    use rstest::fixture;
 
     use crate::btree_set1::BTreeSet1;
+    use crate::iter1::{self, FromIterator1};
+
+    #[fixture]
+    pub fn xs1(#[default(4)] end: u8) -> BTreeSet1<u8> {
+        BTreeSet1::from_iter1(iter1::harness::xs1(end))
+    }
+
+    #[fixture]
+    pub fn terminals1(#[default(0)] first: u8, #[default(9)] last: u8) -> BTreeSet1<u8> {
+        BTreeSet1::from_iter1([first, last])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use crate::btree_set1::harness::{self, terminals1};
+    use crate::btree_set1::BTreeSet1;
+    use crate::iter1::FromIterator1;
     use crate::Segmentation;
 
-    #[test]
-    fn segmentation() {
-        let mut xs = BTreeSet1::from([0i32, 1, 2, 3]);
-        xs.tail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[0]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn clear_tail_of_btree_set1_then_btree_set1_eq_head(#[case] mut xs1: BTreeSet1<u8>) {
+        xs1.tail().clear();
+        assert_eq!(xs1, BTreeSet1::from_one(0));
+    }
 
-        let mut xs = BTreeSet1::from([0i32, 1, 2, 3]);
-        xs.rtail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[3]);
+    #[rstest]
+    #[case::empty_rtail(harness::xs1(0))]
+    #[case::one_rtail(harness::xs1(1))]
+    #[case::many_rtail(harness::xs1(2))]
+    fn clear_rtail_of_btree_set1_then_btree_set1_eq_tail(#[case] mut xs1: BTreeSet1<u8>) {
+        let tail = *xs1.last();
+        xs1.rtail().clear();
+        assert_eq!(xs1, BTreeSet1::from_one(tail));
+    }
 
-        let mut xs = BTreeSet1::from([0i32, 1, 2, 3]);
-        xs.tail().rtail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[0, 3]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail_empty_rtail(harness::xs1(1))]
+    #[case::many_tail_one_rtail(harness::xs1(2))]
+    #[case::many_tail_many_rtail(harness::xs1(3))]
+    fn clear_tail_rtail_of_btree_set1_then_btree_set1_eq_head_and_tail(
+        #[case] mut xs1: BTreeSet1<u8>,
+    ) {
+        let n = xs1.len().get();
+        let head_and_tail = [0, *xs1.last()];
+        xs1.tail().rtail().clear();
+        assert_eq!(
+            xs1,
+            BTreeSet1::try_from_iter(if n > 1 {
+                head_and_tail[..].iter().copied()
+            }
+            else {
+                head_and_tail[..1].iter().copied()
+            })
+            .unwrap(),
+        );
+    }
 
-        let mut xs = BTreeSet1::from([0i32]);
-        xs.tail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[0]);
-
-        let mut xs = BTreeSet1::from([0i32]);
-        xs.rtail().clear();
-        assert_eq!(xs.into_iter().collect::<Vec<_>>().as_slice(), &[0]);
-
-        let mut xs = BTreeSet1::from([0i32, 9]);
-        let mut segment = xs.segment(4..);
-        assert_eq!(segment.insert_in_range(4), Ok(true));
-        assert_eq!(segment.insert_in_range(9), Ok(false));
-        assert_eq!(segment.insert_in_range(0), Err(0));
-        assert_eq!(segment.insert_in_range(1), Err(1));
+    #[rstest]
+    #[case::absent_in_range(4, 4, Ok(true))]
+    #[case::present_in_range(4, 9, Ok(false))]
+    #[case::out_of_range(4, 0, Err(0))]
+    #[case::out_of_range(4, 1, Err(1))]
+    fn insert_into_btree_set1_segment_range_from_then_output_eq(
+        #[from(terminals1)] mut xs1: BTreeSet1<u8>,
+        #[case] from: u8,
+        #[case] item: u8,
+        #[case] expected: Result<bool, u8>,
+    ) {
+        let mut segment = xs1.segment(from..);
+        assert_eq!(segment.insert_in_range(item), expected);
     }
 }

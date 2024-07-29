@@ -1,4 +1,5 @@
-// TODO: Implement tests. Consider `rstest`.
+// TODO: Implement more tests. At time of writing, testing is minimal and some important tests are
+//       absent.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
@@ -188,6 +189,3 @@ macro_rules! with_tuples {
     };
 }
 pub(crate) use with_tuples;
-
-#[cfg(test)]
-mod tests {}

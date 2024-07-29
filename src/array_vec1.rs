@@ -931,61 +931,81 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use arrayvec::ArrayVec;
+pub mod harness {
+    use rstest::fixture;
 
     use crate::array_vec1::ArrayVec1;
-    use crate::iter1::{IntoIterator1, IteratorExt as _};
+    use crate::iter1::{self, FromIterator1};
+
+    pub const CAPACITY: usize = 10;
+
+    #[fixture]
+    pub fn xs1(#[default(4)] end: u8) -> ArrayVec1<u8, CAPACITY> {
+        ArrayVec1::from_iter1(iter1::harness::xs1(end))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use arrayvec::ArrayVec;
+    use rstest::rstest;
+
+    use crate::array_vec1::harness::{self, CAPACITY};
+    use crate::array_vec1::ArrayVec1;
+    use crate::iter1::{self, Feed, IteratorExt as _};
     use crate::Segmentation;
 
-    #[test]
-    fn saturation() {
-        let xs: ArrayVec<_, 3> = [0i32, 1, 2, 3].into_iter().saturate().0;
-        assert_eq!(xs.as_slice(), &[0, 1, 2]);
-
-        let (xs, remainder): (ArrayVec<_, 3>, _) = [0i32, 1, 2, 3, 4].into_iter().saturate().into();
-        assert_eq!(xs.as_slice(), &[0, 1, 2]);
-        assert!(remainder.eq([3, 4]));
-
-        let (xs, remainder): (ArrayVec<_, 4>, _) = [0i32, 1].into_iter1().saturate().into();
-        assert_eq!(xs.as_slice(), &[0, 1]);
-        assert!(remainder.eq([]));
-
-        let (xs, remainder): (ArrayVec1<_, 3>, _) = [0i32, 1, 2, 3].into_iter1().saturate().into();
-        assert_eq!(xs.as_slice(), &[0, 1, 2]);
-        assert!(remainder.eq([3]));
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn clear_tail_of_array_vec1_then_array_vec1_eq_head(#[case] mut xs1: ArrayVec1<u8, CAPACITY>) {
+        xs1.tail().clear();
+        assert_eq!(xs1.as_slice(), &[0]);
     }
 
-    #[test]
-    fn segmentation() {
-        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
-        xs.tail().clear();
-        assert_eq!(xs.as_slice(), &[0]);
+    #[rstest]
+    #[case::empty_rtail(harness::xs1(0))]
+    #[case::one_rtail(harness::xs1(1))]
+    #[case::many_rtail(harness::xs1(2))]
+    fn clear_rtail_of_array_vec1_then_array_vec1_eq_tail(#[case] mut xs1: ArrayVec1<u8, CAPACITY>) {
+        let tail = *xs1.last();
+        xs1.rtail().clear();
+        assert_eq!(xs1.as_slice(), &[tail]);
+    }
 
-        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
-        xs.tail().tail().clear();
-        assert_eq!(xs.as_slice(), &[0, 1]);
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail_empty_rtail(harness::xs1(1))]
+    #[case::many_tail_one_rtail(harness::xs1(2))]
+    #[case::many_tail_many_rtail(harness::xs1(3))]
+    fn clear_tail_rtail_of_array_vec1_then_array_vec1_eq_head_and_tail(
+        #[case] mut xs1: ArrayVec1<u8, CAPACITY>,
+    ) {
+        let n = xs1.len().get();
+        let head_and_tail = [0, *xs1.last()];
+        xs1.tail().rtail().clear();
+        assert_eq!(
+            xs1.as_slice(),
+            if n > 1 {
+                &head_and_tail[..]
+            }
+            else {
+                &head_and_tail[..1]
+            }
+        );
+    }
 
-        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
-        xs.rtail().clear();
-        assert_eq!(xs.as_slice(), &[3]);
-
-        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
-        xs.tail().rtail().clear();
-        assert_eq!(xs.as_slice(), &[0, 3]);
-
-        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
-        xs.tail().rtail().truncate(1);
-        assert_eq!(xs.as_slice(), &[0, 1, 3]);
-
-        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
-        xs.tail().clear();
-        xs.tail().extend([4, 5, 6]);
-        assert_eq!(xs.as_slice(), &[0, 4, 5, 6]);
-
-        let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
-        xs.rtail().clear();
-        xs.rtail().extend([4, 5, 6]);
-        assert_eq!(xs.as_slice(), &[4, 5, 6, 3]);
+    #[rstest]
+    #[case::saturated([0, 1, 2, 3], Feed([0, 1, 2].into(), [3]))]
+    #[case::saturated([0, 1, 2, 3, 4], Feed([0, 1, 2].into(), [3, 4]))]
+    #[case::vacant([0, 1], Feed([0, 1].into_iter().collect(), []))]
+    #[case::vacant([0], Feed([0].into_iter().collect(), []))]
+    fn saturate_array_vec_from_iter_then_feed_eq(
+        #[case] items: impl IntoIterator<Item = u8>,
+        #[case] expected: Feed<ArrayVec<u8, 3>, impl IntoIterator<Item = u8>>,
+    ) {
+        let feed: Feed<ArrayVec<_, 3>, _> = items.into_iter().saturate();
+        iter1::harness::assert_feed_eq(feed, expected)
     }
 }
