@@ -52,16 +52,12 @@ pub mod prelude {
     };
 }
 
-#[cfg(feature = "arrayvec")]
-use arrayvec::ArrayVec;
 use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
 use {
     ::serde::{Deserialize, Serialize},
     ::serde_derive::{Deserialize, Serialize},
 };
-#[cfg(feature = "alloc")]
-use {alloc::collections::vec_deque::VecDeque, alloc::vec::Vec};
 
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
@@ -132,70 +128,16 @@ pub trait Vacancy {
     fn vacancy(&self) -> usize;
 }
 
-#[cfg(feature = "arrayvec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "arrayvec")))]
-impl<T, const N: usize> Vacancy for ArrayVec<T, N> {
-    fn vacancy(&self) -> usize {
-        self.capacity() - self.len()
-    }
-}
-
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-impl<T> Vacancy for Vec<T> {
-    fn vacancy(&self) -> usize {
-        self.capacity() - self.len()
-    }
-}
-
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-impl<T> Vacancy for VecDeque<T> {
-    fn vacancy(&self) -> usize {
-        self.capacity() - self.len()
-    }
-}
-
 pub trait Saturated<T>: Sized {
     type Remainder;
 
     fn saturated(items: T) -> (Self, Self::Remainder);
 }
 
-#[cfg(feature = "arrayvec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "arrayvec")))]
-impl<T, I, const N: usize> Saturated<I> for ArrayVec<T, N>
-where
-    I: IntoIterator<Item = T>,
-{
-    type Remainder = I::IntoIter;
-
-    fn saturated(items: I) -> (Self, Self::Remainder) {
-        let mut remainder = items.into_iter();
-        let items: ArrayVec<_, N> = remainder.by_ref().take(N).collect();
-        (items, remainder)
-    }
-}
-
 pub trait Saturate<T> {
     type Remainder;
 
     fn saturate(&mut self, items: T) -> Self::Remainder;
-}
-
-impl<T, I> Saturate<I> for T
-where
-    T: Extend<I::Item> + Vacancy,
-    I: IntoIterator,
-{
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        let n = self.vacancy();
-        let mut items = items.into_iter();
-        self.extend(items.by_ref().take(n));
-        items
-    }
 }
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -278,6 +220,18 @@ impl<T> Cardinality<T, T> {
             Cardinality::Many(many) => Cardinality::Many(f(many)),
         }
     }
+}
+
+#[cfg(any(feature = "alloc", feature = "arrayvec"))]
+fn saturate_positional_vacancy<T, I>(destination: &mut T, source: I) -> I::IntoIter
+where
+    T: Extend<I::Item> + Vacancy,
+    I: IntoIterator,
+{
+    let n = destination.vacancy();
+    let mut source = source.into_iter();
+    destination.extend(source.by_ref().take(n));
+    source
 }
 
 macro_rules! with_literals {

@@ -15,7 +15,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Saturate, Vacancy};
 
 impl<T> Ranged for VecDeque<T> {
     type Range = PositionalRange;
@@ -30,6 +30,17 @@ impl<T> Ranged for VecDeque<T> {
 
     fn rtail(&self) -> Self::Range {
         From::from(0..self.len().saturating_sub(1))
+    }
+}
+
+impl<T, I> Saturate<I> for VecDeque<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -54,6 +65,12 @@ where
 {
     fn segment(&mut self, range: R) -> VecDequeSegment<'_, T> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
+    }
+}
+
+impl<T> Vacancy for VecDeque<T> {
+    fn vacancy(&self) -> usize {
+        self.capacity() - self.len()
     }
 }
 
@@ -333,6 +350,17 @@ impl<T> IntoIterator1 for VecDeque1<T> {
     }
 }
 
+impl<T, I> Saturate<I> for VecDeque1<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T> Segmentation for VecDeque1<T> {
     fn tail(&mut self) -> VecDeque1Segment<'_, T> {
         let range = Ranged::tail(&self.items);
@@ -378,6 +406,12 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
             // SAFETY:
             _ => Ok(unsafe { VecDeque1::from_vec_deque_unchecked(items) }),
         }
+    }
+}
+
+impl<T> Vacancy for VecDeque1<T> {
+    fn vacancy(&self) -> usize {
+        self.items.vacancy()
     }
 }
 
@@ -582,6 +616,18 @@ where
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.iter().partial_cmp(other.iter())
+    }
+}
+
+impl<'a, K, T, I> Saturate<I> for Segment<'a, K, VecDeque<T>>
+where
+    K: Segmented<Target = VecDeque<T>>,
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
     }
 }
 

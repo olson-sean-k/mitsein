@@ -15,7 +15,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, Segmented};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, OptionExt as _, Saturated, Vacancy};
+use crate::{NonEmpty, OptionExt as _, Saturate, Saturated, Vacancy};
 
 impl<T, const N: usize> Ranged for ArrayVec<T, N> {
     type Range = PositionalRange;
@@ -30,6 +30,30 @@ impl<T, const N: usize> Ranged for ArrayVec<T, N> {
 
     fn rtail(&self) -> Self::Range {
         From::from(0..self.len().saturating_sub(1))
+    }
+}
+
+impl<T, I, const N: usize> Saturate<I> for ArrayVec<T, N>
+where
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
+    }
+}
+
+impl<T, I, const N: usize> Saturated<I> for ArrayVec<T, N>
+where
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturated(items: I) -> (Self, Self::Remainder) {
+        let mut remainder = items.into_iter();
+        let items: ArrayVec<_, N> = remainder.by_ref().take(N).collect();
+        (items, remainder)
     }
 }
 
@@ -54,6 +78,12 @@ where
 {
     fn segment(&mut self, range: R) -> ArrayVecSegment<'_, T, N> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
+    }
+}
+
+impl<T, const N: usize> Vacancy for ArrayVec<T, N> {
+    fn vacancy(&self) -> usize {
+        self.capacity() - self.len()
     }
 }
 
@@ -422,6 +452,18 @@ impl<T, const N: usize> IntoIterator1 for ArrayVec1<T, N> {
     }
 }
 
+impl<T, I, const N: usize> Saturate<I> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T, I, const N: usize> Saturated<I> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
@@ -702,6 +744,18 @@ where
         self.items.extend(tail);
         let n = self.items.len() - n;
         self.range.put_from_end(n);
+    }
+}
+
+impl<'a, K, T, I, const N: usize> Saturate<I> for Segment<'a, K, ArrayVec<T, N>>
+where
+    K: Segmented<Target = ArrayVec<T, N>>,
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
     }
 }
 

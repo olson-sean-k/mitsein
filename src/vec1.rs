@@ -21,7 +21,7 @@ use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Saturate, Vacancy};
 
 impl<T> Ranged for Vec<T> {
     type Range = PositionalRange;
@@ -36,6 +36,17 @@ impl<T> Ranged for Vec<T> {
 
     fn rtail(&self) -> Self::Range {
         From::from(0..self.len().saturating_sub(1))
+    }
+}
+
+impl<T, I> Saturate<I> for Vec<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -60,6 +71,12 @@ where
 {
     fn segment(&mut self, range: R) -> VecSegment<'_, T> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
+    }
+}
+
+impl<T> Vacancy for Vec<T> {
+    fn vacancy(&self) -> usize {
+        self.capacity() - self.len()
     }
 }
 
@@ -436,6 +453,17 @@ impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY:
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T, I> Saturate<I> for Vec1<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -912,6 +940,18 @@ where
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl<'a, K, T, I> Saturate<I> for Segment<'a, K, Vec<T>>
+where
+    K: Segmented<Target = Vec<T>>,
+    I: IntoIterator<Item = T>,
+{
+    type Remainder = I::IntoIter;
+
+    fn saturate(&mut self, items: I) -> Self::Remainder {
+        crate::saturate_positional_vacancy(self, items)
     }
 }
 
