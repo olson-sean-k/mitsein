@@ -14,7 +14,7 @@ use {
     itertools::{Itertools, MapInto, MapOk, WithPosition},
 };
 
-use crate::{NonZeroExt as _, OptionExt as _};
+use crate::{NonZeroExt as _, OptionExt as _, Saturated};
 
 pub trait ThenIterator1<I>
 where
@@ -85,6 +85,13 @@ pub trait IteratorExt: Iterator + Sized + ThenIterator1<Self> {
         T: FromIterator1<Self::Item>,
     {
         T::try_from_iter(self)
+    }
+
+    fn saturate<T>(self) -> (T, T::Remainder)
+    where
+        T: Saturated<Self>,
+    {
+        T::saturated(self)
     }
 }
 
@@ -598,6 +605,13 @@ where
         T: FromIterator1<I::Item>,
     {
         T::from_iter1(self)
+    }
+
+    pub fn saturate<T>(self) -> (T, T::Remainder)
+    where
+        T: Saturated<Self>,
+    {
+        T::saturated(self)
     }
 }
 

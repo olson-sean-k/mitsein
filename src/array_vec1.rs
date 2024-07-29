@@ -835,8 +835,26 @@ where
 
 #[cfg(test)]
 mod tests {
+    use arrayvec::ArrayVec;
+
     use crate::array_vec1::ArrayVec1;
+    use crate::iter1::{IntoIterator1, IteratorExt as _};
     use crate::Segmentation;
+
+    #[test]
+    fn saturation() {
+        let (xs, remainder): (ArrayVec<_, 3>, _) = [0i32, 1, 2, 3].into_iter().saturate();
+        assert_eq!(xs.as_slice(), &[0, 1, 2]);
+        assert!(remainder.eq([3]));
+
+        let (xs, remainder): (ArrayVec<_, 4>, _) = [0i32, 1].into_iter1().saturate();
+        assert_eq!(xs.as_slice(), &[0, 1]);
+        assert!(remainder.eq([]));
+
+        let (xs, remainder): (ArrayVec1<_, 3>, _) = [0i32, 1, 2, 3].into_iter1().saturate();
+        assert_eq!(xs.as_slice(), &[0, 1, 2]);
+        assert!(remainder.eq([3]));
+    }
 
     #[test]
     fn segmentation() {
