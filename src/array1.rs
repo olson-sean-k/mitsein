@@ -1,3 +1,4 @@
+use core::borrow::{Borrow, BorrowMut};
 use core::num::NonZeroUsize;
 
 use crate::iter1::IntoIterator1;
@@ -8,7 +9,12 @@ use crate::sync1::ArcSlice1;
 use crate::vec1::Vec1;
 
 pub trait Array1:
-    AsMut<Slice1<Self::Item>> + AsRef<Slice1<Self::Item>> + IntoIterator1 + Sized
+    AsMut<Slice1<Self::Item>>
+    + AsRef<Slice1<Self::Item>>
+    + Borrow<Slice1<Self::Item>>
+    + BorrowMut<Slice1<Self::Item>>
+    + IntoIterator1
+    + Sized
 {
     const N: NonZeroUsize;
 
@@ -94,6 +100,32 @@ macro_rules! impl_as_ref_for_array {
     };
 }
 with_non_zero_array_size_literals!(impl_as_ref_for_array);
+
+/// # Safety
+macro_rules! impl_borrow_for_array {
+    ($N:literal) => {
+        impl<T> core::borrow::Borrow<$crate::slice1::Slice1<T>> for [T; $N] {
+            fn borrow(&self) -> &$crate::slice1::Slice1<T> {
+                // SAFETY:
+                unsafe { $crate::slice1::Slice1::from_slice_unchecked(self.as_slice()) }
+            }
+        }
+    };
+}
+with_non_zero_array_size_literals!(impl_borrow_for_array);
+
+/// # Safety
+macro_rules! impl_borrow_mut_for_array {
+    ($N:literal) => {
+        impl<T> core::borrow::BorrowMut<$crate::slice1::Slice1<T>> for [T; $N] {
+            fn borrow_mut(&mut self) -> &mut $crate::slice1::Slice1<T> {
+                // SAFETY:
+                unsafe { $crate::slice1::Slice1::from_mut_slice_unchecked(self.as_mut_slice()) }
+            }
+        }
+    };
+}
+with_non_zero_array_size_literals!(impl_borrow_mut_for_array);
 
 /// # Safety
 macro_rules! impl_into_iterator1_for_array {
