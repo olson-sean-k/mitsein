@@ -59,6 +59,7 @@ use {
     ::serde_derive::{Deserialize, Serialize},
 };
 
+use crate::iter1::AndRemainder;
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
@@ -131,7 +132,7 @@ pub trait Vacancy {
 pub trait Saturated<T>: Sized {
     type Remainder;
 
-    fn saturated(items: T) -> (Self, Self::Remainder);
+    fn saturated(items: T) -> AndRemainder<Self, Self::Remainder>;
 }
 
 pub trait Saturate<T> {

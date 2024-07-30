@@ -87,7 +87,7 @@ pub trait IteratorExt: Iterator + Sized + ThenIterator1<Self> {
         T::try_from_iter(self)
     }
 
-    fn saturate<T>(self) -> (T, T::Remainder)
+    fn saturate<T>(self) -> AndRemainder<T, T::Remainder>
     where
         T: Saturated<Self>,
     {
@@ -224,17 +224,17 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct Query<T, I> {
+pub struct AndRemainder<T, I> {
     pub output: T,
     pub remainder: I,
 }
 
-impl<T, I> Query<T, I> {
+impl<T, I> AndRemainder<T, I> {
     pub fn with_output_and_then_remainder<F>(self, f: F) -> I
     where
         F: FnOnce(T),
     {
-        let Query { output, remainder } = self;
+        let AndRemainder { output, remainder } = self;
         f(output);
         remainder
     }
@@ -243,20 +243,20 @@ impl<T, I> Query<T, I> {
     where
         F: FnOnce(I),
     {
-        let Query { output, remainder } = self;
+        let AndRemainder { output, remainder } = self;
         f(remainder);
         output
     }
 }
 
-impl<T, I> From<Query<T, I>> for (T, I) {
-    fn from(query: Query<T, I>) -> Self {
-        let Query { output, remainder } = query;
+impl<T, I> From<AndRemainder<T, I>> for (T, I) {
+    fn from(query: AndRemainder<T, I>) -> Self {
+        let AndRemainder { output, remainder } = query;
         (output, remainder)
     }
 }
 
-pub type Matched<T, I> = Query<Option<T>, I>;
+pub type Matched<T, I> = AndRemainder<Option<T>, I>;
 
 impl<T, I> Matched<T, I> {
     pub fn matched(self) -> Option<T> {
@@ -292,7 +292,7 @@ impl<T, I> From<Matched<T, I>> for Option<T> {
     }
 }
 
-pub type IsMatch<I> = Query<bool, I>;
+pub type IsMatch<I> = AndRemainder<bool, I>;
 
 impl<I> IsMatch<I> {
     pub fn is_match(self) -> bool {
@@ -363,12 +363,12 @@ where
     }
 
     #[inline(always)]
-    fn maybe_empty<T, F>(mut self, f: F) -> Query<T, I>
+    fn maybe_empty<T, F>(mut self, f: F) -> AndRemainder<T, I>
     where
         F: FnOnce(&mut I) -> T,
     {
         let output = f(&mut self.items);
-        Query {
+        AndRemainder {
             output,
             remainder: self.items,
         }
@@ -419,7 +419,7 @@ where
     }
 
     pub fn into_head_and_tail(self) -> (I::Item, I) {
-        let Query { output, remainder } = self.maybe_empty(|items| {
+        let AndRemainder { output, remainder } = self.maybe_empty(|items| {
             // SAFETY:
             unsafe { items.next().unwrap_maybe_unchecked() }
         });
@@ -607,7 +607,7 @@ where
         T::from_iter1(self)
     }
 
-    pub fn saturate<T>(self) -> (T, T::Remainder)
+    pub fn saturate<T>(self) -> AndRemainder<T, T::Remainder>
     where
         T: Saturated<Self>,
     {
