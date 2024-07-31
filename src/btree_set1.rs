@@ -17,33 +17,29 @@ use crate::{NonEmpty, NonZeroExt as _, OptionExt as _};
 
 impl<T> Ranged for BTreeSet<T>
 where
-    // This is a defensive bound. A `Segment` cannot reference items in a `BTreeSet` to form a
-    // range since it must also have a mutable reference to the `BTreeSet`. This means that items
-    // must be copied to form the range, which could cause segmentation to be very costly for
-    // non-trivial `Clone` types. Consider `BTreeSet<Vec<i64>>`, for example.
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Range = RelationalRange<T>;
 
     fn range(&self) -> Self::Range {
-        self.first().copied().zip(self.last().copied()).into()
+        self.first().cloned().zip(self.last().cloned()).into()
     }
 
     fn tail(&self) -> Self::Range {
-        self.iter().nth(1).copied().zip(self.last().copied()).into()
+        self.iter().nth(1).cloned().zip(self.last().cloned()).into()
     }
 
     fn rtail(&self) -> Self::Range {
         self.first()
-            .copied()
-            .zip(self.iter().rev().nth(1).copied())
+            .cloned()
+            .zip(self.iter().rev().nth(1).cloned())
             .into()
     }
 }
 
 impl<T> Segmentation for BTreeSet<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     fn tail(&mut self) -> BTreeSetSegment<'_, T> {
         match Ranged::tail(self).try_into_range_inclusive() {
@@ -62,19 +58,16 @@ where
 
 impl<T> Segmented for BTreeSet<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Kind = Self;
     type Target = Self;
 }
 
-// TODO: Support borrowing a key from items and querying with a range over such a key (rather than
-//       only a range over the item `T`). Note that this is less useful for `Copy` types than
-//       non-`Copy` types though.
 impl<T, R> segment::SegmentedBy<R> for BTreeSet<T>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
-    T: Copy + Ord,
+    T: Clone + Ord,
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> BTreeSetSegment<'_, T> {
@@ -447,7 +440,7 @@ impl<T> IntoIterator1 for BTreeSet1<T> {
 
 impl<T> Segmentation for BTreeSet1<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     fn tail(&mut self) -> BTreeSet1Segment<'_, T> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
@@ -466,7 +459,7 @@ where
 
 impl<T> Segmented for BTreeSet1<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Kind = Self;
     type Target = BTreeSet<T>;
@@ -475,7 +468,7 @@ where
 impl<T, R> segment::SegmentedBy<R> for BTreeSet1<T>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
-    T: Copy + Ord,
+    T: Clone + Ord,
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> BTreeSet1Segment<'_, T> {
@@ -524,7 +517,7 @@ pub type BTreeSet1Segment<'a, T> = Segment<'a, BTreeSet1<T>, BTreeSet<T>>;
 impl<'a, K, T> Segment<'a, K, BTreeSet<T>>
 where
     K: Segmented<Target = BTreeSet<T>>,
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     pub fn insert_in_range(&mut self, item: T) -> Result<bool, T> {
         if self.range.contains(&item) {
@@ -548,9 +541,6 @@ where
         }
     }
 
-    // This function cannot query the set via some `Q` where `T: Borrow<Q>`, because it is possible
-    // that the ordering of `Q` disagrees with the ordering of `T` and so items outside of the
-    // segment could be removed. Removing an item outside of the segment is unsound!
     pub fn remove(&mut self, item: &T) -> bool {
         if self.range.contains(item) {
             self.items.remove(item)
@@ -560,9 +550,6 @@ where
         }
     }
 
-    // This function cannot query the set via some `Q` where `T: Borrow<Q>`, because it is possible
-    // that the ordering of `Q` disagrees with the ordering of `T` and so items outside of the
-    // segment could be removed. Removing an item outside of the segment is unsound!
     pub fn take(&mut self, item: &T) -> Option<T> {
         if self.range.contains(item) {
             self.items.take(item)
@@ -573,18 +560,14 @@ where
     }
 
     pub fn clear(&mut self) {
-        if let Some(range) = self.range.try_into_range_inclusive() {
+        if let Some(range) = self.range.clone().try_into_range_inclusive() {
             self.items.retain(|item| !range.contains(item));
         }
     }
 
-    pub fn get<Q>(&self, query: &Q) -> Option<&T>
-    where
-        T: Borrow<Q>,
-        Q: Ord + ?Sized,
-    {
-        if self.range.contains(query) {
-            self.items.get(query)
+    pub fn get(&self, item: &T) -> Option<&T> {
+        if self.range.contains(item) {
+            self.items.get(item)
         }
         else {
             None
@@ -605,12 +588,8 @@ where
         }
     }
 
-    pub fn contains<Q>(&self, query: &Q) -> bool
-    where
-        T: Borrow<Q>,
-        Q: Ord + ?Sized,
-    {
-        self.range.contains(query) && self.items.contains(query)
+    pub fn contains(&self, item: &T) -> bool {
+        self.range.contains(item) && self.items.contains(item)
     }
 }
 
@@ -618,14 +597,15 @@ impl<'a, K, T> Segmentation for Segment<'a, K, BTreeSet<T>>
 where
     K: Segmented<Target = BTreeSet<T>>,
     K::Target: Ranged<Range = RelationalRange<T>>,
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
-        match self.range.try_into_range_inclusive() {
+        match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeSet::range(self.items, range.clone()).nth(1) {
-                Some(start) => {
-                    Segment::unchecked(self.items, RelationalRange::unchecked(*start, *range.end()))
-                },
+                Some(start) => Segment::unchecked(
+                    self.items,
+                    RelationalRange::unchecked(start.clone(), range.end().clone()),
+                ),
                 _ => Segment::empty(self.items),
             },
             _ => Segment::empty(self.items),
@@ -633,11 +613,12 @@ where
     }
 
     fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
-        match self.range.try_into_range_inclusive() {
+        match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeSet::range(self.items, range.clone()).rev().nth(1) {
-                Some(end) => {
-                    Segment::unchecked(self.items, RelationalRange::unchecked(*range.start(), *end))
-                },
+                Some(end) => Segment::unchecked(
+                    self.items,
+                    RelationalRange::unchecked(range.start().clone(), end.clone()),
+                ),
                 _ => Segment::empty(self.items),
             },
             _ => Segment::empty(self.items),
@@ -648,7 +629,7 @@ where
 impl<'a, K, T> Segmented for Segment<'a, K, BTreeSet<T>>
 where
     K: Segmented<Target = BTreeSet<T>>,
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Kind = K;
     type Target = K::Target;
@@ -658,7 +639,7 @@ impl<'a, K, T, R> segment::SegmentedBy<R> for Segment<'a, K, BTreeSet<T>>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
     K: segment::SegmentedBy<R, Target = BTreeSet<T>>,
-    T: Copy + Ord,
+    T: Clone + Ord,
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {

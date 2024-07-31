@@ -1,7 +1,5 @@
 #![cfg(any(feature = "alloc", feature = "arrayvec"))]
 
-#[cfg(feature = "alloc")]
-use core::borrow::Borrow;
 use core::cmp;
 use core::fmt::Debug;
 use core::mem;
@@ -197,16 +195,13 @@ impl<T> RelationalRange<T> {
     }
 
     #[cfg(feature = "alloc")]
-    pub fn contains<Q>(&self, query: &Q) -> bool
+    pub fn contains(&self, key: &T) -> bool
     where
-        T: Borrow<Q> + Ord,
-        Q: Ord + ?Sized,
+        T: Ord,
     {
         match self {
             RelationalRange::Empty => false,
-            RelationalRange::NonEmpty { ref start, ref end } => {
-                start.borrow() <= query && end.borrow() >= query
-            },
+            RelationalRange::NonEmpty { ref start, ref end } => start <= key && end >= key,
         }
     }
 
@@ -396,12 +391,12 @@ where
 
 impl<T> Intersect<Self> for RelationalRange<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Output = Self;
 
     fn intersect(&self, range: &Self) -> Intersection<Self::Output> {
-        match range.try_into_range_inclusive() {
+        match range.clone().try_into_range_inclusive() {
             Some(range) => self.intersect(&range),
             // Accept empty input ranges.
             _ => Some(RelationalRange::Empty),
@@ -411,7 +406,7 @@ where
 
 impl<T> Intersect<RangeFrom<T>> for RelationalRange<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Output = Self;
 
@@ -422,8 +417,8 @@ where
             RelationalRange::NonEmpty { ref start, ref end } => {
                 if end >= &range.start {
                     Some(RelationalRange::unchecked(
-                        *cmp::max(start, &range.start),
-                        *end,
+                        cmp::max(start, &range.start).clone(),
+                        end.clone(),
                     ))
                 }
                 else {
@@ -436,7 +431,7 @@ where
 
 impl<T> Intersect<RangeInclusive<T>> for RelationalRange<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Output = Self;
 
@@ -447,8 +442,8 @@ where
             RelationalRange::NonEmpty { ref start, ref end } => {
                 if start <= range.end() && end >= range.start() {
                     Some(RelationalRange::unchecked(
-                        *cmp::max(start, range.start()),
-                        *cmp::min(end, range.end()),
+                        cmp::max(start, range.start()).clone(),
+                        cmp::min(end, range.end()).clone(),
                     ))
                 }
                 else {
@@ -461,7 +456,7 @@ where
 
 impl<T> Intersect<RangeToInclusive<T>> for RelationalRange<T>
 where
-    T: Copy + Ord,
+    T: Clone + Ord,
 {
     type Output = Self;
 
@@ -472,8 +467,8 @@ where
             RelationalRange::NonEmpty { ref start, ref end } => {
                 if start <= &range.end {
                     Some(RelationalRange::unchecked(
-                        *start,
-                        *cmp::min(end, &range.end),
+                        start.clone(),
+                        cmp::min(end, &range.end).clone(),
                     ))
                 }
                 else {

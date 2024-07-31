@@ -21,6 +21,11 @@ pub trait Segmented {
     type Target: Ranged;
 }
 
+// TODO: Support segmenting over a query type `Q` borrowed from a key or owned index type `K`. Note
+//       that any segment obtained via a type `Q` must always index with this type (not `K`),
+//       because the `Ord` implementations can disagree and expose items outside of the segment's
+//       range. This can be unsound, such as removing an item from a non-empty collection that is
+//       out of the segment's range.
 // This trait implements `segment` rather than `Segmentation` so that implementors can apply
 // arbitrary bounds to `R` while `Segmentation::segment` can lower those bounds into the function
 // (rather than the trait).

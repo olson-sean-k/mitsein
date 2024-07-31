@@ -17,42 +17,38 @@ use crate::{NonEmpty, NonZeroExt as _, OptionExt as _};
 
 impl<K, V> Ranged for BTreeMap<K, V>
 where
-    // This is a defensive bound. A `Segment` cannot reference items in a `BTreeMap` to form a
-    // range since it must also have a mutable reference to the `BTreeMap`. This means that items
-    // must be copied to form the range, which could cause segmentation to be very costly for
-    // non-trivial `Clone` types. Consider `BTreeMap<Vec<i64>, _>`, for example.
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     type Range = RelationalRange<K>;
 
     fn range(&self) -> Self::Range {
         self.keys()
             .next()
-            .copied()
-            .zip(self.keys().next_back().copied())
+            .cloned()
+            .zip(self.keys().next_back().cloned())
             .into()
     }
 
     fn tail(&self) -> Self::Range {
         self.keys()
             .nth(1)
-            .copied()
-            .zip(self.keys().next_back().copied())
+            .cloned()
+            .zip(self.keys().next_back().cloned())
             .into()
     }
 
     fn rtail(&self) -> Self::Range {
         self.keys()
             .next()
-            .copied()
-            .zip(self.keys().rev().nth(1).copied())
+            .cloned()
+            .zip(self.keys().rev().nth(1).cloned())
             .into()
     }
 }
 
 impl<K, V> Segmentation for BTreeMap<K, V>
 where
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     fn tail(&mut self) -> BTreeMapSegment<'_, K, V> {
         match Ranged::tail(self).try_into_range_inclusive() {
@@ -71,19 +67,16 @@ where
 
 impl<K, V> Segmented for BTreeMap<K, V>
 where
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     type Kind = Self;
     type Target = Self;
 }
 
-// TODO: Support borrowing a key from items and querying with a range over such a key (rather than
-//       only a range over the key `K`). Note that this is less useful for `Copy` types than
-//       non-`Copy` types though.
 impl<K, V, R> segment::SegmentedBy<R> for BTreeMap<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Copy + Ord,
+    K: Clone + Ord,
     R: RangeBounds<K>,
 {
     fn segment(&mut self, range: R) -> BTreeMapSegment<'_, K, V> {
@@ -698,7 +691,7 @@ impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
 
 impl<K, V> Segmentation for BTreeMap1<K, V>
 where
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     fn tail(&mut self) -> BTreeMap1Segment<'_, K, V> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
@@ -717,7 +710,7 @@ where
 
 impl<K, V> Segmented for BTreeMap1<K, V>
 where
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     type Kind = Self;
     type Target = BTreeMap<K, V>;
@@ -726,7 +719,7 @@ where
 impl<K, V, R> segment::SegmentedBy<R> for BTreeMap1<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Copy + Ord,
+    K: Clone + Ord,
     R: RangeBounds<K>,
 {
     fn segment(&mut self, range: R) -> BTreeMap1Segment<'_, K, V> {
@@ -763,7 +756,7 @@ pub type BTreeMap1Segment<'a, K, V> = Segment<'a, BTreeMap1<K, V>, BTreeMap<K, V
 impl<'a, S, K, V> Segment<'a, S, BTreeMap<K, V>>
 where
     S: Segmented<Target = BTreeMap<K, V>>,
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     pub fn insert_in_range(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)> {
         if self.range.contains(&key) {
@@ -781,15 +774,16 @@ where
             let mut high = middle.split_off(end);
             self.items.append(&mut middle);
             if let Some(first) = high.remove(end) {
-                self.items.insert(*end, first);
+                self.items.insert(end.clone(), first);
             }
             low.append(&mut high);
         }
     }
 
-    // This function cannot query the map via some `Q` where `K: Borrow<Q>`, because it is possible
-    // that the ordering of `Q` disagrees with the ordering of `K` and so items outside of the
-    // segment could be removed. Removing an item outside of the segment is unsound!
+    // It is especially important here to query `K` and not another related type `Q`, even if `K:
+    // Borrow<Q>`. A type `Q` can implement `Ord` differently than `K`, which can remove items
+    // beyond the range of the segment. This is not great, but for non-empty collections this is
+    // unsound!
     pub fn remove(&mut self, key: &K) -> Option<V> {
         if self.range.contains(key) {
             self.items.remove(key)
@@ -800,18 +794,14 @@ where
     }
 
     pub fn clear(&mut self) {
-        if let Some(range) = self.range.try_into_range_inclusive() {
+        if let Some(range) = self.range.clone().try_into_range_inclusive() {
             self.items.retain(|key, _| !range.contains(key));
         }
     }
 
-    pub fn get<Q>(&self, query: &Q) -> Option<&V>
-    where
-        K: Borrow<Q>,
-        Q: Ord + ?Sized,
-    {
-        if self.range.contains(query) {
-            self.items.get(query)
+    pub fn get(&self, key: &K) -> Option<&V> {
+        if self.range.contains(key) {
+            self.items.get(key)
         }
         else {
             None
@@ -836,12 +826,8 @@ where
         }
     }
 
-    pub fn contains_key<Q>(&self, query: &Q) -> bool
-    where
-        K: Borrow<Q>,
-        Q: Ord + ?Sized,
-    {
-        self.range.contains(query) && self.items.contains_key(query)
+    pub fn contains_key(&self, key: &K) -> bool {
+        self.range.contains(key) && self.items.contains_key(key)
     }
 }
 
@@ -849,14 +835,15 @@ impl<'a, S, K, V> Segmentation for Segment<'a, S, BTreeMap<K, V>>
 where
     S: Segmented<Target = BTreeMap<K, V>>,
     S::Target: Ranged<Range = RelationalRange<K>>,
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
-        match self.range.try_into_range_inclusive() {
+        match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeMap::range(self.items, range.clone()).nth(1) {
-                Some((start, _)) => {
-                    Segment::unchecked(self.items, RelationalRange::unchecked(*start, *range.end()))
-                },
+                Some((start, _)) => Segment::unchecked(
+                    self.items,
+                    RelationalRange::unchecked(start.clone(), range.end().clone()),
+                ),
                 _ => Segment::empty(self.items),
             },
             _ => Segment::empty(self.items),
@@ -864,11 +851,12 @@ where
     }
 
     fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target> {
-        match self.range.try_into_range_inclusive() {
+        match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeMap::range(self.items, range.clone()).rev().nth(1) {
-                Some((end, _)) => {
-                    Segment::unchecked(self.items, RelationalRange::unchecked(*range.start(), *end))
-                },
+                Some((end, _)) => Segment::unchecked(
+                    self.items,
+                    RelationalRange::unchecked(range.start().clone(), end.clone()),
+                ),
                 _ => Segment::empty(self.items),
             },
             _ => Segment::empty(self.items),
@@ -879,7 +867,7 @@ where
 impl<'a, S, K, V> Segmented for Segment<'a, S, BTreeMap<K, V>>
 where
     S: Segmented<Target = BTreeMap<K, V>>,
-    K: Copy + Ord,
+    K: Clone + Ord,
 {
     type Kind = S;
     type Target = S::Target;
@@ -889,7 +877,7 @@ impl<'a, S, K, V, R> segment::SegmentedBy<R> for Segment<'a, S, BTreeMap<K, V>>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
     S: segment::SegmentedBy<R, Target = BTreeMap<K, V>>,
-    K: Copy + Ord,
+    K: Clone + Ord,
     R: RangeBounds<K>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target> {
