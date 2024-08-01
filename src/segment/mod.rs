@@ -16,9 +16,9 @@ pub trait Ranged {
     fn rtail(&self) -> Self::Range;
 }
 
-pub trait Segmented {
-    type Kind: Segmented<Target = Self::Target>;
-    type Target: Ranged;
+pub trait SegmentedOver {
+    type Kind: SegmentedOver<Target = Self::Target>;
+    type Target: Ranged + ?Sized;
 }
 
 // TODO: Support segmenting over a query type `Q` borrowed from a key or owned index type `K`. Note
@@ -26,60 +26,42 @@ pub trait Segmented {
 //       because the `Ord` implementations can disagree and expose items outside of the segment's
 //       range. This can be unsound, such as removing an item from a non-empty collection that is
 //       out of the segment's range.
+//
+//       Note that this may interact poorly with the `tail` and `rtail` APIs, because they must
+//       decide on `Q` and so any such segment must always use this `Q`.
 // This trait implements `segment` rather than `Segmentation` so that implementors can apply
 // arbitrary bounds to `R` while `Segmentation::segment` can lower those bounds into the function
 // (rather than the trait).
-pub trait SegmentedBy<R>: Segmented {
-    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target>;
+pub trait SegmentedBy<R>: SegmentedOver {
+    fn segment(&mut self, range: R) -> Segment<'_, Self::Kind>;
 }
 
-pub trait Segmentation: Segmented {
-    fn segment<R>(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target>
+pub trait Segmentation: SegmentedOver {
+    fn segment<R>(&mut self, range: R) -> Segment<'_, Self::Kind>
     where
         Self: SegmentedBy<R>,
     {
         SegmentedBy::segment(self, range)
     }
 
-    fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target>;
+    fn tail(&mut self) -> Segment<'_, Self::Kind>;
 
-    fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target>;
+    fn rtail(&mut self) -> Segment<'_, Self::Kind>;
 }
 
-// TODO: The input type parameter `T` ought not be necessary here, but, at time of writing, the
-//       following `impl`s are considered duplicate definitions (E0592):
-//
-//       impl<'a, K, T> Segment<'a, K>
-//       where
-//           K: Segmented<Target = Vec<T>>,
-//       {
-//           fn noop(&self) {}
-//       }
-//
-//       impl<'a, K, T> Segment<'a, K>
-//       where
-//           K: Segmented<Target = VecDeque<T>>,
-//       {
-//           fn noop(&self) {}
-//       }
-//
-//       Note that the associated `Target` types in the bounds on `K` differ. There is no `K` that
-//       can satisfy both of these bounds, but `rustc` cannot yet reason about this. Remove this
-//       redundant input type parameter if and when such `impl`s no longer conflict.
-pub struct Segment<'a, K, T>
+pub struct Segment<'a, K>
 where
-    K: Segmented<Target = T> + ?Sized,
-    T: Ranged + ?Sized,
+    K: SegmentedOver + ?Sized,
 {
-    pub(crate) items: &'a mut T,
+    pub(crate) items: &'a mut K::Target,
     pub(crate) range: <K::Target as Ranged>::Range,
 }
 
-impl<'a, K, T> Debug for Segment<'a, K, T>
+impl<'a, K> Debug for Segment<'a, K>
 where
-    K: Segmented<Target = T> + ?Sized,
+    K: SegmentedOver + ?Sized,
+    K::Target: Debug,
     <K::Target as Ranged>::Range: Debug,
-    T: Debug + Ranged + ?Sized,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
@@ -89,3 +71,69 @@ where
             .finish()
     }
 }
+
+impl<'a, K> SegmentedOver for Segment<'a, K>
+where
+    K: SegmentedOver,
+{
+    type Kind = K;
+    type Target = K::Target;
+}
+
+// TODO: The forwarding type constructors implemented by this macro ought not be necessary, but at
+//       time of writing the following `impl`s are considered duplicate definitions (E0592):
+//
+//       impl<'a, K, T> Segment<'a, K>
+//       where
+//           K: Segmentation<Target = Vec<T>>,
+//       {
+//           fn noop(&self) {}
+//       }
+//
+//       impl<'a, K, T> Segment<'a, K>
+//       where
+//           K: Segmentation<Target = VecDeque<T>>,
+//       {
+//           fn noop(&self) {}
+//       }
+//
+//       Note that the associated `Target` types in the bounds on `K` differ. There is no `K` that
+//       can satisfy both of these bounds, but `rustc` cannot yet reason about this. Instead, a
+//       bespoke forwarding type constructor is composed with `K` for each `Target` type so that
+//       such `impl`s remain disjoint by effectively lifting the `Target` type into the input type
+//       parameter `K`.
+//
+//       Remove this macro and the forwarding types when possible.
+#[allow(unused_macros)]
+macro_rules! impl_target_forward_type_and_definition {
+    (
+        for <$($ts:ident $(,)?)+ $([$(const $cis:ident: $cts:ty $(,)?)+])? $(,)?>
+        $(where $($bt:ident: $bb:tt $(+ $bbs:tt)* $(,)?)+)? => $target:ident,
+        $forward:ident,
+        $(#[$($attrs:tt)*])*
+        $segment:ident $(,)?
+    ) => {
+        mod segment_forward_segmentation_ {
+            // The `$target` must be imported into the parent scope.
+            use super::*;
+
+            pub struct $forward<K>(core::marker::PhantomData<fn() -> K>, core::convert::Infallible);
+
+            impl<K_, $($ts,)+ $($(const $cis: $cts,)+)?>
+            $crate::segment::SegmentedOver for $forward<K_>
+            where
+                K_: $crate::segment::SegmentedOver<Target = $target::<$($ts,)+ $($($cis,)+)?>>,
+                $($($bt: $bb $(+ $bbs)*,)+)?
+            {
+                type Kind = Self;
+                type Target = $target<$($ts,)+ $($($cis,)+)?>;
+            }
+        }
+        use self::segment_forward_segmentation_::$forward;
+
+        $(#[$($attrs)*])*
+        pub type $segment<'a, K> = Segment<'a, $forward<K>>;
+    }
+}
+#[allow(unused_imports)]
+pub(crate) use impl_target_forward_type_and_definition;

@@ -7,36 +7,37 @@ use core::ops::{
     Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
-use crate::segment::{Indexer, Ranged, Segment, Segmented};
+use crate::segment::{Indexer, Ranged, Segment, SegmentedOver};
 
-impl<'a, K, T> Segment<'a, K, T>
+pub type RangeFor<K> = <<K as SegmentedOver>::Target as Ranged>::Range;
+
+impl<'a, K> Segment<'a, K>
 where
-    K: Segmented<Target = T> + ?Sized,
-    T: Ranged + ?Sized,
+    K: SegmentedOver + ?Sized,
 {
-    pub(crate) fn unchecked(items: &'a mut T, range: <K::Target as Ranged>::Range) -> Self {
+    pub(crate) fn unchecked(items: &'a mut K::Target, range: RangeFor<K>) -> Self {
         Segment { items, range }
     }
 
     #[cfg(feature = "alloc")]
-    pub(crate) fn empty<I>(items: &'a mut T) -> Self
+    pub(crate) fn empty<I>(items: &'a mut K::Target) -> Self
     where
-        T: Ranged<Range = RelationalRange<I>>,
+        K::Target: Ranged<Range = RelationalRange<I>>,
     {
         Segment::unchecked(items, RelationalRange::Empty)
     }
 
-    pub(crate) fn intersect<R>(items: &'a mut T, range: &R) -> Self
+    pub(crate) fn intersect<R>(items: &'a mut K::Target, range: &R) -> Self
     where
-        T::Range: Intersect<R, Output = T::Range>,
+        RangeFor<K>: Intersect<R, Output = RangeFor<K>>,
     {
         let range = items.range().intersect(range).expect_in_bounds();
         Segment::unchecked(items, range)
     }
 
-    pub(crate) fn intersect_strict_subset<R>(items: &'a mut T, range: &R) -> Self
+    pub(crate) fn intersect_strict_subset<R>(items: &'a mut K::Target, range: &R) -> Self
     where
-        T::Range: Intersect<R, Output = T::Range> + IsStrictSubset<T::Range>,
+        RangeFor<K>: Intersect<R, Output = RangeFor<K>> + IsStrictSubset<RangeFor<K>>,
     {
         let basis = items.range();
         let range = basis.intersect(range).expect_in_bounds();
@@ -48,10 +49,10 @@ where
         }
     }
 
-    pub(crate) fn project<R>(&self, range: &R) -> <T::Range as Project<R>>::Output
+    pub(crate) fn project<R>(&self, range: &R) -> <RangeFor<K> as Project<R>>::Output
     where
-        T::Range: Project<R>,
-        R: RangeBounds<<T::Range as Indexer>::Index>,
+        RangeFor<K>: Project<R>,
+        R: RangeBounds<<RangeFor<K> as Indexer>::Index>,
     {
         self.range.project(range).expect_in_bounds()
     }
