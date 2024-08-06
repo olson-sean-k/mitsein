@@ -6,6 +6,7 @@ use alloc::vec::{self, Drain, Splice, Vec};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::{self, FusedIterator};
+use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 
@@ -170,16 +171,23 @@ impl<T> Vec1<T> {
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice()) }
     }
 
-    fn many_or_else<M, O>(&mut self, many: M, one: O) -> Result<T, &T>
+    fn many_or_else<'a, U, M, O>(&'a mut self, many: M, one: O) -> Result<T, U>
     where
-        M: FnOnce(&mut Vec<T>) -> T,
-        O: FnOnce(&mut Vec<T>) -> &T,
+        M: FnOnce(&'a mut Vec<T>) -> T,
+        O: FnOnce(&'a mut Vec<T>) -> U,
     {
         match self.items.len() {
             0 => unreachable!(),
             1 => Err(one(&mut self.items)),
             _ => Ok(many(&mut self.items)),
         }
+    }
+
+    fn many_or_get<F>(&mut self, index: usize, f: F) -> Result<T, &T>
+    where
+        F: FnOnce(&mut Vec<T>) -> T,
+    {
+        self.many_or_else(f, move |items| &items[index])
     }
 
     fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
@@ -190,12 +198,15 @@ impl<T> Vec1<T> {
         self.many_or_else(f, |items| unsafe { items.get_unchecked(0) })
     }
 
-    fn many_or_get<F>(&mut self, index: usize, f: F) -> Result<T, &T>
+    fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
     where
         F: FnOnce(&mut Vec<T>) -> T,
+        R: FnOnce() -> T,
     {
         // SAFETY:
-        self.many_or_else(f, move |items| &items[index])
+        self.many_or_else(f, move |items| unsafe {
+            mem::replace(items.get_unchecked_mut(0), replace())
+        })
     }
 
     pub fn leak<'a>(self) -> &'a mut Slice1<T> {
@@ -239,12 +250,41 @@ impl<T> Vec1<T> {
         self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
+    pub fn pop_or_replace_only(&mut self, replacement: T) -> Result<T, T> {
+        self.pop_or_replace_only_with(move || replacement)
+    }
+
+    pub fn pop_or_replace_only_with<F>(&mut self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        // SAFETY:
+        self.many_or_replace_only_with(|items| unsafe { items.pop().unwrap_maybe_unchecked() }, f)
+    }
+
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
     pub fn remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
         self.many_or_get(index, move |items| items.remove(index))
+    }
+
+    pub fn remove_or_replace_only(&mut self, index: usize, replacement: T) -> Result<T, T> {
+        self.remove_or_replace_only_with(index, move || replacement)
+    }
+
+    pub fn remove_or_replace_only_with<F>(&mut self, index: usize, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.many_or_replace_only_with(
+            |items| items.remove(index),
+            move || {
+                assert!(index == 0, "index out of bounds");
+                f()
+            },
+        )
     }
 
     pub fn swap_remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {

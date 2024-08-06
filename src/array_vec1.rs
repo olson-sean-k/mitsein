@@ -5,6 +5,7 @@ use arrayvec::ArrayVec;
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
+use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
@@ -22,6 +23,31 @@ segment::impl_target_forward_type_and_definition!(
     ArrayVecTarget,
     ArrayVecSegment,
 );
+
+pub trait OrSaturated<T> {
+    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)>;
+
+    fn push_or_replace_last(&mut self, item: T) -> Result<(), T>;
+
+    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)>;
+}
+
+impl<T, const N: usize> OrSaturated<T> for ArrayVec<T, N>
+where
+    [T; N]: Array1,
+{
+    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
+        self::push_or_get_last(self, item)
+    }
+
+    fn push_or_replace_last(&mut self, item: T) -> Result<(), T> {
+        self::push_or_replace_last(self, item)
+    }
+
+    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
+        self::insert_or_get(self, index, item)
+    }
+}
 
 impl<T, const N: usize> Ranged for ArrayVec<T, N> {
     type Range = PositionalRange;
@@ -160,24 +186,16 @@ where
         self.items.into_inner_unchecked()
     }
 
-    fn many_or_else<M, O>(&mut self, many: M, one: O) -> Result<T, &T>
+    fn many_or_else<'a, U, M, O>(&'a mut self, many: M, one: O) -> Result<T, U>
     where
-        M: FnOnce(&mut ArrayVec<T, N>) -> T,
-        O: FnOnce(&mut ArrayVec<T, N>) -> &T,
+        M: FnOnce(&'a mut ArrayVec<T, N>) -> T,
+        O: FnOnce(&'a mut ArrayVec<T, N>) -> U,
     {
         match self.items.len() {
             0 => unreachable!(),
             1 => Err(one(&mut self.items)),
             _ => Ok(many(&mut self.items)),
         }
-    }
-
-    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut ArrayVec<T, N>) -> T,
-    {
-        // SAFETY:
-        self.many_or_else(f, |items| unsafe { items.get_unchecked(0) })
     }
 
     fn many_or_get<F>(&mut self, index: usize, f: F) -> Result<T, &T>
@@ -190,25 +208,22 @@ where
         })
     }
 
-    fn vacant_or_else<U, V, F>(&mut self, item: T, vacant: V, full: F) -> Result<U, (T, &T)>
+    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
     where
-        V: FnOnce(T, &mut ArrayVec<T, N>) -> U,
-        F: FnOnce(&mut ArrayVec<T, N>) -> &T,
-    {
-        match self.items.len() {
-            0 => unreachable!(),
-            n if n == N => Err((item, full(&mut self.items))),
-            _ => Ok(vacant(item, &mut self.items)),
-        }
-    }
-
-    fn vacant_or_get_last<U, F>(&mut self, item: T, f: F) -> Result<U, (T, &T)>
-    where
-        F: FnOnce(T, &mut ArrayVec<T, N>) -> U,
+        F: FnOnce(&mut ArrayVec<T, N>) -> T,
     {
         // SAFETY:
-        self.vacant_or_else(item, f, |items| unsafe {
-            items.last().unwrap_maybe_unchecked()
+        self.many_or_else(f, |items| unsafe { items.get_unchecked(0) })
+    }
+
+    fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
+    where
+        F: FnOnce(&mut ArrayVec<T, N>) -> T,
+        R: FnOnce() -> T,
+    {
+        // SAFETY:
+        self.many_or_else(f, move |items| unsafe {
+            mem::replace(items.get_unchecked_mut(0), replace())
         })
     }
 
@@ -216,25 +231,46 @@ where
         self.items.push(item)
     }
 
-    pub fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
-        self.vacant_or_get_last(item, |item, items| items.push(item))
-    }
-
     pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
         // SAFETY:
         self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
+    }
+
+    pub fn pop_or_replace_only(&mut self, replacement: T) -> Result<T, T> {
+        self.pop_or_replace_only_with(move || replacement)
+    }
+
+    pub fn pop_or_replace_only_with<F>(&mut self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        // SAFETY:
+        self.many_or_replace_only_with(|items| unsafe { items.pop().unwrap_maybe_unchecked() }, f)
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn insert_or_get_last(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
-        self.vacant_or_get_last(item, move |item, items| items.insert(index, item))
-    }
-
     pub fn remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
         self.many_or_get(index, move |items| items.remove(index))
+    }
+
+    pub fn remove_or_replace_only(&mut self, index: usize, replacement: T) -> Result<T, T> {
+        self.remove_or_replace_only_with(index, move || replacement)
+    }
+
+    pub fn remove_or_replace_only_with<F>(&mut self, index: usize, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.many_or_replace_only_with(
+            |items| items.remove(index),
+            move || {
+                assert!(index == 0, "index out of bounds");
+                f()
+            },
+        )
     }
 
     pub fn swap_remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
@@ -457,6 +493,23 @@ impl<T, const N: usize> IntoIterator1 for ArrayVec1<T, N> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY:
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T, const N: usize> OrSaturated<T> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
+        self::push_or_get_last(&mut self.items, item)
+    }
+
+    fn push_or_replace_last(&mut self, item: T) -> Result<(), T> {
+        self::push_or_replace_last(&mut self.items, item)
+    }
+
+    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
+        self::insert_or_get(&mut self.items, index, item)
     }
 }
 
@@ -830,6 +883,82 @@ where
     fn vacancy(&self) -> usize {
         self.items.vacancy()
     }
+}
+
+fn vacancy_or_else<'a, T, U, E, V, S, const N: usize>(
+    items: &'a mut ArrayVec<T, N>,
+    item: T,
+    vacant: V,
+    saturated: S,
+) -> Result<U, E>
+where
+    V: FnOnce(T, &'a mut ArrayVec<T, N>) -> U,
+    S: FnOnce(T, &'a mut ArrayVec<T, N>) -> E,
+{
+    if items.len() < N {
+        Ok(vacant(item, items))
+    }
+    else {
+        Err(saturated(item, items))
+    }
+}
+
+fn push_or_else<'a, T, U, F, const N: usize>(
+    items: &'a mut ArrayVec<T, N>,
+    item: T,
+    f: F,
+) -> Result<(), U>
+where
+    F: FnOnce(T, &'a mut ArrayVec<T, N>) -> U,
+{
+    self::vacancy_or_else(items, item, |item, items| items.push(item), f)
+}
+
+fn push_or_get_last<T, const N: usize>(items: &mut ArrayVec<T, N>, item: T) -> Result<(), (T, &T)>
+where
+    [T; N]: Array1,
+{
+    self::push_or_else(
+        items,
+        item,
+        // SAFETY:
+        |item, items| unsafe { (item, items.last().unwrap_maybe_unchecked()) },
+    )
+}
+
+fn push_or_replace_last<T, const N: usize>(items: &mut ArrayVec<T, N>, item: T) -> Result<(), T>
+where
+    [T; N]: Array1,
+{
+    self::push_or_else(
+        items,
+        item,
+        // SAFETY:
+        |item, items| unsafe { mem::replace(items.last_mut().unwrap_maybe_unchecked(), item) },
+    )
+}
+
+fn insert_or_else<'a, T, U, F, const N: usize>(
+    items: &'a mut ArrayVec<T, N>,
+    index: usize,
+    item: T,
+    f: F,
+) -> Result<(), U>
+where
+    F: FnOnce(T, &'a mut ArrayVec<T, N>) -> U,
+{
+    self::vacancy_or_else(items, item, move |item, items| items.insert(index, item), f)
+}
+
+fn insert_or_get<T, const N: usize>(
+    items: &mut ArrayVec<T, N>,
+    index: usize,
+    item: T,
+) -> Result<(), (T, &T)>
+where
+    [T; N]: Array1,
+{
+    self::insert_or_else(items, index, item, move |item, items| (item, &items[index]))
 }
 
 #[cfg(test)]
