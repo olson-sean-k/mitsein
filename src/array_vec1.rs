@@ -10,7 +10,7 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
-use crate::iter1::{self, AndRemainder, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
@@ -82,13 +82,10 @@ where
 {
     type Remainder = I::IntoIter;
 
-    fn saturated(items: I) -> AndRemainder<Self, Self::Remainder> {
+    fn saturated(items: I) -> (Self, Self::Remainder) {
         let mut remainder = items.into_iter();
         let items: ArrayVec<_, N> = remainder.by_ref().take(N).collect();
-        AndRemainder {
-            output: items,
-            remainder,
-        }
+        (items, remainder)
     }
 }
 
@@ -532,15 +529,12 @@ where
 {
     type Remainder = I::IntoIter;
 
-    fn saturated(items: I) -> AndRemainder<Self, Self::Remainder> {
+    fn saturated(items: I) -> (Self, Self::Remainder) {
         let mut remainder = items.into_iter1().into_iter();
         // SAFETY:
         let items =
             unsafe { ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect()) };
-        AndRemainder {
-            output: items,
-            remainder,
-        }
+        (items, remainder)
     }
 }
 
@@ -971,15 +965,15 @@ mod tests {
 
     #[test]
     fn saturation() {
-        let (xs, remainder): (ArrayVec<_, 3>, _) = [0i32, 1, 2, 3].into_iter().saturate().into();
+        let (xs, remainder): (ArrayVec<_, 3>, _) = [0i32, 1, 2, 3].into_iter().saturate();
         assert_eq!(xs.as_slice(), &[0, 1, 2]);
         assert!(remainder.eq([3]));
 
-        let (xs, remainder): (ArrayVec<_, 4>, _) = [0i32, 1].into_iter1().saturate().into();
+        let (xs, remainder): (ArrayVec<_, 4>, _) = [0i32, 1].into_iter1().saturate();
         assert_eq!(xs.as_slice(), &[0, 1]);
         assert!(remainder.eq([]));
 
-        let (xs, remainder): (ArrayVec1<_, 3>, _) = [0i32, 1, 2, 3].into_iter1().saturate().into();
+        let (xs, remainder): (ArrayVec1<_, 3>, _) = [0i32, 1, 2, 3].into_iter1().saturate();
         assert_eq!(xs.as_slice(), &[0, 1, 2]);
         assert!(remainder.eq([3]));
     }

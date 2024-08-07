@@ -87,7 +87,7 @@ pub trait IteratorExt: Iterator + Sized + ThenIterator1<Self> {
         T::try_from_iter(self)
     }
 
-    fn saturate<T>(self) -> AndRemainder<T, T::Remainder>
+    fn saturate<T>(self) -> (T, T::Remainder)
     where
         T: Saturated<Self>,
     {
@@ -145,6 +145,143 @@ where
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         self
+    }
+}
+
+pub trait AndRemainder<I>
+where
+    I: Iterator,
+{
+    type Output;
+
+    fn with_output_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(Self::Output);
+
+    fn with_remainder_and_then_output<F>(self, f: F) -> Self::Output
+    where
+        F: FnOnce(I);
+}
+
+impl<T, I> AndRemainder<I> for (T, I)
+where
+    I: Iterator,
+{
+    type Output = T;
+
+    fn with_output_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(Self::Output),
+    {
+        let (output, remainder) = self;
+        f(output);
+        remainder
+    }
+
+    fn with_remainder_and_then_output<F>(self, f: F) -> Self::Output
+    where
+        F: FnOnce(I),
+    {
+        let (output, remainder) = self;
+        f(remainder);
+        output
+    }
+}
+
+pub trait Matched<T, I>: AndRemainder<I, Output = Option<T>>
+where
+    I: Iterator,
+{
+    fn matched(self) -> Option<T>;
+
+    fn some_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(T);
+
+    fn none_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce();
+}
+
+impl<T, U, I> Matched<U, I> for T
+where
+    T: AndRemainder<I, Output = Option<U>>,
+    I: Iterator,
+{
+    fn matched(self) -> Option<U> {
+        self.with_remainder_and_then_output(|_| {})
+    }
+
+    fn some_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(U),
+    {
+        self.with_output_and_then_remainder(move |output| {
+            if let Some(output) = output {
+                f(output)
+            }
+        })
+    }
+
+    fn none_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(),
+    {
+        self.with_output_and_then_remainder(move |output| {
+            if output.is_none() {
+                f()
+            }
+        })
+    }
+}
+
+pub trait IsMatch<I>: AndRemainder<I, Output = bool>
+where
+    I: Iterator,
+{
+    // CLIPPY: Consuming self in such a function is unusual, but consistent here: this essentially
+    //         discards the remainder and returns the output.
+    #[allow(clippy::wrong_self_convention)]
+    fn is_match(self) -> bool;
+
+    fn if_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce();
+
+    fn if_not_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce();
+}
+
+impl<T, I> IsMatch<I> for T
+where
+    T: AndRemainder<I, Output = bool>,
+    I: Iterator,
+{
+    fn is_match(self) -> bool {
+        self.with_remainder_and_then_output(|_| {})
+    }
+
+    fn if_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(),
+    {
+        self.with_output_and_then_remainder(move |is_match| {
+            if is_match {
+                f()
+            }
+        })
+    }
+
+    fn if_not_and_then_remainder<F>(self, f: F) -> I
+    where
+        F: FnOnce(),
+    {
+        self.with_output_and_then_remainder(move |is_match| {
+            if !is_match {
+                f()
+            }
+        })
     }
 }
 
@@ -223,111 +360,6 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct AndRemainder<T, I> {
-    pub output: T,
-    pub remainder: I,
-}
-
-impl<T, I> AndRemainder<T, I> {
-    pub fn with_output_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(T),
-    {
-        let AndRemainder { output, remainder } = self;
-        f(output);
-        remainder
-    }
-
-    pub fn with_remainder_and_then_output<F>(self, f: F) -> T
-    where
-        F: FnOnce(I),
-    {
-        let AndRemainder { output, remainder } = self;
-        f(remainder);
-        output
-    }
-}
-
-impl<T, I> From<AndRemainder<T, I>> for (T, I) {
-    fn from(query: AndRemainder<T, I>) -> Self {
-        let AndRemainder { output, remainder } = query;
-        (output, remainder)
-    }
-}
-
-pub type Matched<T, I> = AndRemainder<Option<T>, I>;
-
-impl<T, I> Matched<T, I> {
-    pub fn matched(self) -> Option<T> {
-        Into::into(self)
-    }
-
-    pub fn some_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(T),
-    {
-        let Matched { output, remainder } = self;
-        if let Some(output) = output {
-            f(output);
-        }
-        remainder
-    }
-
-    pub fn none_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(),
-    {
-        let Matched { output, remainder } = self;
-        if output.is_none() {
-            f();
-        }
-        remainder
-    }
-}
-
-impl<T, I> From<Matched<T, I>> for Option<T> {
-    fn from(query: Matched<T, I>) -> Self {
-        query.output
-    }
-}
-
-pub type IsMatch<I> = AndRemainder<bool, I>;
-
-impl<I> IsMatch<I> {
-    pub fn is_match(self) -> bool {
-        Into::into(self)
-    }
-
-    pub fn if_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(),
-    {
-        let IsMatch { output, remainder } = self;
-        if output {
-            f();
-        }
-        remainder
-    }
-
-    pub fn if_not_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(),
-    {
-        let IsMatch { output, remainder } = self;
-        if !output {
-            f();
-        }
-        remainder
-    }
-}
-
-impl<I> From<IsMatch<I>> for bool {
-    fn from(query: IsMatch<I>) -> Self {
-        query.output
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct Iterator1<I> {
@@ -363,15 +395,12 @@ where
     }
 
     #[inline(always)]
-    fn maybe_empty<T, F>(mut self, f: F) -> AndRemainder<T, I>
+    fn maybe_empty<T, F>(mut self, f: F) -> (T, I)
     where
         F: FnOnce(&mut I) -> T,
     {
         let output = f(&mut self.items);
-        AndRemainder {
-            output,
-            remainder: self.items,
-        }
+        (output, self.items)
     }
 
     #[inline(always)]
@@ -419,11 +448,10 @@ where
     }
 
     pub fn into_head_and_tail(self) -> (I::Item, I) {
-        let AndRemainder { output, remainder } = self.maybe_empty(|items| {
+        self.maybe_empty(|items| {
             // SAFETY:
             unsafe { items.next().unwrap_maybe_unchecked() }
-        });
-        (output, remainder)
+        })
     }
 
     pub fn min(self) -> I::Item
@@ -450,46 +478,46 @@ where
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
     }
 
-    pub fn any<F>(self, f: F) -> IsMatch<I>
+    pub fn any<F>(self, f: F) -> (bool, I)
     where
         F: FnMut(I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.any(f))
     }
 
-    pub fn all<F>(self, f: F) -> IsMatch<I>
+    pub fn all<F>(self, f: F) -> (bool, I)
     where
         F: FnMut(I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.all(f))
     }
 
-    pub fn nth(self, n: usize) -> Matched<I::Item, I> {
+    pub fn nth(self, n: usize) -> (Option<I::Item>, I) {
         self.maybe_empty(move |items| items.nth(n))
     }
 
-    pub fn find<F>(self, f: F) -> Matched<I::Item, I>
+    pub fn find<F>(self, f: F) -> (Option<I::Item>, I)
     where
         F: FnMut(&I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.find(f))
     }
 
-    pub fn find_map<T, F>(self, f: F) -> Matched<T, I>
+    pub fn find_map<T, F>(self, f: F) -> (Option<T>, I)
     where
         F: FnMut(I::Item) -> Option<T>,
     {
         self.maybe_empty(move |items| items.find_map(f))
     }
 
-    pub fn position<F>(self, f: F) -> Matched<usize, I>
+    pub fn position<F>(self, f: F) -> (Option<usize>, I)
     where
         F: FnMut(I::Item) -> bool,
     {
         self.maybe_empty(move |items| items.position(f))
     }
 
-    pub fn rposition<F>(self, f: F) -> Matched<usize, I>
+    pub fn rposition<F>(self, f: F) -> (Option<usize>, I)
     where
         I: DoubleEndedIterator + ExactSizeIterator,
         F: FnMut(I::Item) -> bool,
@@ -607,7 +635,7 @@ where
         T::from_iter1(self)
     }
 
-    pub fn saturate<T>(self) -> AndRemainder<T, T::Remainder>
+    pub fn saturate<T>(self) -> (T, T::Remainder)
     where
         T: Saturated<Self>,
     {
@@ -643,7 +671,7 @@ where
         unsafe { self.non_empty(I::with_position) }
     }
 
-    pub fn contains<Q>(self, query: &Q) -> IsMatch<I>
+    pub fn contains<Q>(self, query: &Q) -> (bool, I)
     where
         I::Item: Borrow<Q>,
         Q: PartialEq,
@@ -746,11 +774,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::iter1;
+    use crate::iter1::{self, AndRemainder, Matched};
 
     #[test]
     fn maybe_empty_query() {
-        let (has_zero, remainder) = iter1::head_and_tail(0i32, [1]).any(|x| x == 0).into();
+        let (has_zero, remainder) = iter1::head_and_tail(0i32, [1]).any(|x| x == 0);
         assert!(has_zero);
         assert_eq!(remainder.into_iter().next(), Some(1));
 
