@@ -77,12 +77,126 @@ where
     }
 }
 
-pub trait IteratorExt: Iterator + Sized + ThenIterator1<Self> {
+pub trait QueryAnd {
+    type Item;
+    type Remainder: Iterator<Item = Self::Item>;
+
+    fn nth_and(self, n: usize) -> Matched<Self::Item, Self::Remainder>;
+
+    fn find_and<F>(self, f: F) -> Matched<Self::Item, Self::Remainder>
+    where
+        F: FnMut(&Self::Item) -> bool;
+
+    fn find_map_and<T, F>(self, f: F) -> Matched<T, Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> Option<T>;
+
+    fn position_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool;
+
+    fn rposition_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
+    where
+        Self::Remainder: DoubleEndedIterator + ExactSizeIterator,
+        F: FnMut(Self::Item) -> bool;
+
+    fn any_and<F>(self, f: F) -> IsMatch<Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool;
+
+    fn all_and<F>(self, f: F) -> IsMatch<Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool;
+
+    #[cfg(feature = "itertools")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+    fn contains_and<Q>(self, query: &Q) -> IsMatch<Self::Remainder>
+    where
+        Self::Item: Borrow<Q>,
+        Q: PartialEq;
+}
+
+impl<I> QueryAnd for I
+where
+    I: Iterator,
+{
+    type Item = I::Item;
+    type Remainder = Self;
+
+    fn nth_and(mut self, n: usize) -> Matched<Self::Item, Self::Remainder> {
+        let output = self.nth(n);
+        Feed(output, self)
+    }
+
+    fn find_and<F>(mut self, f: F) -> Matched<Self::Item, Self::Remainder>
+    where
+        F: FnMut(&Self::Item) -> bool,
+    {
+        let output = self.find(f);
+        Feed(output, self)
+    }
+
+    fn find_map_and<T, F>(mut self, f: F) -> Matched<T, Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> Option<T>,
+    {
+        let output = self.find_map(f);
+        Feed(output, self)
+    }
+
+    fn position_and<F>(mut self, f: F) -> Matched<usize, Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        let output = self.position(f);
+        Feed(output, self)
+    }
+
+    fn rposition_and<F>(mut self, f: F) -> Matched<usize, Self::Remainder>
+    where
+        Self::Remainder: DoubleEndedIterator + ExactSizeIterator,
+        F: FnMut(Self::Item) -> bool,
+    {
+        let output = self.rposition(f);
+        Feed(output, self)
+    }
+
+    fn any_and<F>(mut self, f: F) -> IsMatch<Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        let output = self.any(f);
+        Feed(output, self)
+    }
+
+    fn all_and<F>(mut self, f: F) -> IsMatch<Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        let output = self.all(f);
+        Feed(output, self)
+    }
+
+    #[cfg(feature = "itertools")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+    fn contains_and<Q>(mut self, query: &Q) -> IsMatch<Self::Remainder>
+    where
+        Self::Item: Borrow<Q>,
+        Q: PartialEq,
+    {
+        let output = self.contains(query);
+        Feed(output, self)
+    }
+}
+
+pub trait IteratorExt:
+    Iterator + Sized + QueryAnd<Item = <Self as Iterator>::Item> + ThenIterator1<Self>
+{
     fn try_into_iter1(self) -> Result<Self>;
 
     fn try_collect1<T>(self) -> result::Result<T, Peekable<Self>>
     where
-        T: FromIterator1<Self::Item>,
+        T: FromIterator1<<Self as Iterator>::Item>,
     {
         T::try_from_iter(self)
     }
@@ -360,15 +474,6 @@ where
     }
 
     #[inline(always)]
-    fn maybe_empty<T, F>(mut self, f: F) -> Feed<T, I>
-    where
-        F: FnOnce(&mut I) -> T,
-    {
-        let output = f(&mut self.items);
-        Feed(output, self.items)
-    }
-
-    #[inline(always)]
     unsafe fn non_empty<J, F>(self, f: F) -> Iterator1<J>
     where
         J: Iterator,
@@ -412,12 +517,10 @@ where
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
-    pub fn into_head_and_tail(self) -> (I::Item, I) {
-        let Feed(output, remainder) = self.maybe_empty(|items| {
-            // SAFETY:
-            unsafe { items.next().unwrap_maybe_unchecked() }
-        });
-        (output, remainder)
+    pub fn into_head_and_tail(mut self) -> (I::Item, I) {
+        // SAFETY:
+        let head = unsafe { self.items.next().unwrap_maybe_unchecked() };
+        (head, self.items)
     }
 
     pub fn min(self) -> I::Item
@@ -442,53 +545,6 @@ where
     {
         // SAFETY:
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
-    }
-
-    pub fn any<F>(self, f: F) -> IsMatch<I>
-    where
-        F: FnMut(I::Item) -> bool,
-    {
-        self.maybe_empty(move |items| items.any(f))
-    }
-
-    pub fn all<F>(self, f: F) -> IsMatch<I>
-    where
-        F: FnMut(I::Item) -> bool,
-    {
-        self.maybe_empty(move |items| items.all(f))
-    }
-
-    pub fn nth(self, n: usize) -> Matched<I::Item, I> {
-        self.maybe_empty(move |items| items.nth(n))
-    }
-
-    pub fn find<F>(self, f: F) -> Matched<I::Item, I>
-    where
-        F: FnMut(&I::Item) -> bool,
-    {
-        self.maybe_empty(move |items| items.find(f))
-    }
-
-    pub fn find_map<T, F>(self, f: F) -> Matched<T, I>
-    where
-        F: FnMut(I::Item) -> Option<T>,
-    {
-        self.maybe_empty(move |items| items.find_map(f))
-    }
-
-    pub fn position<F>(self, f: F) -> Matched<usize, I>
-    where
-        F: FnMut(I::Item) -> bool,
-    {
-        self.maybe_empty(move |items| items.position(f))
-    }
-
-    pub fn rposition<F>(self, f: F) -> Matched<usize, I>
-    where
-        I: DoubleEndedIterator + ExactSizeIterator,
-        F: FnMut(I::Item) -> bool,
-    {
-        self.maybe_empty(move |items| items.rposition(f))
     }
 
     pub fn copied<'a, T>(self) -> Iterator1<Copied<I>>
@@ -637,14 +693,6 @@ where
         unsafe { self.non_empty(I::with_position) }
     }
 
-    pub fn contains<Q>(self, query: &Q) -> IsMatch<I>
-    where
-        I::Item: Borrow<Q>,
-        Q: PartialEq,
-    {
-        self.maybe_empty(move |items| items.contains(query))
-    }
-
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn multipeek(self) -> Iterator1<MultiPeek<I>> {
@@ -696,6 +744,71 @@ where
     }
 }
 
+impl<I> QueryAnd for Iterator1<I>
+where
+    I: Iterator,
+{
+    type Item = I::Item;
+    type Remainder = I;
+
+    fn nth_and(self, n: usize) -> Matched<Self::Item, Self::Remainder> {
+        self.items.nth_and(n)
+    }
+
+    fn find_and<F>(self, f: F) -> Matched<Self::Item, Self::Remainder>
+    where
+        F: FnMut(&Self::Item) -> bool,
+    {
+        self.items.find_and(f)
+    }
+
+    fn find_map_and<T, F>(self, f: F) -> Matched<T, Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> Option<T>,
+    {
+        self.items.find_map_and(f)
+    }
+
+    fn position_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.items.position_and(f)
+    }
+
+    fn rposition_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
+    where
+        Self::Remainder: DoubleEndedIterator + ExactSizeIterator,
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.items.rposition_and(f)
+    }
+
+    fn any_and<F>(self, f: F) -> IsMatch<Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.items.any_and(f)
+    }
+
+    fn all_and<F>(self, f: F) -> IsMatch<Self::Remainder>
+    where
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.items.all_and(f)
+    }
+
+    #[cfg(feature = "itertools")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+    fn contains_and<Q>(self, query: &Q) -> IsMatch<Self::Remainder>
+    where
+        Self::Item: Borrow<Q>,
+        Q: PartialEq,
+    {
+        self.items.contains_and(query)
+    }
+}
+
 pub fn one<T>(item: T) -> ExactlyOne<T> {
     // SAFETY:
     unsafe { Iterator1::from_iter_unchecked(Some(item)) }
@@ -740,23 +853,23 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::iter1;
+    use crate::iter1::{self, Feed, QueryAnd};
 
     #[test]
-    fn maybe_empty_query() {
-        let (has_zero, remainder) = iter1::head_and_tail(0i32, [1]).any(|x| x == 0).into();
+    fn and_remainder() {
+        let Feed(has_zero, remainder) = iter1::head_and_tail(0i32, [1]).any_and(|x| x == 0);
         assert!(has_zero);
         assert_eq!(remainder.into_iter().next(), Some(1));
 
         let x = iter1::head_and_tail(0i32, [1, 2, 3])
             .map(|x| x + 1)
-            .find(|&x| x == 3)
+            .find_and(|&x| x == 3)
             .matched();
         assert_eq!(x, Some(3));
 
         let x = iter1::head_and_tail(0i32, [1, 2, 3])
             .map(|x| x + 1)
-            .find(|&x| x == 3)
+            .find_and(|&x| x == 3)
             .with_remainder_and_then_output(|remainder| {
                 assert_eq!(remainder.count(), 1);
             });
