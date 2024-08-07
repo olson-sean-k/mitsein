@@ -18,61 +18,77 @@ use {
 use crate::Vacancy;
 use crate::{NonZeroExt as _, OptionExt as _};
 
-pub trait ThenIterator1<I>
-where
-    I: Iterator,
-{
-    type MaybeEmpty: Iterator<Item = I::Item>;
+// The input type parameter `I` is unused in this trait, but is required to prevent a coherence
+// error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
+// However, `core` may implement `Iterator` for `core::Result` and that presents a conflict. This
+// parameter avoids the conflict by implementing a distinct `ThenIterator1` trait for any
+// `Iterator` type `I` versus `Result<I>`.
+//
+// This is unfortunate and, though this trait is not meant to be used in this way, makes bounds on
+// the trait strange:
+//
+//   fn max<I, T>(items: I) -> i64
+//   where
+//       I: ThenIterator1<T, Item = i64>,
+//   {
+//       items.chain_non_empty([0]).max()
+//   }
+//
+// Note the input type parameter `T`. `ThenIterator1` is an extension trait with a broad
+// implementaion over `Iterator` types, so this is very unlikely to be a problem. Moreover,
+// associated types are the more "correct" implementation for such an iterator-like trait. In fact,
+// using the input type parameter `I` makes this sort of bound even more troublesome, as the
+// relationship between the implementor and parameter `I` differs between the two implementations
+// (requiring distinct bounds for each)!
+pub trait ThenIterator1<I>: Sized {
+    type Item;
+    type MaybeEmpty: Iterator<Item = Self::Item>;
+    type Chained: Iterator<Item = Self::Item>;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
-        Self: Sized,
-        T: IntoIterator1<Item = I::Item>;
+        T: IntoIterator1<Item = Self::Item>;
 
-    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
+    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
-        Self: Sized,
-        T: IntoIterator1<Item = I::Item>;
+        T: IntoIterator1<Item = Self::Item>;
 
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<I, T>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
     where
-        Self: Sized,
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1<Item = Self::Item>,
         F: FnOnce() -> T;
 
-    fn or_one<T>(self, item: I::Item) -> OrNonEmpty<I, [I::Item; 1]>
-    where
-        Self: Sized,
-    {
+    fn or_one<T>(self, item: Self::Item) -> OrNonEmpty<Self::MaybeEmpty, [Self::Item; 1]> {
         self.or_non_empty([item])
     }
 }
 
 impl<I> ThenIterator1<I> for I
 where
-    I: Iterator,
+    I: Iterator + Sized,
 {
+    type Item = I::Item;
     type MaybeEmpty = I;
+    type Chained = I;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1<Item = Self::Item>,
     {
         // SAFETY:
         unsafe { Iterator1::from_iter_unchecked(self.chain(items.into_iter1())) }
     }
 
-    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
+    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1<Item = Self::Item>,
     {
         Iterator1::try_from_iter(self).or_non_empty(items)
     }
 
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<I, T>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
     where
-        Self: Sized,
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1<Item = Self::Item>,
         F: FnOnce() -> T,
     {
         Iterator1::try_from_iter(self).or_else_non_empty(f)
@@ -192,7 +208,10 @@ where
 }
 
 pub trait IteratorExt:
-    Iterator + Sized + QueryAnd<Item = <Self as Iterator>::Item> + ThenIterator1<Self>
+    Iterator
+    + Sized
+    + QueryAnd<Item = <Self as Iterator>::Item>
+    + ThenIterator1<Self, Item = <Self as Iterator>::Item>
 {
     fn try_into_iter1(self) -> Result<Self>;
 
@@ -304,13 +323,15 @@ pub type Result<I> = result::Result<Iterator1<Peekable<I>>, Peekable<I>>;
 
 impl<I> ThenIterator1<I> for Result<I>
 where
-    I: Iterator,
+    I: Iterator + Sized,
 {
-    type MaybeEmpty = Peekable<I>;
+    type Item = I::Item;
+    type MaybeEmpty = I;
+    type Chained = Peekable<I>;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::MaybeEmpty, T::IntoIter>>
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1<Item = Self::Item>,
     {
         // SAFETY:
         unsafe {
@@ -324,9 +345,9 @@ where
         }
     }
 
-    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<I, T>
+    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1<Item = Self::Item>,
     {
         // SAFETY:
         unsafe {
@@ -337,10 +358,9 @@ where
         }
     }
 
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<I, T>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
     where
-        Self: Sized,
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1<Item = Self::Item>,
         F: FnOnce() -> T,
     {
         // SAFETY:
