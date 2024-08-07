@@ -12,7 +12,7 @@ use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
-use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
 };
@@ -22,7 +22,7 @@ use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Saturate, Vacancy};
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => Vec,
@@ -50,10 +50,8 @@ impl<T, I> Saturate<I> for Vec<T>
 where
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -506,10 +504,8 @@ impl<T, I> Saturate<I> for Vec1<T>
 where
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -990,10 +986,8 @@ where
     K: SegmentedOver<Target = Vec<T>>,
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 

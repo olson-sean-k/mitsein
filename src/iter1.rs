@@ -14,7 +14,9 @@ use {
     itertools::{Itertools, MapInto, MapOk, WithPosition},
 };
 
-use crate::{NonZeroExt as _, OptionExt as _, Saturated};
+#[cfg(any(feature = "alloc", feature = "arrayvec"))]
+use crate::Vacancy;
+use crate::{NonZeroExt as _, OptionExt as _};
 
 pub trait ThenIterator1<I>
 where
@@ -201,9 +203,9 @@ pub trait IteratorExt:
         T::try_from_iter(self)
     }
 
-    fn saturate<T>(self) -> Feed<T, T::Remainder>
+    fn saturate<T>(self) -> Feed<T, Self>
     where
-        T: Saturated<Self>,
+        T: FromSaturation<Self>,
     {
         T::saturated(self)
     }
@@ -216,6 +218,20 @@ where
     fn try_into_iter1(self) -> Result<Self> {
         Iterator1::try_from_iter(self)
     }
+}
+
+pub trait FromSaturation<I>: Sized
+where
+    I: IntoIterator,
+{
+    fn saturated(items: I) -> Feed<Self, I::IntoIter>;
+}
+
+pub trait Saturate<I>
+where
+    I: IntoIterator,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter;
 }
 
 pub trait FromIterator1<T> {
@@ -406,8 +422,8 @@ impl<T, I> From<Matched<T, I>> for Option<T> {
 pub type IsMatch<I> = Feed<bool, I>;
 
 impl<I> IsMatch<I> {
-    pub fn is_match(self) -> bool {
-        Into::into(self)
+    pub fn is_match(&self) -> bool {
+        self.0
     }
 
     pub fn if_and_then_remainder<F>(self, f: F) -> I
@@ -657,9 +673,9 @@ where
         T::from_iter1(self)
     }
 
-    pub fn saturate<T>(self) -> Feed<T, T::Remainder>
+    pub fn saturate<T>(self) -> Feed<T, I>
     where
-        T: Saturated<Self>,
+        T: FromSaturation<Self>,
     {
         T::saturated(self)
     }
@@ -842,6 +858,18 @@ where
 {
     // SAFETY:
     unsafe { Iterator1::from_iter_unchecked(iter::repeat(item)) }
+}
+
+#[cfg(any(feature = "alloc", feature = "arrayvec"))]
+pub(crate) fn saturate_positional_vacancy<T, I>(destination: &mut T, source: I) -> I::IntoIter
+where
+    T: Extend<I::Item> + Vacancy,
+    I: IntoIterator,
+{
+    let n = destination.vacancy();
+    let mut source = source.into_iter();
+    destination.extend(source.by_ref().take(n));
+    source
 }
 
 fn empty_or_into<T>(items: Option<T>) -> EmptyOrInto<T>

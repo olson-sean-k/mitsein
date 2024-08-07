@@ -10,13 +10,13 @@ use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut, RangeBounds};
 
 use crate::array1::Array1;
-use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Saturate, Vacancy};
+use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => VecDeque,
@@ -44,10 +44,8 @@ impl<T, I> Saturate<I> for VecDeque<T>
 where
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -419,10 +417,8 @@ impl<T, I> Saturate<I> for VecDeque1<T>
 where
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -685,10 +681,8 @@ where
     K: SegmentedOver<Target = VecDeque<T>>,
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 

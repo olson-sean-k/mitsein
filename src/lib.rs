@@ -42,10 +42,13 @@ pub mod prelude {
     pub use crate::array1::Array1;
     #[cfg(feature = "arrayvec")]
     pub use crate::array_vec1::OrSaturated;
-    pub use crate::iter1::{FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1};
+    pub use crate::iter1::{
+        FromIterator1, FromSaturation, IntoIterator1, IteratorExt as _, QueryAnd, Saturate,
+        ThenIterator1,
+    };
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
-    pub use crate::{Saturate, Saturated, Segmentation, Vacancy};
+    pub use crate::{Segmentation, Vacancy};
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
@@ -61,7 +64,6 @@ use {
     ::serde_derive::{Deserialize, Serialize},
 };
 
-use crate::iter1::Feed;
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
@@ -129,18 +131,6 @@ impl<T, E> ResultExt<T, E> for Result<T, E> {
 
 pub trait Vacancy {
     fn vacancy(&self) -> usize;
-}
-
-pub trait Saturated<T>: Sized {
-    type Remainder;
-
-    fn saturated(items: T) -> Feed<Self, Self::Remainder>;
-}
-
-pub trait Saturate<T> {
-    type Remainder;
-
-    fn saturate(&mut self, items: T) -> Self::Remainder;
 }
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -223,18 +213,6 @@ impl<T> Cardinality<T, T> {
             Cardinality::Many(many) => Cardinality::Many(f(many)),
         }
     }
-}
-
-#[cfg(any(feature = "alloc", feature = "arrayvec"))]
-fn saturate_positional_vacancy<T, I>(destination: &mut T, source: I) -> I::IntoIter
-where
-    T: Extend<I::Item> + Vacancy,
-    I: IntoIterator,
-{
-    let n = destination.vacancy();
-    let mut source = source.into_iter();
-    destination.extend(source.by_ref().take(n));
-    source
 }
 
 macro_rules! with_literals {

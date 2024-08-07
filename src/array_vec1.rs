@@ -10,13 +10,13 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
-use crate::iter1::{self, Feed, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, Feed, FromIterator1, FromSaturation, IntoIterator1, Iterator1, Saturate};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, OptionExt as _, Saturate, Saturated, Vacancy};
+use crate::{NonEmpty, OptionExt as _, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,
@@ -49,6 +49,17 @@ where
     }
 }
 
+impl<T, I, const N: usize> FromSaturation<I> for ArrayVec<T, N>
+where
+    I: IntoIterator<Item = T>,
+{
+    fn saturated(items: I) -> Feed<Self, I::IntoIter> {
+        let mut remainder = items.into_iter();
+        let items: ArrayVec<_, N> = remainder.by_ref().take(N).collect();
+        Feed(items, remainder)
+    }
+}
+
 impl<T, const N: usize> Ranged for ArrayVec<T, N> {
     type Range = PositionalRange;
 
@@ -69,23 +80,8 @@ impl<T, I, const N: usize> Saturate<I> for ArrayVec<T, N>
 where
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
-    }
-}
-
-impl<T, I, const N: usize> Saturated<I> for ArrayVec<T, N>
-where
-    I: IntoIterator<Item = T>,
-{
-    type Remainder = I::IntoIter;
-
-    fn saturated(items: I) -> Feed<Self, Self::Remainder> {
-        let mut remainder = items.into_iter();
-        let items: ArrayVec<_, N> = remainder.by_ref().take(N).collect();
-        Feed(items, remainder)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -477,6 +473,20 @@ where
     }
 }
 
+impl<T, I, const N: usize> FromSaturation<I> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    I: IntoIterator1<Item = T>,
+{
+    fn saturated(items: I) -> Feed<Self, I::IntoIter> {
+        let mut remainder = items.into_iter1().into_iter();
+        // SAFETY:
+        let items =
+            unsafe { ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect()) };
+        Feed(items, remainder)
+    }
+}
+
 impl<T, const N: usize> IntoIterator for ArrayVec1<T, N> {
     type Item = T;
     type IntoIter = arrayvec::IntoIter<T, N>;
@@ -515,26 +525,8 @@ where
     [T; N]: Array1,
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
-    }
-}
-
-impl<T, I, const N: usize> Saturated<I> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-    I: IntoIterator1<Item = T>,
-{
-    type Remainder = I::IntoIter;
-
-    fn saturated(items: I) -> Feed<Self, Self::Remainder> {
-        let mut remainder = items.into_iter1().into_iter();
-        // SAFETY:
-        let items =
-            unsafe { ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect()) };
-        Feed(items, remainder)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -806,10 +798,8 @@ where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     I: IntoIterator<Item = T>,
 {
-    type Remainder = I::IntoIter;
-
-    fn saturate(&mut self, items: I) -> Self::Remainder {
-        crate::saturate_positional_vacancy(self, items)
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -965,9 +955,12 @@ mod tests {
 
     #[test]
     fn saturation() {
-        let (xs, remainder): (ArrayVec<_, 3>, _) = [0i32, 1, 2, 3].into_iter().saturate().into();
+        let xs: ArrayVec<_, 3> = [0i32, 1, 2, 3].into_iter().saturate().0;
         assert_eq!(xs.as_slice(), &[0, 1, 2]);
-        assert!(remainder.eq([3]));
+
+        let (xs, remainder): (ArrayVec<_, 3>, _) = [0i32, 1, 2, 3, 4].into_iter().saturate().into();
+        assert_eq!(xs.as_slice(), &[0, 1, 2]);
+        assert!(remainder.eq([3, 4]));
 
         let (xs, remainder): (ArrayVec<_, 4>, _) = [0i32, 1].into_iter1().saturate().into();
         assert_eq!(xs.as_slice(), &[0, 1]);
