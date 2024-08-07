@@ -65,7 +65,7 @@ assert_eq!(xs.as_slice(), &[3]);
 let xs = Vec1::from([0i32, 1, 2]);
 let ys: Vec1<_> = xs
     .iter1()
-    .all(|x| *x == 0)
+    .all_and(|x| *x == 0)
     .if_not_and_then_remainder(|| {
         eprintln!("non-zero");
     })
