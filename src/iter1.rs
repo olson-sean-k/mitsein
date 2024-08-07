@@ -77,7 +77,7 @@ where
     }
 }
 
-pub trait AndRemainder {
+pub trait QueryAnd {
     type Item;
     type Remainder: Iterator<Item = Self::Item>;
 
@@ -116,7 +116,7 @@ pub trait AndRemainder {
         Q: PartialEq;
 }
 
-impl<I> AndRemainder for I
+impl<I> QueryAnd for I
 where
     I: Iterator,
 {
@@ -190,7 +190,7 @@ where
 }
 
 pub trait IteratorExt:
-    AndRemainder<Item = <Self as Iterator>::Item> + Iterator + Sized + ThenIterator1<Self>
+    Iterator + Sized + QueryAnd<Item = <Self as Iterator>::Item> + ThenIterator1<Self>
 {
     fn try_into_iter1(self) -> Result<Self>;
 
@@ -732,7 +732,19 @@ where
     }
 }
 
-impl<I> AndRemainder for Iterator1<I>
+impl<I> IntoIterator for Iterator1<I>
+where
+    I: Iterator,
+{
+    type Item = I::Item;
+    type IntoIter = I;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items
+    }
+}
+
+impl<I> QueryAnd for Iterator1<I>
 where
     I: Iterator,
 {
@@ -797,18 +809,6 @@ where
     }
 }
 
-impl<I> IntoIterator for Iterator1<I>
-where
-    I: Iterator,
-{
-    type Item = I::Item;
-    type IntoIter = I;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.items
-    }
-}
-
 pub fn one<T>(item: T) -> ExactlyOne<T> {
     // SAFETY:
     unsafe { Iterator1::from_iter_unchecked(Some(item)) }
@@ -853,7 +853,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::iter1::{self, AndRemainder, Feed};
+    use crate::iter1::{self, Feed, QueryAnd};
 
     #[test]
     fn and_remainder() {
