@@ -87,7 +87,7 @@ pub trait IteratorExt: Iterator + Sized + ThenIterator1<Self> {
         T::try_from_iter(self)
     }
 
-    fn saturate<T>(self) -> AndRemainder<T, T::Remainder>
+    fn saturate<T>(self) -> Feed<T, T::Remainder>
     where
         T: Saturated<Self>,
     {
@@ -224,17 +224,14 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct AndRemainder<T, I> {
-    pub output: T,
-    pub remainder: I,
-}
+pub struct Feed<T, I>(pub T, pub I);
 
-impl<T, I> AndRemainder<T, I> {
+impl<T, I> Feed<T, I> {
     pub fn with_output_and_then_remainder<F>(self, f: F) -> I
     where
         F: FnOnce(T),
     {
-        let AndRemainder { output, remainder } = self;
+        let Feed(output, remainder) = self;
         f(output);
         remainder
     }
@@ -243,20 +240,20 @@ impl<T, I> AndRemainder<T, I> {
     where
         F: FnOnce(I),
     {
-        let AndRemainder { output, remainder } = self;
+        let Feed(output, remainder) = self;
         f(remainder);
         output
     }
 }
 
-impl<T, I> From<AndRemainder<T, I>> for (T, I) {
-    fn from(query: AndRemainder<T, I>) -> Self {
-        let AndRemainder { output, remainder } = query;
+impl<T, I> From<Feed<T, I>> for (T, I) {
+    fn from(feed: Feed<T, I>) -> Self {
+        let Feed(output, remainder) = feed;
         (output, remainder)
     }
 }
 
-pub type Matched<T, I> = AndRemainder<Option<T>, I>;
+pub type Matched<T, I> = Feed<Option<T>, I>;
 
 impl<T, I> Matched<T, I> {
     pub fn matched(self) -> Option<T> {
@@ -267,7 +264,7 @@ impl<T, I> Matched<T, I> {
     where
         F: FnOnce(T),
     {
-        let Matched { output, remainder } = self;
+        let Feed(output, remainder) = self;
         if let Some(output) = output {
             f(output);
         }
@@ -278,7 +275,7 @@ impl<T, I> Matched<T, I> {
     where
         F: FnOnce(),
     {
-        let Matched { output, remainder } = self;
+        let Feed(output, remainder) = self;
         if output.is_none() {
             f();
         }
@@ -287,12 +284,12 @@ impl<T, I> Matched<T, I> {
 }
 
 impl<T, I> From<Matched<T, I>> for Option<T> {
-    fn from(query: Matched<T, I>) -> Self {
-        query.output
+    fn from(feed: Matched<T, I>) -> Self {
+        feed.0
     }
 }
 
-pub type IsMatch<I> = AndRemainder<bool, I>;
+pub type IsMatch<I> = Feed<bool, I>;
 
 impl<I> IsMatch<I> {
     pub fn is_match(self) -> bool {
@@ -303,7 +300,7 @@ impl<I> IsMatch<I> {
     where
         F: FnOnce(),
     {
-        let IsMatch { output, remainder } = self;
+        let Feed(output, remainder) = self;
         if output {
             f();
         }
@@ -314,7 +311,7 @@ impl<I> IsMatch<I> {
     where
         F: FnOnce(),
     {
-        let IsMatch { output, remainder } = self;
+        let Feed(output, remainder) = self;
         if !output {
             f();
         }
@@ -323,8 +320,8 @@ impl<I> IsMatch<I> {
 }
 
 impl<I> From<IsMatch<I>> for bool {
-    fn from(query: IsMatch<I>) -> Self {
-        query.output
+    fn from(feed: IsMatch<I>) -> Self {
+        feed.0
     }
 }
 
@@ -363,15 +360,12 @@ where
     }
 
     #[inline(always)]
-    fn maybe_empty<T, F>(mut self, f: F) -> AndRemainder<T, I>
+    fn maybe_empty<T, F>(mut self, f: F) -> Feed<T, I>
     where
         F: FnOnce(&mut I) -> T,
     {
         let output = f(&mut self.items);
-        AndRemainder {
-            output,
-            remainder: self.items,
-        }
+        Feed(output, self.items)
     }
 
     #[inline(always)]
@@ -419,7 +413,7 @@ where
     }
 
     pub fn into_head_and_tail(self) -> (I::Item, I) {
-        let AndRemainder { output, remainder } = self.maybe_empty(|items| {
+        let Feed(output, remainder) = self.maybe_empty(|items| {
             // SAFETY:
             unsafe { items.next().unwrap_maybe_unchecked() }
         });
@@ -607,7 +601,7 @@ where
         T::from_iter1(self)
     }
 
-    pub fn saturate<T>(self) -> AndRemainder<T, T::Remainder>
+    pub fn saturate<T>(self) -> Feed<T, T::Remainder>
     where
         T: Saturated<Self>,
     {
