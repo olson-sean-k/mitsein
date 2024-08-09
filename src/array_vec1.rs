@@ -10,7 +10,9 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 
 use crate::array1::Array1;
-use crate::iter1::{self, Feed, FromIterator1, FromSaturation, IntoIterator1, Iterator1, Saturate};
+use crate::iter1::{
+    self, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1, Saturate,
+};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
@@ -49,7 +51,7 @@ where
     }
 }
 
-impl<T, I, const N: usize> FromSaturation<I> for ArrayVec<T, N>
+impl<T, I, const N: usize> FromIteratorUntil<I> for ArrayVec<T, N>
 where
     I: IntoIterator<Item = T>,
 {
@@ -473,7 +475,7 @@ where
     }
 }
 
-impl<T, I, const N: usize> FromSaturation<I> for ArrayVec1<T, N>
+impl<T, I, const N: usize> FromIteratorUntil<I> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
     I: IntoIterator1<Item = T>,

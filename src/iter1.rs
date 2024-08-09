@@ -18,29 +18,29 @@ use {
 use crate::Vacancy;
 use crate::{NonZeroExt as _, OptionExt as _};
 
-// The input type parameter `I` is unused in this trait, but is required to prevent a coherence
+// The input type parameter `K` is unused in this trait, but is required to prevent a coherence
 // error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
 // However, `core` may implement `Iterator` for `core::Result` and that presents a conflict. This
 // parameter avoids the conflict by implementing a distinct `ThenIterator1` trait for any
 // `Iterator` type `I` versus `Result<I>`.
 //
 // This is unfortunate and, though this trait is not meant to be used in this way, makes bounds on
-// the trait strange:
+// the trait unusual:
 //
-//   fn max<I, T>(items: I) -> i64
+//   fn max<I, K>(items: I) -> i64
 //   where
-//       I: ThenIterator1<T, Item = i64>,
+//       I: ThenIterator1<K, Item = i64>,
 //   {
 //       items.chain_non_empty([0]).max()
 //   }
 //
-// Note the input type parameter `T`. `ThenIterator1` is an extension trait with a broad
+// Note the input type parameter `K`. `ThenIterator1` is an extension trait with a broad
 // implementaion over `Iterator` types, so this is very unlikely to be a problem. Moreover,
 // associated types are the more "correct" implementation for such an iterator-like trait. In fact,
-// using the input type parameter `I` makes this sort of bound even more troublesome, as the
-// relationship between the implementor and parameter `I` differs between the two implementations
+// using the input type parameter `K` makes this sort of bound even more troublesome, as the
+// relationship between the implementor and parameter `K` differs between the two implementations
 // (requiring distinct bounds for each)!
-pub trait ThenIterator1<I>: Sized {
+pub trait ThenIterator1<K>: Sized {
     type Item;
     type MaybeEmpty: Iterator<Item = Self::Item>;
     type Chained: Iterator<Item = Self::Item>;
@@ -224,7 +224,7 @@ pub trait IteratorExt:
 
     fn saturate<T>(self) -> Feed<T, Self>
     where
-        T: FromSaturation<Self>,
+        T: FromIteratorUntil<Self>,
     {
         T::saturated(self)
     }
@@ -239,18 +239,18 @@ where
     }
 }
 
-pub trait FromSaturation<I>: Sized
-where
-    I: IntoIterator,
-{
-    fn saturated(items: I) -> Feed<Self, I::IntoIter>;
-}
-
 pub trait Saturate<I>
 where
     I: IntoIterator,
 {
     fn saturate(&mut self, items: I) -> I::IntoIter;
+}
+
+pub trait FromIteratorUntil<I>: Sized
+where
+    I: IntoIterator,
+{
+    fn saturated(items: I) -> Feed<Self, I::IntoIter>;
 }
 
 pub trait FromIterator1<T> {
@@ -695,7 +695,7 @@ where
 
     pub fn saturate<T>(self) -> Feed<T, I>
     where
-        T: FromSaturation<Self>,
+        T: FromIteratorUntil<Self>,
     {
         T::saturated(self)
     }

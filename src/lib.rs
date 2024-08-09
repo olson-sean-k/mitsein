@@ -43,7 +43,7 @@ pub mod prelude {
     #[cfg(feature = "arrayvec")]
     pub use crate::array_vec1::OrSaturated;
     pub use crate::iter1::{
-        FromIterator1, FromSaturation, IntoIterator1, IteratorExt as _, QueryAnd, Saturate,
+        FromIterator1, FromIteratorUntil, IntoIterator1, IteratorExt as _, QueryAnd, Saturate,
         ThenIterator1,
     };
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
