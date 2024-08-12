@@ -6,7 +6,8 @@ use core::slice;
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
-use crate::{NonEmpty, OptionExt as _};
+use crate::safety::OptionExt as _;
+use crate::NonEmpty;
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 

@@ -9,11 +9,12 @@ use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
 use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
+use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
-use crate::{NonEmpty, NonZeroExt as _, OptionExt as _};
+use crate::NonEmpty;
 
 segment::impl_target_forward_type_and_definition!(
     for <T> where T: Clone + Ord => BTreeSet,

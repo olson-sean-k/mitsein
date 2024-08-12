@@ -6,9 +6,9 @@ use alloc::sync::{Arc, Weak};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{FromIterator1, IntoIterator1};
+use crate::safety::ResultExt as _;
 use crate::slice1::Slice1;
 use crate::vec1::{CowSlice1, CowSlice1Ext as _, Vec1};
-use crate::ResultExt as _;
 
 pub type ArcSlice1<T> = Arc<Slice1<T>>;
 

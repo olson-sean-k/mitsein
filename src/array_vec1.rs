@@ -13,12 +13,13 @@ use crate::array1::Array1;
 use crate::iter1::{
     self, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1, Saturate,
 };
+use crate::safety::OptionExt as _;
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, OptionExt as _, Vacancy};
+use crate::{NonEmpty, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,

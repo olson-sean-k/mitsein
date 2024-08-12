@@ -11,12 +11,13 @@ use core::ops::{Index, IndexMut, RangeBounds};
 
 use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
+use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
+use crate::{NonEmpty, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => VecDeque,

@@ -13,6 +13,7 @@ use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
+use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
 };
@@ -22,7 +23,7 @@ use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{NonEmpty, NonZeroExt as _, OptionExt as _, Vacancy};
+use crate::{NonEmpty, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => Vec,

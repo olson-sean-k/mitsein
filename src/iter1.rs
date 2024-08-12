@@ -14,9 +14,10 @@ use {
     itertools::{Itertools, MapInto, MapOk, WithPosition},
 };
 
+use crate::safety::OptionExt as _;
+use crate::NonZeroExt as _;
 #[cfg(any(feature = "alloc", feature = "arrayvec"))]
 use crate::Vacancy;
-use crate::{NonZeroExt as _, OptionExt as _};
 
 // The input type parameter `K` is unused in this trait, but is required to prevent a coherence
 // error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
