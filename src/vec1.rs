@@ -13,7 +13,7 @@ use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
-use crate::safety::{NonZeroExt as _, OptionExt as _};
+use crate::safety::{NonZeroExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
 };
@@ -194,7 +194,7 @@ impl<T> Vec1<T> {
         F: FnOnce(&mut Vec<T>) -> T,
     {
         // SAFETY:
-        self.many_or_else(f, |items| unsafe { items.get_unchecked(0) })
+        self.many_or_else(f, |items| unsafe { items.get_maybe_unchecked(0) })
     }
 
     fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
@@ -204,7 +204,7 @@ impl<T> Vec1<T> {
     {
         // SAFETY:
         self.many_or_else(f, move |items| unsafe {
-            mem::replace(items.get_unchecked_mut(0), replace())
+            mem::replace(items.get_maybe_unchecked_mut(0), replace())
         })
     }
 

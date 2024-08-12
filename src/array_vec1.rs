@@ -13,7 +13,7 @@ use crate::array1::Array1;
 use crate::iter1::{
     self, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1, Saturate,
 };
-use crate::safety::{self, OptionExt as _};
+use crate::safety::{self, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
@@ -209,7 +209,7 @@ where
         F: FnOnce(&mut ArrayVec<T, N>) -> T,
     {
         // SAFETY:
-        self.many_or_else(f, |items| unsafe { items.get_unchecked(0) })
+        self.many_or_else(f, |items| unsafe { items.get_maybe_unchecked(0) })
     }
 
     fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
@@ -219,7 +219,7 @@ where
     {
         // SAFETY:
         self.many_or_else(f, move |items| unsafe {
-            mem::replace(items.get_unchecked_mut(0), replace())
+            mem::replace(items.get_maybe_unchecked_mut(0), replace())
         })
     }
 
