@@ -768,22 +768,6 @@ where
         }
     }
 
-    pub fn push(&mut self, item: T) {
-        self.items.insert(self.range.end, item);
-        self.range.put_from_end(1);
-    }
-
-    pub fn pop(&mut self) -> Option<T> {
-        if self.range.is_empty() {
-            None
-        }
-        else {
-            let item = self.items.remove(self.range.end - 1);
-            self.range.take_from_end(1);
-            Some(item)
-        }
-    }
-
     pub fn insert(&mut self, index: usize, item: T) {
         let index = self.range.project(&index).expect_in_bounds();
         self.items.insert(index, item);

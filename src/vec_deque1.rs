@@ -519,38 +519,6 @@ where
         }
     }
 
-    pub fn push_front(&mut self, item: T) {
-        self.items.insert(self.range.start, item);
-        self.range.put_from_end(1);
-    }
-
-    pub fn push_back(&mut self, item: T) {
-        self.items.insert(self.range.end, item);
-        self.range.put_from_end(1);
-    }
-
-    pub fn pop_front(&mut self) -> Option<T> {
-        if self.range.is_empty() {
-            None
-        }
-        else {
-            self.items
-                .remove(self.range.start)
-                .inspect(|_| self.range.take_from_end(1))
-        }
-    }
-
-    pub fn pop_back(&mut self) -> Option<T> {
-        if self.range.is_empty() {
-            None
-        }
-        else {
-            self.items
-                .remove(self.range.end - 1)
-                .inspect(|_| self.range.take_from_end(1))
-        }
-    }
-
     pub fn insert(&mut self, index: usize, item: T) {
         let index = self.range.project(&index).expect_in_bounds();
         self.items.insert(index, item);
@@ -757,11 +725,13 @@ mod tests {
         assert_eq!(xs.make_contiguous().as_slice(), &[0]);
 
         let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        xs.tail().pop_front();
+        xs.tail().remove(0);
         assert_eq!(xs.make_contiguous().as_slice(), &[0, 2, 3]);
 
         let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
-        xs.segment(1..1).pop_front();
-        assert_eq!(xs.make_contiguous().as_slice(), &[0, 1, 2, 3]);
+        let mut segment = xs.segment(1..1);
+        assert_eq!(segment.len(), 0);
+        segment.insert(0, 10);
+        assert_eq!(xs.make_contiguous().as_slice(), &[0, 10, 1, 2, 3]);
     }
 }
