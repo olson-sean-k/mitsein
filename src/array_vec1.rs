@@ -13,7 +13,7 @@ use crate::array1::Array1;
 use crate::iter1::{
     self, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1, Saturate,
 };
-use crate::safety::OptionExt as _;
+use crate::safety::{self, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 #[cfg(feature = "serde")]
@@ -273,38 +273,14 @@ where
         self.many_or_get(index, move |items| items.swap_remove(index))
     }
 
-    // This function does not use `NonZeroExt`, because at time of writing it is not possible to
-    // implement constant functions in traits.
     pub const fn len(&self) -> NonZeroUsize {
-        #[cfg(all(not(miri), test))]
-        {
-            match NonZeroUsize::new(self.items.len()) {
-                Some(len) => len,
-                _ => panic!(),
-            }
-        }
         // SAFETY:
-        #[cfg(not(all(not(miri), test)))]
-        unsafe {
-            NonZeroUsize::new_unchecked(self.items.len())
-        }
+        unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 
-    // This function does not use `NonZeroExt`, because at time of writing it is not possible to
-    // implement constant functions in traits.
     pub const fn capacity(&self) -> NonZeroUsize {
-        #[cfg(all(not(miri), test))]
-        {
-            match NonZeroUsize::new(self.items.capacity()) {
-                Some(capacity) => capacity,
-                _ => panic!(),
-            }
-        }
         // SAFETY:
-        #[cfg(not(all(not(miri), test)))]
-        unsafe {
-            NonZeroUsize::new_unchecked(self.items.capacity())
-        }
+        unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.capacity()) }
     }
 
     pub const fn as_array_vec(&self) -> &ArrayVec<T, N> {

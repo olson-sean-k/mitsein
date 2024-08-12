@@ -22,3 +22,9 @@ impl<T, E> safety::ResultExt<T, E> for Result<T, E> {
         self.unwrap_unchecked()
     }
 }
+
+/// # Safety
+#[inline(always)]
+pub const unsafe fn non_zero_from_usize_maybe_unchecked(n: usize) -> NonZeroUsize {
+    NonZeroUsize::new_unchecked(n)
+}

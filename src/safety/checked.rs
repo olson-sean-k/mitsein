@@ -25,3 +25,11 @@ impl<T, E> safety::ResultExt<T, E> for Result<T, E> {
         }
     }
 }
+
+/// # Safety
+pub const unsafe fn non_zero_from_usize_maybe_unchecked(n: usize) -> NonZeroUsize {
+    match NonZeroUsize::new(n) {
+        Some(n) => n,
+        _ => panic!(),
+    }
+}
