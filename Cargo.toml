@@ -24,7 +24,7 @@ rustdoc-args = [
 ]
 
 [features]
-default = ["alloc"]
+default = ["std"]
 alloc = [
     "itertools/use_alloc",
     "serde/alloc",
@@ -35,6 +35,11 @@ serde = [
     "dep:serde",
     "dep:serde_derive",
     "arrayvec/serde",
+]
+std = [
+    "alloc",
+    "itertools/use_std",
+    "serde/std",
 ]
 
 [dependencies]

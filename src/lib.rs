@@ -1,5 +1,4 @@
 // TODO: Implement tests. Consider `rstest`.
-// TODO: Provide a feature for integration with `std`-only APIs, namely `std::io`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
@@ -23,6 +22,8 @@
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 mod safety;
 mod segment;

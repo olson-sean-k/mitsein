@@ -8,6 +8,11 @@ use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
+#[cfg(feature = "std")]
+use {
+    core::cmp,
+    std::io::{self, Write},
+};
 
 use crate::array1::Array1;
 use crate::iter1::{
@@ -602,6 +607,23 @@ where
 {
     fn vacancy(&self) -> usize {
         self.capacity().get() - self.len().get()
+    }
+}
+
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+impl<const N: usize> Write for ArrayVec1<u8, N>
+where
+    [u8; N]: Array1,
+{
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        let len = cmp::min(self.items.vacancy(), buffer.len());
+        let _ = self.items.saturate(buffer.iter().copied());
+        Ok(len)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 

@@ -9,6 +9,8 @@ use core::iter::{self, FusedIterator};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
+#[cfg(feature = "std")]
+use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
@@ -574,6 +576,33 @@ impl<T> TryFrom<Vec<T>> for Vec1<T> {
 impl<T> Vacancy for Vec1<T> {
     fn vacancy(&self) -> usize {
         self.items.vacancy()
+    }
+}
+
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+impl Write for Vec1<u8> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.items.extend_from_slice(buffer);
+        Ok(buffer.len())
+    }
+
+    fn write_vectored(&mut self, buffers: &[IoSlice<'_>]) -> io::Result<usize> {
+        let len = buffers.iter().map(|buffer| buffer.len()).sum();
+        self.items.reserve(len);
+        for buffer in buffers {
+            self.items.extend_from_slice(buffer);
+        }
+        Ok(len)
+    }
+
+    fn write_all(&mut self, buffer: &[u8]) -> io::Result<()> {
+        self.items.extend_from_slice(buffer);
+        Ok(())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 

@@ -138,19 +138,25 @@ for primitive types like `slice` and positional collections in `alloc` beyond
 
 Mitsein is a `no_std` library and `alloc` is optional. **Non-empty slices,
 iterators, and arrays can be used in embedded contexts, or any other environment
-where OS features or allocation are not available.**
+where OS features or allocation are not available.** Integration with
+[`arrayvec`][`arrayvec`] also functions in `no_std` environments.
 
 ## Cargo Features
 
 Mitsein provides some optional features and integrations via the following Cargo
 features.
 
-| Feature     | Default | Dependencies            | Description                                                |
-|-------------|---------|-------------------------|------------------------------------------------------------|
-| `alloc`     | Yes     | `alloc`                 | Non-empty collections that allocate, like `Vec1`.          |
-| `arrayvec`  | No      | `arrayvec`              | Non-empty implementation of [`ArrayVec`][`arrayvec`].      |
-| `itertools` | No      | `itertools`             | Combinators from [`itertools`] for `Iterator1`.            |
-| `serde`     | No      | `serde`, `serde_derive` | De/serialization  of non-empty collections with [`serde`]. |
+| Feature     | Default | Dependencies            | Description                                               |
+|-------------|---------|-------------------------|-----------------------------------------------------------|
+| `alloc`     | No      | `alloc`                 | Non-empty collections that allocate, like `Vec1`.         |
+| `arrayvec`  | No      | `arrayvec`              | Non-empty implementation of [`ArrayVec`][`arrayvec`].     |
+| `itertools` | No      | `itertools`             | Combinators from [`itertools`] for `Iterator1`.           |
+| `serde`     | No      | `serde`, `serde_derive` | De/serialization of non-empty collections with [`serde`]. |
+| `std`       | Yes     | `std`                   | Integrations with `std::io`.                              |
+
+Some features enable other crate and dependency features. For example, `std`
+enables `alloc` and both of these features enable similar features in optional
+dependencies when applicable.
 
 [`arrayvec`]: https://crates.io/crates/arrayvec
 [`itertools`]: https://crates.io/crates/itertools

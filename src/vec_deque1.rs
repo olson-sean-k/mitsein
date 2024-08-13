@@ -8,6 +8,8 @@ use core::iter;
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut, RangeBounds};
+#[cfg(feature = "std")]
+use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
@@ -474,6 +476,33 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
 impl<T> Vacancy for VecDeque1<T> {
     fn vacancy(&self) -> usize {
         self.items.vacancy()
+    }
+}
+
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+impl Write for VecDeque1<u8> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.items.extend(buffer);
+        Ok(buffer.len())
+    }
+
+    fn write_vectored(&mut self, buffers: &[IoSlice<'_>]) -> io::Result<usize> {
+        let len = buffers.iter().map(|buffer| buffer.len()).sum();
+        self.items.reserve(len);
+        for buffer in buffers {
+            self.items.extend(&**buffer);
+        }
+        Ok(len)
+    }
+
+    fn write_all(&mut self, buffer: &[u8]) -> io::Result<()> {
+        self.items.extend(buffer);
+        Ok(())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
