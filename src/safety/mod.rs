@@ -12,6 +12,7 @@ use core::slice::SliceIndex;
 
 // TODO: At time of writing, traits cannot expose `const` functions. Remove this in favor of
 //       `NonZeroExt` when this is possible. See `array_vec1`.
+#[cfg(feature = "arrayvec")]
 pub use maybe::non_zero_from_usize_maybe_unchecked;
 
 pub trait NonZeroExt<T> {
