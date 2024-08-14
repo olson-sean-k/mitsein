@@ -208,13 +208,10 @@ where
     }
 }
 
-pub trait IteratorExt:
-    Iterator
-    + Sized
-    + QueryAnd<Item = <Self as Iterator>::Item>
-    + ThenIterator1<Self, Item = <Self as Iterator>::Item>
-{
-    fn try_into_iter1(self) -> Result<Self>;
+pub trait IteratorExt: Iterator + Sized {
+    fn try_into_iter1(self) -> Result<Self> {
+        Iterator1::try_from_iter(self)
+    }
 
     fn try_collect1<T>(self) -> result::Result<T, Peekable<Self>>
     where
@@ -231,14 +228,7 @@ pub trait IteratorExt:
     }
 }
 
-impl<I> IteratorExt for I
-where
-    I: Iterator,
-{
-    fn try_into_iter1(self) -> Result<Self> {
-        Iterator1::try_from_iter(self)
-    }
-}
+impl<I> IteratorExt for I where I: Iterator {}
 
 pub trait Saturate<I>
 where
