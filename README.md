@@ -11,11 +11,13 @@ vectors.
 Allocating a `Vec1` from one or more items (infallibly):
 
 ```rust
-use mitsein::vec1::{vec1, Vec1};
+use mitsein::prelude::*;
 
 let xs = Vec1::from_one(0i32);
 let xs = Vec1::from([0i32, 1, 2]);
 let xs = Vec1::from_head_and_tail(0i32, [1, 2]);
+
+let xs: Vec1<_> = [0i32].into_iter1().collect1();
 
 let xs = vec1![0i32, 1, 2];
 ```
@@ -27,9 +29,11 @@ use mitsein::prelude::*;
 
 let ys = vec![0i32, 1, 2];
 
-let xs = Vec1::try_from(ys)?;
-let xs = Vec1::try_from(&[0i32, 1, 2])?;
-let xs = Vec1::try_from_iter([0i32, 1, 2])?;
+let xs = Vec1::try_from(ys).unwrap();
+let xs = Vec1::try_from(&[0i32, 1, 2]).unwrap();
+let xs = Vec1::try_from_iter([0i32, 1, 2]).unwrap();
+
+let xs: Vec1<_> = [0i32].into_iter().try_collect1().unwrap();
 ```
 
 Mapping over items in a `Vec1`:
@@ -49,6 +53,7 @@ use mitsein::prelude::*;
 let mut xs = Vec1::from([0i32, 1, 2]);
 while let Ok(item) = xs.pop_or_get_only() { ... }
 
+let mut xs = Vec1::from([0i32, 1, 2]);
 xs.tail().clear();
 ```
 
@@ -76,42 +81,34 @@ assert_eq!(ys.as_slice(), &[&2]);
 
 ## Features and Comparisons
 
-By providing non-empty APIs over both collections **and** views (i.e., slices
-and iterators), **Mitsein separates concerns just like standard collection and
-iterator APIs**. Unlike many other non-empty collection implementations, Mitsein
-need not expose combinatorial sets of inherent iterator-like functions in
-collections for each pair of receiver and operation. For example, the [`vec1`]
-crate supports map operations over its `Vec1` type via the `Vec1::mapped`,
-`Vec1::mapped_ref`, and `Vec1::mapped_mut` functions. Mitsein instead exposes
-map operations via `Iterator1`, which can support any non-empty view or
-collection with a more typical API.
+**Non-empty itertaor APIs separate concerns just like standard APIs using
+familiar patterns and syntax.** Mitsein need not expose combinatorial sets of
+inherent iterator-like functions in non-empty collections. For example, the
+[`vec1`] crate supports map operations over its `Vec1` type via the
+`Vec1::mapped`, `Vec1::mapped_ref`, and `Vec1::mapped_mut` functions. Mitsein
+instead exposes map operations via `Iterator1`, which can support any non-empty
+view or collection with a more typical API (`Iterator1::map`).
 
-Non-empty view APIs also enable borrowing, so **Mitsein collection types support
-copy-on-write via the standard `Cow` type**, unlike many other non-empty
-collection implementations.
+Non-empty slice APIs enable borrowing and copy-on-write, so **Mitsein supports
+the standard `Cow` type**, unlike other non-empty `Vec` implementations like the
+[`nonempty`] and [`vec1`] crates.
 
-Non-empty iterator APIs are largely compatible with standard iterators, allowing
-non-empty collections to interact ergonomically with collections of zero or more
-items. **Mitsein views and collections use more familiar syntax for mapping,
-taking, chaining, etc.**
+**Items are stored consistently in Mitsein.** No head item is allocated
+differently. For example, the [`nonempty`] crate directly exposes a head item
+that is, unlike tail items, **not** allocated on the heap. This can potentially
+cause surprising behavior or performance.
 
-**Items are stored contiguously or otherwise consistently in Mitsein**. This
-means that no head item is allocated diffently. For example, the [`nonempty`]
-crate directly exposes a head item that is, unlike tail items, **not** allocated
-on the heap. This can potentially cause surprising behavior or poor performance
-when the item type is large, for example.
-
-Non-empty APIs in collections that exhibit different behavior are distinct from
+Non-empty collection APIs that exhibit different behavior are distinct from
 counterparts in Mitsein. For example, the [`vec1`] crate presents `Vec1::pop`
 and `Vec1::remove`, which may be unclear in context. Mitsein instead presents
-`Vec1::pop_or_get_only` and `Vec1::remove_or_get_only`.
+APIs like `Vec1::pop_or_get_only` and `Vec1::remove_or_replace_only`, for
+example.
 
-**Mitsein separates many non-empty error concerns into a segmentation API**. The
-segmentation API provides a view (called a segment) into collections that
-supports **topological** mutations (unlike slices, for example). This works well
-for non-empty collections, which can be segmented prior to otherwise fallible
-operations. The [`nonempty`] and [`nunny`] crates have limited (or no) support
-for removals while the [`vec1`] crate provides fallible but bespoke
+**Mitsein separates many non-empty error concerns into a segmentation API.**
+Segments span a range in a collection and support topological mutations (e.g.,
+removal of items). Non-empty collections can be segmented prior to removal
+operations, for example. The [`nonempty`] and [`nunny`] crates have limited (or
+no) support for removals while the [`vec1`] crate provides fallible but bespoke
 counterparts.
 
 ```rust
@@ -131,15 +128,15 @@ assert_eq!(xs.as_slice(), &[0i32, 1, 2]);
 ```
 
 **Mitsein provides complete coverage of ordered collections and heap container
-APIs in `core` and `alloc`**. This notably includes `slice`, `BTreeMap`,
-`BTreeSet`, `Box`, and `Arc`. The [`nonempty`] and [`vec1`] crates lack support
-for primitive types like `slice` and positional collections in `alloc` beyond
-`Vec`.
+APIs in `core` and `alloc`.** This notably includes `slice`, `BTreeMap`,
+`BTreeSet`, `Box`, and `Arc`. (`BinaryHeap` is an intentional exception.) The
+[`nonempty`] and [`vec1`] crates lack support for primitive types like `slice`
+and collections other than `Vec`.
 
 Mitsein is a `no_std` library and `alloc` is optional. **Non-empty slices,
-iterators, and arrays can be used in embedded contexts, or any other environment
-where OS features or allocation are not available.** Integration with
-[`arrayvec`][`arrayvec`] also functions in `no_std` environments.
+iterators, and arrays can be used in contexts where OS features or allocation
+are not available.** Integration with [`arrayvec`][`arrayvec`] also functions in
+`no_std` environments.
 
 ## Cargo Features
 
