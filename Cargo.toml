@@ -2,7 +2,7 @@
 name = "mitsein"
 version = "0.2.0"
 authors = ["Sean Olson <olson.sean.k@gmail.com>"]
-description = "Strongly typed APIs for non-empty collections and views."
+description = "Strongly typed APIs for non-empty collections, slices, and iterators."
 repository = "https://github.com/olson-sean-k/mitsein"
 readme = "README.md"
 edition = "2021"
@@ -10,11 +10,17 @@ rust-version = "1.76.0"
 license = "MIT"
 keywords = [
     "collection",
+    "iterator",
     "non-empty",
     "one-or-more",
-    "vector",
+    "slice",
 ]
-categories = ["data-structures"]
+categories = [
+    "data-structures",
+    "no-std",
+    "no-std::no-alloc",
+    "rust-patterns",
+]
 
 [package.metadata.docs.rs]
 all-features = true
