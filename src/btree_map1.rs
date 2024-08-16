@@ -8,6 +8,7 @@ use core::num::NonZeroUsize;
 use core::ops::RangeBounds;
 
 use crate::array1::Array1;
+use crate::cmp1::Ord1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
@@ -397,6 +398,7 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     fn arity(&mut self) -> Cardinality<'_, K, V> {
+        // `BTreeMap::len` is reliable even in the face of a non-conformant `Ord` implementation.
         match self.items.len() {
             0 => unreachable!(),
             1 => Cardinality::One(&mut self.items),
@@ -445,9 +447,13 @@ impl<K, V> BTreeMap1<K, V> {
 
     pub fn split_off_tail(&mut self) -> BTreeMap<K, V>
     where
-        K: Clone + Ord,
+        K: Clone + Ord1,
     {
         match self.items.keys().nth(1).cloned() {
+            // `BTreeMap::split_off` relies on the `Ord` implementation to determine where the
+            // split begins. This requires `Ord1` here, because a non-conformant `Ord`
+            // implementation may split at the first item (despite the matched expression) and
+            // empty the `BTreeMap1`.
             Some(key) => self.items.split_off(&key),
             _ => BTreeMap::new(),
         }
@@ -494,6 +500,25 @@ impl<K, V> BTreeMap1<K, V> {
             .map(|(_key, value)| value)
     }
 
+    pub fn pop_first_until_only(&mut self) -> OnlyEntry<'_, K, V>
+    where
+        K: Ord,
+    {
+        self.pop_first_until_only_with(|_| {})
+    }
+
+    pub fn pop_first_until_only_with<F>(&mut self, mut f: F) -> OnlyEntry<'_, K, V>
+    where
+        K: Ord,
+        F: FnMut(V),
+    {
+        while let Ok(item) = self.pop_first_or_get_only() {
+            f(item);
+        }
+        // SAFETY:
+        unsafe { self.pop_first_or_get_only().err().unwrap_maybe_unchecked() }
+    }
+
     pub fn pop_last_key_value_or_get_only(&mut self) -> KeyValueOrOnly<'_, K, V>
     where
         K: Ord,
@@ -508,6 +533,25 @@ impl<K, V> BTreeMap1<K, V> {
     {
         self.pop_last_key_value_or_get_only()
             .map(|(_key, value)| value)
+    }
+
+    pub fn pop_last_until_only(&mut self) -> OnlyEntry<'_, K, V>
+    where
+        K: Ord,
+    {
+        self.pop_last_until_only_with(|_| {})
+    }
+
+    pub fn pop_last_until_only_with<F>(&mut self, mut f: F) -> OnlyEntry<'_, K, V>
+    where
+        K: Ord,
+        F: FnMut(V),
+    {
+        while let Ok(item) = self.pop_last_or_get_only() {
+            f(item);
+        }
+        // SAFETY:
+        unsafe { self.pop_last_or_get_only().err().unwrap_maybe_unchecked() }
     }
 
     pub fn remove_key_value_or_get_only<'a, Q>(
@@ -698,7 +742,7 @@ impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
 
 impl<K, V> Segmentation for BTreeMap1<K, V>
 where
-    K: Clone + Ord,
+    K: Clone + Ord1,
 {
     fn tail(&mut self) -> BTreeMapSegment<'_, Self> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
@@ -718,7 +762,7 @@ where
 impl<K, V, R> segment::SegmentedBy<R> for BTreeMap1<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Clone + Ord,
+    K: Clone + Ord1,
     R: RangeBounds<K>,
 {
     fn segment(&mut self, range: R) -> BTreeMapSegment<'_, Self> {
@@ -728,7 +772,7 @@ where
 
 impl<K, V> SegmentedOver for BTreeMap1<K, V>
 where
-    K: Clone + Ord,
+    K: Clone + Ord1,
 {
     type Kind = BTreeMapTarget<Self>;
     type Target = BTreeMap<K, V>;

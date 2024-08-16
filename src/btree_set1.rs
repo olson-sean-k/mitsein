@@ -8,6 +8,7 @@ use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
 use crate::array1::Array1;
+use crate::cmp1::Ord1;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
@@ -120,6 +121,7 @@ impl<T> BTreeSet1<T> {
     }
 
     fn arity(&mut self) -> Cardinality<'_, T> {
+        // `BTreeSet::len` is reliable even in the face of a non-conformant `Ord` implementation.
         match self.items.len() {
             0 => unreachable!(),
             1 => Cardinality::One(&mut self.items),
@@ -157,9 +159,13 @@ impl<T> BTreeSet1<T> {
 
     pub fn split_off_tail(&mut self) -> BTreeSet<T>
     where
-        T: Clone + Ord,
+        T: Clone + Ord1,
     {
         match self.items.iter().nth(1).cloned() {
+            // `BTreeSet::split_off` relies on the `Ord` implementation to determine where the
+            // split begins. This requires `Ord1` here, because a non-conformant `Ord`
+            // implementation may split at the first item (despite the matched expression) and
+            // empty the `BTreeSet1`.
             Some(item) => self.items.split_off(&item),
             _ => BTreeSet::new(),
         }
@@ -195,12 +201,50 @@ impl<T> BTreeSet1<T> {
         self.many_or_get_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
     }
 
+    pub fn pop_first_until_only(&mut self) -> &T
+    where
+        T: Ord,
+    {
+        self.pop_first_until_only_with(|_| {})
+    }
+
+    pub fn pop_first_until_only_with<F>(&mut self, mut f: F) -> &T
+    where
+        T: Ord,
+        F: FnMut(T),
+    {
+        while let Ok(item) = self.pop_first_or_get_only() {
+            f(item);
+        }
+        // SAFETY:
+        unsafe { self.pop_first_or_get_only().err().unwrap_maybe_unchecked() }
+    }
+
     pub fn pop_last_or_get_only(&mut self) -> Result<T, &T>
     where
         T: Ord,
     {
         // SAFETY:
         self.many_or_get_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
+    }
+
+    pub fn pop_last_until_only(&mut self) -> &T
+    where
+        T: Ord,
+    {
+        self.pop_last_until_only_with(|_| {})
+    }
+
+    pub fn pop_last_until_only_with<F>(&mut self, mut f: F) -> &T
+    where
+        T: Ord,
+        F: FnMut(T),
+    {
+        while let Ok(item) = self.pop_last_or_get_only() {
+            f(item);
+        }
+        // SAFETY:
+        unsafe { self.pop_last_or_get_only().err().unwrap_maybe_unchecked() }
     }
 
     pub fn remove_or_get_only<Q>(&mut self, query: &Q) -> Result<bool, &T>
@@ -447,7 +491,7 @@ impl<T> IntoIterator1 for BTreeSet1<T> {
 
 impl<T> Segmentation for BTreeSet1<T>
 where
-    T: Clone + Ord,
+    T: Clone + Ord1,
 {
     fn tail(&mut self) -> BTreeSetSegment<'_, Self> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
@@ -467,7 +511,7 @@ where
 impl<T, R> segment::SegmentedBy<R> for BTreeSet1<T>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
-    T: Clone + Ord,
+    T: Clone + Ord1,
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> BTreeSetSegment<'_, Self> {
@@ -477,7 +521,7 @@ where
 
 impl<T> SegmentedOver for BTreeSet1<T>
 where
-    T: Clone + Ord,
+    T: Clone + Ord1,
 {
     type Kind = BTreeSetTarget<Self>;
     type Target = BTreeSet<T>;
