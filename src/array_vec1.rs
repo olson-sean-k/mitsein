@@ -16,7 +16,7 @@ use {
 
 use crate::array1::Array1;
 use crate::iter1::{
-    self, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1, Saturate,
+    self, ExtendUntil, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1,
 };
 use crate::safety::{self, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
@@ -57,6 +57,15 @@ where
     }
 }
 
+impl<T, I, const N: usize> ExtendUntil<I> for ArrayVec<T, N>
+where
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T, I, const N: usize> FromIteratorUntil<I> for ArrayVec<T, N>
 where
     I: IntoIterator<Item = T>,
@@ -81,15 +90,6 @@ impl<T, const N: usize> Ranged for ArrayVec<T, N> {
 
     fn rtail(&self) -> Self::Range {
         From::from(0..self.len().saturating_sub(1))
-    }
-}
-
-impl<T, I, const N: usize> Saturate<I> for ArrayVec<T, N>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -416,6 +416,16 @@ impl<T, const N: usize> Extend<T> for ArrayVec1<T, N> {
     }
 }
 
+impl<T, I, const N: usize> ExtendUntil<I> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T, const N: usize> From<[T; N]> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
@@ -501,16 +511,6 @@ where
 
     fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
         self::insert_or_get(&mut self.items, index, item)
-    }
-}
-
-impl<T, I, const N: usize> Saturate<I> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -778,7 +778,7 @@ where
     }
 }
 
-impl<'a, K, T, I, const N: usize> Saturate<I> for ArrayVecSegment<'a, K>
+impl<'a, K, T, I, const N: usize> ExtendUntil<I> for ArrayVecSegment<'a, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     I: IntoIterator<Item = T>,

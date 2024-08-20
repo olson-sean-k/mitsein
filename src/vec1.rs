@@ -14,7 +14,7 @@ use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
-use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
+use crate::iter1::{self, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
@@ -33,6 +33,15 @@ segment::impl_target_forward_type_and_definition!(
     VecSegment,
 );
 
+impl<T, I> ExtendUntil<I> for Vec<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T> Ranged for Vec<T> {
     type Range = PositionalRange;
 
@@ -46,15 +55,6 @@ impl<T> Ranged for Vec<T> {
 
     fn rtail(&self) -> Self::Range {
         From::from(0..self.len().saturating_sub(1))
-    }
-}
-
-impl<T, I> Saturate<I> for Vec<T>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -413,6 +413,15 @@ impl<T> Extend<T> for Vec1<T> {
     }
 }
 
+impl<T, I> ExtendUntil<I> for Vec1<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T, const N: usize> From<[T; N]> for Vec1<T>
 where
     [T; N]: Array1,
@@ -500,15 +509,6 @@ impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY:
         unsafe { Iterator1::from_iter_unchecked(self.items) }
-    }
-}
-
-impl<T, I> Saturate<I> for Vec1<T>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -964,6 +964,16 @@ where
 //     }
 // }
 
+impl<'a, K, T, I> ExtendUntil<I> for VecSegment<'a, K>
+where
+    K: SegmentedOver<Target = Vec<T>>,
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<'a, K, T> Ord for VecSegment<'a, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
@@ -992,16 +1002,6 @@ where
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.as_slice().partial_cmp(other.as_slice())
-    }
-}
-
-impl<'a, K, T, I> Saturate<I> for VecSegment<'a, K>
-where
-    K: SegmentedOver<Target = Vec<T>>,
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 

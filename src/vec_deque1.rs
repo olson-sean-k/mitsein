@@ -12,7 +12,7 @@ use core::ops::{Index, IndexMut, RangeBounds};
 use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
-use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1, Saturate};
+use crate::iter1::{self, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
@@ -27,6 +27,15 @@ segment::impl_target_forward_type_and_definition!(
     VecDequeSegment,
 );
 
+impl<T, I> ExtendUntil<I> for VecDeque<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T> Ranged for VecDeque<T> {
     type Range = PositionalRange;
 
@@ -40,15 +49,6 @@ impl<T> Ranged for VecDeque<T> {
 
     fn rtail(&self) -> Self::Range {
         From::from(0..self.len().saturating_sub(1))
-    }
-}
-
-impl<T, I> Saturate<I> for VecDeque<T>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -354,6 +354,15 @@ impl<T> Extend<T> for VecDeque1<T> {
     }
 }
 
+impl<T, I> ExtendUntil<I> for VecDeque1<T>
+where
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<T, const N: usize> From<[T; N]> for VecDeque1<T>
 where
     [T; N]: Array1,
@@ -413,15 +422,6 @@ impl<T> IntoIterator1 for VecDeque1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY:
         unsafe { Iterator1::from_iter_unchecked(self.items) }
-    }
-}
-
-impl<T, I> Saturate<I> for VecDeque1<T>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -644,6 +644,16 @@ where
 //     }
 // }
 
+impl<'a, K, T, I> ExtendUntil<I> for VecDequeSegment<'a, K>
+where
+    K: SegmentedOver<Target = VecDeque<T>>,
+    I: IntoIterator<Item = T>,
+{
+    fn saturate(&mut self, items: I) -> I::IntoIter {
+        iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
 impl<'a, K, T> Ord for VecDequeSegment<'a, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
@@ -671,16 +681,6 @@ where
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.iter().partial_cmp(other.iter())
-    }
-}
-
-impl<'a, K, T, I> Saturate<I> for VecDequeSegment<'a, K>
-where
-    K: SegmentedOver<Target = VecDeque<T>>,
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 

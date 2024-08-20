@@ -230,7 +230,7 @@ pub trait IteratorExt: Iterator + Sized {
 
 impl<I> IteratorExt for I where I: Iterator {}
 
-pub trait Saturate<I>
+pub trait ExtendUntil<I>
 where
     I: IntoIterator,
 {
