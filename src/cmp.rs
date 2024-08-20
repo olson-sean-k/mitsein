@@ -9,7 +9,7 @@ pub unsafe trait UnsafeOrd: Ord {}
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod alloc {
-    use crate::cmp1::UnsafeOrd;
+    use crate::cmp::UnsafeOrd;
 
     unsafe impl<T> UnsafeOrd for alloc::sync::Arc<T> where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for alloc::boxed::Box<T> where T: UnsafeOrd {}
@@ -30,7 +30,7 @@ mod alloc {
 #[cfg_attr(docsrs, doc(cfg(feature = "arrayvec")))]
 mod array_vec {
     use crate::array1::Array1;
-    use crate::cmp1::UnsafeOrd;
+    use crate::cmp::UnsafeOrd;
 
     unsafe impl<T, const N: usize> UnsafeOrd for arrayvec::ArrayVec<T, N> where T: UnsafeOrd {}
 
@@ -45,7 +45,7 @@ mod array_vec {
 // `Cell` and `RefCell` are intentionally absent here and do not implement `UnsafeOrd`. Interior
 // mutability is incompatible with the safety requirements of `UnsafeOrd`.
 mod core {
-    use crate::cmp1::UnsafeOrd;
+    use crate::cmp::UnsafeOrd;
 
     unsafe impl UnsafeOrd for () {}
     unsafe impl UnsafeOrd for bool {}
@@ -115,7 +115,7 @@ mod core {
 
     macro_rules! impl_unsafe_ord_for_tuple {
         (($($T:ident $(,)?)+) $(,)?) => {
-            unsafe impl<$($T,)+> $crate::cmp1::UnsafeOrd for ($($T,)+)
+            unsafe impl<$($T,)+> $crate::cmp::UnsafeOrd for ($($T,)+)
             where
                 $(
                     $T: UnsafeOrd,

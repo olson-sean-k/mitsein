@@ -35,7 +35,7 @@ pub mod array_vec1;
 pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
-pub mod cmp1;
+pub mod cmp;
 pub mod iter1;
 pub mod slice1;
 pub mod sync1;

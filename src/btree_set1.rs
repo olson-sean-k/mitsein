@@ -8,7 +8,7 @@ use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
 use crate::array1::Array1;
-use crate::cmp1::UnsafeOrd;
+use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
