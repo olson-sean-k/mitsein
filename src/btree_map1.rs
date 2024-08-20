@@ -8,7 +8,7 @@ use core::num::NonZeroUsize;
 use core::ops::RangeBounds;
 
 use crate::array1::Array1;
-use crate::cmp1::Ord1;
+use crate::cmp1::UnsafeOrd;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
@@ -447,11 +447,11 @@ impl<K, V> BTreeMap1<K, V> {
 
     pub fn split_off_tail(&mut self) -> BTreeMap<K, V>
     where
-        K: Clone + Ord1,
+        K: Clone + UnsafeOrd,
     {
         match self.items.keys().nth(1).cloned() {
             // `BTreeMap::split_off` relies on the `Ord` implementation to determine where the
-            // split begins. This requires `Ord1` here, because a non-conformant `Ord`
+            // split begins. This requires `UnsafeOrd` here, because a non-conformant `Ord`
             // implementation may split at the first item (despite the matched expression) and
             // empty the `BTreeMap1`.
             Some(key) => self.items.split_off(&key),
@@ -742,7 +742,7 @@ impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
 
 impl<K, V> Segmentation for BTreeMap1<K, V>
 where
-    K: Clone + Ord1,
+    K: Clone + UnsafeOrd,
 {
     fn tail(&mut self) -> BTreeMapSegment<'_, Self> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
@@ -762,7 +762,7 @@ where
 impl<K, V, R> segment::SegmentedBy<R> for BTreeMap1<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Clone + Ord1,
+    K: Clone + UnsafeOrd,
     R: RangeBounds<K>,
 {
     fn segment(&mut self, range: R) -> BTreeMapSegment<'_, Self> {
@@ -772,7 +772,7 @@ where
 
 impl<K, V> SegmentedOver for BTreeMap1<K, V>
 where
-    K: Clone + Ord1,
+    K: Clone + UnsafeOrd,
 {
     type Kind = BTreeMapTarget<Self>;
     type Target = BTreeMap<K, V>;

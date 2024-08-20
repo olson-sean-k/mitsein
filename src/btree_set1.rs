@@ -8,7 +8,7 @@ use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
 use crate::array1::Array1;
-use crate::cmp1::Ord1;
+use crate::cmp1::UnsafeOrd;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
@@ -159,11 +159,11 @@ impl<T> BTreeSet1<T> {
 
     pub fn split_off_tail(&mut self) -> BTreeSet<T>
     where
-        T: Clone + Ord1,
+        T: Clone + UnsafeOrd,
     {
         match self.items.iter().nth(1).cloned() {
             // `BTreeSet::split_off` relies on the `Ord` implementation to determine where the
-            // split begins. This requires `Ord1` here, because a non-conformant `Ord`
+            // split begins. This requires `UnsafeOrd` here, because a non-conformant `Ord`
             // implementation may split at the first item (despite the matched expression) and
             // empty the `BTreeSet1`.
             Some(item) => self.items.split_off(&item),
@@ -491,7 +491,7 @@ impl<T> IntoIterator1 for BTreeSet1<T> {
 
 impl<T> Segmentation for BTreeSet1<T>
 where
-    T: Clone + Ord1,
+    T: Clone + UnsafeOrd,
 {
     fn tail(&mut self) -> BTreeSetSegment<'_, Self> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
@@ -511,7 +511,7 @@ where
 impl<T, R> segment::SegmentedBy<R> for BTreeSet1<T>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
-    T: Clone + Ord1,
+    T: Clone + UnsafeOrd,
     R: RangeBounds<T>,
 {
     fn segment(&mut self, range: R) -> BTreeSetSegment<'_, Self> {
@@ -521,7 +521,7 @@ where
 
 impl<T> SegmentedOver for BTreeSet1<T>
 where
-    T: Clone + Ord1,
+    T: Clone + UnsafeOrd,
 {
     type Kind = BTreeSetTarget<Self>;
     type Target = BTreeSet<T>;
