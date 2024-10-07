@@ -1,5 +1,5 @@
-// Avoid `cfg` attributes in these APIs. This requires more careful auditing, since the linter
-// cannot warn when an API is dead.
+// LINT: Avoid an explosion of `cfg_attr` attributes in these APIs. This requires more careful
+//       auditing, since the linter cannot warn when an API is dead.
 #![allow(dead_code)]
 
 // Checked implementation of extension traits. Failures panic.
@@ -7,7 +7,7 @@
 #[path = "checked.rs"]
 mod maybe;
 // Unchecked implementation of extension traits. Failures are ignored or unobserved. This is UB if
-// the crate implementation is incorrect or its APIs are unsound!
+// the crate implementation is incorrect or its APIs are unsound.
 #[cfg(not(all(not(miri), test)))]
 #[path = "unchecked.rs"]
 mod maybe;
@@ -16,6 +16,8 @@ use core::slice::SliceIndex;
 
 // TODO: At time of writing, traits cannot expose `const` functions. Remove this in favor of
 //       extension traits when this is possible.
+// LINT: This function is unused depending on which features are enabled. The set of features may
+//       be complicated, so this module prefers `allow` over `cfg_attr` and `expect`.
 #[allow(unused_imports)]
 pub use maybe::non_zero_from_usize_maybe_unchecked;
 

@@ -104,7 +104,9 @@ where
 //       parameter `K`.
 //
 //       Remove this macro and the forwarding types when possible.
-#[allow(unused_macros)]
+// LINT: This macro is unused when segmentation is not implemented. Segmentation is implemented
+//       when any of the `alloc` or `arrayvec` features are enabled.
+#[cfg_attr(not(any(feature = "alloc", feature = "arrayvec")), expect(unused_macros))]
 macro_rules! impl_target_forward_type_and_definition {
     (
         for <$($ts:ident $(,)?)+ $([$(const $cis:ident: $cts:ty $(,)?)+])? $(,)?>
@@ -135,5 +137,7 @@ macro_rules! impl_target_forward_type_and_definition {
         pub type $segment<'a, K> = Segment<'a, $forward<K>>;
     }
 }
-#[allow(unused_imports)]
+// LINT: This macro is unused when segmentation is not implemented. Segmentation is implemented
+//       when any of the `alloc` or `arrayvec` features are enabled.
+#[cfg_attr(not(any(feature = "alloc", feature = "arrayvec")), expect(unused_imports))]
 pub(crate) use impl_target_forward_type_and_definition;
