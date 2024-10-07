@@ -8,6 +8,10 @@ use crate::sync1::ArcSlice1;
 #[cfg(feature = "alloc")]
 use crate::vec1::Vec1;
 
+#[diagnostic::on_unimplemented(
+    note = "due to a technical limitation, `Array1` is not yet implemented for all non-empty array \
+            types"
+)]
 pub trait Array1:
     AsMut<Slice1<Self::Item>>
     + AsRef<Slice1<Self::Item>>

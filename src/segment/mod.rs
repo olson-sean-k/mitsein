@@ -32,6 +32,12 @@ pub trait SegmentedOver {
 // This trait implements `segment` rather than `Segmentation` so that implementors can apply
 // arbitrary bounds to `R` while `Segmentation::segment` can lower those bounds into the function
 // (rather than the trait).
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be segmented by the type `{R}`",
+    label = "segmented by the type `{R}` here",
+    note = "positional collections are typically segmented by ranges over `usize`",
+    note = "relational collections are typically segmented by ranges over the item type"
+)]
 pub trait SegmentedBy<R>: SegmentedOver {
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind>;
 }
@@ -106,7 +112,10 @@ where
 //       Remove this macro and the forwarding types when possible.
 // LINT: This macro is unused when segmentation is not implemented. Segmentation is implemented
 //       when any of the `alloc` or `arrayvec` features are enabled.
-#[cfg_attr(not(any(feature = "alloc", feature = "arrayvec")), expect(unused_macros))]
+#[cfg_attr(
+    not(any(feature = "alloc", feature = "arrayvec")),
+    expect(unused_macros)
+)]
 macro_rules! impl_target_forward_type_and_definition {
     (
         for <$($ts:ident $(,)?)+ $([$(const $cis:ident: $cts:ty $(,)?)+])? $(,)?>
@@ -139,5 +148,8 @@ macro_rules! impl_target_forward_type_and_definition {
 }
 // LINT: This macro is unused when segmentation is not implemented. Segmentation is implemented
 //       when any of the `alloc` or `arrayvec` features are enabled.
-#[cfg_attr(not(any(feature = "alloc", feature = "arrayvec")), expect(unused_imports))]
+#[cfg_attr(
+    not(any(feature = "alloc", feature = "arrayvec")),
+    expect(unused_imports)
+)]
 pub(crate) use impl_target_forward_type_and_definition;

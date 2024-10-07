@@ -1,4 +1,9 @@
 /// # Safety
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` may not implement consistent total ordering",
+    label = "types used here must implement consistent total ordering for soundness",
+    note = "there may be alternative collection APIs for types that do not implement this trait"
+)]
 pub unsafe trait UnsafeOrd: Ord {}
 
 // SAFETY: The implementations of `UnsafeOrd` in this module trust that the `Ord` implementations
