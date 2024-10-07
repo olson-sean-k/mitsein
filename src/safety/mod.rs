@@ -15,7 +15,7 @@ mod maybe;
 use core::slice::SliceIndex;
 
 // TODO: At time of writing, traits cannot expose `const` functions. Remove this in favor of
-//       `NonZeroExt` when this is possible. See `array_vec1`.
+//       extension traits when this is possible.
 #[allow(unused_imports)]
 pub use maybe::non_zero_from_usize_maybe_unchecked;
 

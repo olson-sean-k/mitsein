@@ -76,7 +76,7 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     }
 
     fn try_into_arc_array<const N: usize>(self) -> Result<Arc<[T; N]>, Self> {
-        if self.len() == N {
+        if self.len().get() == N {
             // SAFETY:
             Ok(unsafe { self.into_arc_slice().try_into().unwrap_maybe_unchecked() })
         }

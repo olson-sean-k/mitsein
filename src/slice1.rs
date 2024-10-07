@@ -1,12 +1,13 @@
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
+use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice;
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
-use crate::safety::OptionExt as _;
+use crate::safety::{self, OptionExt as _};
 use crate::NonEmpty;
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
@@ -110,6 +111,11 @@ impl<T> Slice1<T> {
     pub fn iter1_mut(&mut self) -> Iterator1<slice::IterMut<'_, T>> {
         // SAFETY:
         unsafe { Iterator1::from_iter_unchecked(self.as_mut_slice().iter_mut()) }
+    }
+
+    pub const fn len(&self) -> NonZeroUsize {
+        // SAFETY:
+        unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 
     pub const fn as_slice(&self) -> &'_ [T] {
