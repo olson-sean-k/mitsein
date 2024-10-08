@@ -16,8 +16,6 @@ use crate::iter1::{self, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
-#[cfg(feature = "serde")]
-use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 use crate::{NonEmpty, Vacancy};
 
@@ -451,16 +449,6 @@ impl<T> SegmentedOver for VecDeque1<T> {
     type Target = VecDeque<T>;
 }
 
-#[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-impl<T> TryFrom<Serde<VecDeque<T>>> for VecDeque1<T> {
-    type Error = EmptyError;
-
-    fn try_from(serde: Serde<VecDeque<T>>) -> Result<Self, Self::Error> {
-        VecDeque1::try_from(serde.items).map_err(|_| EmptyError)
-    }
-}
-
 impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
     type Error = VecDeque<T>;
 
@@ -736,10 +724,17 @@ pub mod harness {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    #[cfg(feature = "serde")]
+    use {alloc::vec::Vec, serde_test::Token};
 
     use crate::vec_deque1::harness;
     use crate::vec_deque1::VecDeque1;
     use crate::Segmentation;
+    #[cfg(feature = "serde")]
+    use crate::{
+        serde::{self, harness::sequence},
+        vec_deque1::harness::xs1,
+    };
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
@@ -780,5 +775,22 @@ mod tests {
                 &head_and_tail[..1]
             }
         );
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn de_serialize_vec_deque1_into_and_from_tokens_eq(
+        xs1: VecDeque1<u8>,
+        sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_into_and_from_tokens_eq::<_, Vec<_>>(xs1, sequence)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn deserialize_vec_deque1_from_empty_tokens_then_empty_error(
+        #[with(0)] sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_deserialize_error_eq_empty_error::<VecDeque1<u8>, Vec<_>>(sequence)
     }
 }

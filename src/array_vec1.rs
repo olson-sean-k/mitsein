@@ -21,8 +21,6 @@ use crate::iter1::{
 use crate::safety::{self, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
-#[cfg(feature = "serde")]
-use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 use crate::{NonEmpty, Vacancy};
 
@@ -573,19 +571,6 @@ where
     }
 }
 
-#[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-impl<T, const N: usize> TryFrom<Serde<ArrayVec<T, N>>> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-{
-    type Error = EmptyError;
-
-    fn try_from(serde: Serde<ArrayVec<T, N>>) -> Result<Self, Self::Error> {
-        ArrayVec1::try_from(serde.items).map_err(|_| EmptyError)
-    }
-}
-
 impl<T, const N: usize> TryFrom<ArrayVec<T, N>> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
@@ -949,11 +934,18 @@ pub mod harness {
 mod tests {
     use arrayvec::ArrayVec;
     use rstest::rstest;
+    #[cfg(feature = "serde")]
+    use serde_test::Token;
 
     use crate::array_vec1::harness::{self, CAPACITY};
     use crate::array_vec1::ArrayVec1;
     use crate::iter1::{self, Feed, IteratorExt as _};
     use crate::Segmentation;
+    #[cfg(feature = "serde")]
+    use crate::{
+        array_vec1::harness::xs1,
+        serde::{self, harness::sequence},
+    };
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
@@ -1007,5 +999,24 @@ mod tests {
     ) {
         let feed: Feed<ArrayVec<_, 3>, _> = items.into_iter().saturate();
         iter1::harness::assert_feed_eq(feed, expected)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn de_serialize_array_vec1_into_and_from_tokens_eq(
+        xs1: ArrayVec1<u8, CAPACITY>,
+        sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_into_and_from_tokens_eq::<_, ArrayVec<_, 16>>(xs1, sequence)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn deserialize_array_vec1_from_empty_tokens_then_empty_error(
+        #[with(0)] sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_deserialize_error_eq_empty_error::<ArrayVec1<u8, 1>, ArrayVec<_, 16>>(
+            sequence,
+        )
     }
 }

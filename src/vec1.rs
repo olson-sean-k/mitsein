@@ -20,8 +20,6 @@ use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
 };
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
-#[cfg(feature = "serde")]
-use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
@@ -548,16 +546,6 @@ where
             // SAFETY:
             _ => Ok(unsafe { Vec1::from_vec_unchecked(Vec::from(items)) }),
         }
-    }
-}
-
-#[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-impl<T> TryFrom<Serde<Vec<T>>> for Vec1<T> {
-    type Error = EmptyError;
-
-    fn try_from(serde: Serde<Vec<T>>) -> Result<Self, Self::Error> {
-        Vec1::try_from(serde.items).map_err(|_| EmptyError)
     }
 }
 
@@ -1102,8 +1090,12 @@ mod tests {
     use core::mem;
     use core::ops::RangeBounds;
     use rstest::rstest;
+    #[cfg(feature = "serde")]
+    use {alloc::vec::Vec, serde_test::Token};
 
     use crate::segment::range::{PositionalRange, Project};
+    #[cfg(feature = "serde")]
+    use crate::serde::{self, harness::sequence};
     use crate::slice1::{slice1, Slice1};
     use crate::vec1::harness::{self, xs1};
     use crate::vec1::Vec1;
@@ -1207,5 +1199,22 @@ mod tests {
         let mut segment = xs1.segment(segment);
         mem::forget(segment.drain(drain));
         assert_eq!(xs1.as_slice1(), expected);
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn de_serialize_vec1_into_and_from_tokens_eq(
+        xs1: Vec1<u8>,
+        sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_into_and_from_tokens_eq::<_, Vec<_>>(xs1, sequence)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn deserialize_vec1_from_empty_tokens_then_empty_error(
+        #[with(0)] sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_deserialize_error_eq_empty_error::<Vec1<u8>, Vec<_>>(sequence)
     }
 }

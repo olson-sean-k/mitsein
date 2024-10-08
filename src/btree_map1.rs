@@ -13,8 +13,6 @@ use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
-#[cfg(feature = "serde")]
-use crate::serde::{EmptyError, Serde};
 use crate::NonEmpty;
 
 segment::impl_target_forward_type_and_definition!(
@@ -778,16 +776,6 @@ where
     type Target = BTreeMap<K, V>;
 }
 
-#[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-impl<K, V> TryFrom<Serde<BTreeMap<K, V>>> for BTreeMap1<K, V> {
-    type Error = EmptyError;
-
-    fn try_from(serde: Serde<BTreeMap<K, V>>) -> Result<Self, Self::Error> {
-        BTreeMap1::try_from(serde.items).map_err(|_| EmptyError)
-    }
-}
-
 impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
     type Error = BTreeMap<K, V>;
 
@@ -929,7 +917,7 @@ pub mod harness {
     use crate::btree_map1::BTreeMap1;
     use crate::iter1::{self, FromIterator1};
 
-    pub const VALUE: &str = "value";
+    pub const VALUE: char = 'x';
 
     pub trait KeyValueRef {
         type Cloned;
@@ -950,15 +938,12 @@ pub mod harness {
     }
 
     #[fixture]
-    pub fn xs1(#[default(4)] end: u8) -> BTreeMap1<u8, &'static str> {
+    pub fn xs1(#[default(4)] end: u8) -> BTreeMap1<u8, char> {
         BTreeMap1::from_iter1(iter1::harness::xs1(end).map(|x| (x, VALUE)))
     }
 
     #[fixture]
-    pub fn terminals1(
-        #[default(0)] first: u8,
-        #[default(9)] last: u8,
-    ) -> BTreeMap1<u8, &'static str> {
+    pub fn terminals1(#[default(0)] first: u8, #[default(9)] last: u8) -> BTreeMap1<u8, char> {
         BTreeMap1::from_iter1([(first, VALUE), (last, VALUE)])
     }
 }
@@ -966,19 +951,24 @@ pub mod harness {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    #[cfg(feature = "serde")]
+    use {alloc::vec::Vec, serde_test::Token};
 
     use crate::btree_map1::harness::{self, terminals1, KeyValueRef, VALUE};
     use crate::btree_map1::BTreeMap1;
     use crate::iter1::FromIterator1;
     use crate::Segmentation;
+    #[cfg(feature = "serde")]
+    use crate::{
+        btree_map1::harness::xs1,
+        serde::{self, harness::map},
+    };
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
     #[case::one_tail(harness::xs1(1))]
     #[case::many_tail(harness::xs1(2))]
-    fn clear_tail_of_btree_map1_then_btree_map1_eq_head(
-        #[case] mut xs1: BTreeMap1<u8, &'static str>,
-    ) {
+    fn clear_tail_of_btree_map1_then_btree_map1_eq_head(#[case] mut xs1: BTreeMap1<u8, char>) {
         xs1.tail().clear();
         assert_eq!(xs1, BTreeMap1::from_one((0, VALUE)));
     }
@@ -987,9 +977,7 @@ mod tests {
     #[case::empty_rtail(harness::xs1(0))]
     #[case::one_rtail(harness::xs1(1))]
     #[case::many_rtail(harness::xs1(2))]
-    fn clear_rtail_of_btree_map1_then_btree_map1_eq_tail(
-        #[case] mut xs1: BTreeMap1<u8, &'static str>,
-    ) {
+    fn clear_rtail_of_btree_map1_then_btree_map1_eq_tail(#[case] mut xs1: BTreeMap1<u8, char>) {
         let tail = xs1.last_key_value().cloned();
         xs1.rtail().clear();
         assert_eq!(xs1, BTreeMap1::from_one(tail));
@@ -1001,7 +989,7 @@ mod tests {
     #[case::many_tail_one_rtail(harness::xs1(2))]
     #[case::many_tail_many_rtail(harness::xs1(3))]
     fn clear_tail_rtail_of_btree_map1_then_btree_map1_eq_head_and_tail(
-        #[case] mut xs1: BTreeMap1<u8, &'static str>,
+        #[case] mut xs1: BTreeMap1<u8, char>,
     ) {
         let n = xs1.len().get();
         let head_and_tail = [(0, VALUE), xs1.last_key_value().cloned()];
@@ -1024,12 +1012,29 @@ mod tests {
     #[case::out_of_range(4, 0, Err((0, VALUE)))]
     #[case::out_of_range(4, 1, Err((1, VALUE)))]
     fn insert_into_btree_map1_segment_range_from_then_output_eq(
-        #[from(terminals1)] mut xs1: BTreeMap1<u8, &'static str>,
+        #[from(terminals1)] mut xs1: BTreeMap1<u8, char>,
         #[case] from: u8,
         #[case] key: u8,
-        #[case] expected: Result<Option<&'static str>, (u8, &'static str)>,
+        #[case] expected: Result<Option<char>, (u8, char)>,
     ) {
         let mut segment = xs1.segment(from..);
         assert_eq!(segment.insert_in_range(key, VALUE), expected);
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn de_serialize_btree_map1_into_and_from_tokens_eq(
+        xs1: BTreeMap1<u8, char>,
+        map: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_into_and_from_tokens_eq::<_, Vec<_>>(xs1, map)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn deserialize_btree_map1_from_empty_tokens_then_empty_error(
+        #[with(0)] map: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_deserialize_error_eq_empty_error::<BTreeMap1<u8, char>, Vec<_>>(map)
     }
 }

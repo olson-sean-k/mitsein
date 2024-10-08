@@ -13,8 +13,6 @@ use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
-#[cfg(feature = "serde")]
-use crate::serde::{EmptyError, Serde};
 use crate::NonEmpty;
 
 segment::impl_target_forward_type_and_definition!(
@@ -539,16 +537,6 @@ where
     }
 }
 
-#[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-impl<T> TryFrom<Serde<BTreeSet<T>>> for BTreeSet1<T> {
-    type Error = EmptyError;
-
-    fn try_from(serde: Serde<BTreeSet<T>>) -> Result<Self, Self::Error> {
-        BTreeSet1::try_from(serde.items).map_err(|_| EmptyError)
-    }
-}
-
 impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
     type Error = BTreeSet<T>;
 
@@ -705,11 +693,18 @@ pub mod harness {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    #[cfg(feature = "serde")]
+    use {alloc::vec::Vec, serde_test::Token};
 
     use crate::btree_set1::harness::{self, terminals1};
     use crate::btree_set1::BTreeSet1;
     use crate::iter1::FromIterator1;
     use crate::Segmentation;
+    #[cfg(feature = "serde")]
+    use crate::{
+        btree_set1::harness::xs1,
+        serde::{self, harness::sequence},
+    };
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
@@ -766,5 +761,22 @@ mod tests {
     ) {
         let mut segment = xs1.segment(from..);
         assert_eq!(segment.insert_in_range(item), expected);
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn de_serialize_btree_set1_into_and_from_tokens_eq(
+        xs1: BTreeSet1<u8>,
+        sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_into_and_from_tokens_eq::<_, Vec<_>>(xs1, sequence)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn deserialize_btree_set1_from_empty_tokens_then_empty_error(
+        #[with(0)] sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_deserialize_error_eq_empty_error::<BTreeSet1<u8>, Vec<_>>(sequence)
     }
 }
