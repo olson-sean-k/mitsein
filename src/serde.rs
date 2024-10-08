@@ -1,6 +1,7 @@
 #![cfg(feature = "serde")]
 #![cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 
+use core::error::Error;
 use core::fmt::{self, Display, Formatter};
 use serde_derive::{Deserialize, Serialize};
 
@@ -40,6 +41,8 @@ impl Display for EmptyError {
         write!(formatter, "{}", EMPTY_ERROR_MESSAGE)
     }
 }
+
+impl Error for EmptyError {}
 
 #[cfg(all(test, any(feature = "alloc", feature = "arrayvec")))]
 pub mod harness {
