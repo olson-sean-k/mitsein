@@ -22,22 +22,41 @@ use core::slice::SliceIndex;
 pub use maybe::non_zero_from_usize_maybe_unchecked;
 
 pub trait NonZeroExt<T> {
+    /// # Safety
+    ///
+    /// `n` must be non-zero.
     unsafe fn new_maybe_unchecked(n: T) -> Self;
 }
 
 pub trait OptionExt<T> {
+    /// # Safety
+    ///
+    /// The `Option` must be [`Some`]
+    ///
+    /// [`Some`]: core::option::Option::Some
     unsafe fn unwrap_maybe_unchecked(self) -> T;
 }
 
 pub trait ResultExt<T, E> {
+    /// # Safety
+    ///
+    /// The `Result` must be [`Ok`]
+    ///
+    /// [`Ok`]: core::result::Result::Ok
     unsafe fn unwrap_maybe_unchecked(self) -> T;
 }
 
 pub trait SliceExt<T> {
+    /// # Safety
+    ///
+    /// `index` must be within the bounds of the slice.
     unsafe fn get_maybe_unchecked<I>(&self, index: I) -> &<I as SliceIndex<[T]>>::Output
     where
         I: SliceIndex<[T]>;
 
+    /// # Safety
+    ///
+    /// `index` must be within the bounds of the slice.
     unsafe fn get_maybe_unchecked_mut<I>(
         &mut self,
         index: I,

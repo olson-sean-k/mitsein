@@ -16,21 +16,29 @@ pub type Slice1<T> = NonEmpty<[T]>;
 
 impl<T> Slice1<T> {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with an empty
+    /// slice literal `&[]`.
     pub const unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
-        // SAFETY:
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
+        //         `[T]` are the same.
         mem::transmute::<&'_ [T], &'_ Slice1<T>>(items)
     }
 
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with an empty
+    /// slice literal `&mut []`.
     pub unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
-        // SAFETY:
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
+        //         `[T]` are the same.
         mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items)
     }
 
     pub fn try_from_slice(items: &[T]) -> Result<&Self, &[T]> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { Slice1::from_slice_unchecked(items) }),
         }
     }
@@ -38,7 +46,7 @@ impl<T> Slice1<T> {
     pub fn try_from_mut_slice(items: &mut [T]) -> Result<&mut Self, &mut [T]> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { Slice1::from_mut_slice_unchecked(items) }),
         }
     }
@@ -64,7 +72,7 @@ impl<T> Slice1<T> {
     where
         T: Copy,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe {
             Vec1::from_vec_unchecked(
                 self.items
@@ -74,57 +82,59 @@ impl<T> Slice1<T> {
     }
 
     pub fn split_first(&self) -> (&T, &[T]) {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.split_first().unwrap_maybe_unchecked() }
     }
 
     pub fn split_first_mut(&mut self) -> (&mut T, &mut [T]) {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.split_first_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn first(&self) -> &T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
     pub fn first_mut(&mut self) -> &mut T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.first_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn last(&self) -> &T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn last_mut(&mut self) -> &mut T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.last_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_slice().iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<slice::IterMut<'_, T>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_mut_slice().iter_mut()) }
     }
 
     pub const fn len(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 
     pub const fn as_slice(&self) -> &'_ [T] {
-        // SAFETY:
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
+        //         `[T]` are the same.
         unsafe { mem::transmute::<&'_ Slice1<T>, &'_ [T]>(self) }
     }
 
     pub fn as_mut_slice(&mut self) -> &'_ mut [T] {
-        // SAFETY:
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
+        //         `[T]` are the same.
         unsafe { mem::transmute::<&'_ mut Slice1<T>, &'_ mut [T]>(self) }
     }
 }
@@ -212,12 +222,12 @@ where
 }
 
 pub const fn from_ref<T>(item: &T) -> &Slice1<T> {
-    // SAFETY:
+    // SAFETY: The input slice is non-empty.
     unsafe { Slice1::from_slice_unchecked(slice::from_ref(item)) }
 }
 
 pub fn from_mut<T>(item: &mut T) -> &mut Slice1<T> {
-    // SAFETY:
+    // SAFETY: The input slice is non-empty.
     unsafe { Slice1::from_mut_slice_unchecked(slice::from_mut(item)) }
 }
 
@@ -225,7 +235,7 @@ pub fn from_mut<T>(item: &mut T) -> &mut Slice1<T> {
 macro_rules! slice1 {
     ($($item:expr $(,)?)+) => {{
         let slice: &[_] = &[$($item,)+];
-        // SAFETY:
+        // SAFETY: There must be one or more `item` metavariables in the repetition.
         unsafe { $crate::slice1::Slice1::from_slice_unchecked(slice) }
     }};
 }

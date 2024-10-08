@@ -84,6 +84,11 @@ pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
 
 impl<T> VecDeque1<T> {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with the
+    /// immediate output of [`VecDeque::new()`][`VecDeque::new`].
+    ///
+    /// [`VecDeque::new`]: alloc::collections::vec_deque::VecDeque::new
     pub const unsafe fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
         VecDeque1 { items }
     }
@@ -95,7 +100,8 @@ impl<T> VecDeque1<T> {
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
         let mut items = VecDeque::with_capacity(capacity);
         items.push_back(item);
-        // SAFETY:
+        // SAFETY: `items` must contain `item` and therefore is non-empty here, because `push_back`
+        //         either pushes the item or panics.
         unsafe { VecDeque1::from_vec_deque_unchecked(items) }
     }
 
@@ -145,7 +151,7 @@ impl<T> VecDeque1<T> {
     where
         F: FnOnce(&mut VecDeque<T>) -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_else(f, |items| unsafe { items.front().unwrap_maybe_unchecked() })
     }
 
@@ -154,7 +160,7 @@ impl<T> VecDeque1<T> {
         F: FnOnce(&mut VecDeque<T>) -> T,
         R: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_else(f, move |items| unsafe {
             mem::replace(items.get_mut(0).unwrap_maybe_unchecked(), replace())
         })
@@ -176,7 +182,7 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn make_contiguous(&mut self) -> &mut Slice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.make_contiguous()) }
     }
 
@@ -208,7 +214,7 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn pop_front_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop_front().unwrap_maybe_unchecked() })
     }
 
@@ -220,7 +226,7 @@ impl<T> VecDeque1<T> {
     where
         F: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_replace_only_with(
             |items| unsafe { items.pop_front().unwrap_maybe_unchecked() },
             f,
@@ -228,7 +234,7 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn pop_back_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop_back().unwrap_maybe_unchecked() })
     }
 
@@ -240,7 +246,7 @@ impl<T> VecDeque1<T> {
     where
         F: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_replace_only_with(
             |items| unsafe { items.pop_back().unwrap_maybe_unchecked() },
             f,
@@ -290,42 +296,42 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
     pub fn front(&self) -> &T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.front().unwrap_maybe_unchecked() }
     }
 
     pub fn front_mut(&mut self) -> &mut T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.front_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn back(&self) -> &T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.back().unwrap_maybe_unchecked() }
     }
 
     pub fn back_mut(&mut self) -> &mut T {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.back_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<vec_deque::Iter<'_, T>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<vec_deque::IterMut<'_, T>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
@@ -366,7 +372,7 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` must be non-empty.
         unsafe { VecDeque1::from_vec_deque_unchecked(VecDeque::from(items)) }
     }
 }
@@ -382,7 +388,7 @@ impl<T> FromIterator1<T> for VecDeque1<T> {
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY:
+        // SAFETY: `items` must be non-empty.
         unsafe { VecDeque1::from_vec_deque_unchecked(items.into_iter1().collect()) }
     }
 }
@@ -418,7 +424,7 @@ impl<T> IntoIterator for VecDeque1<T> {
 
 impl<T> IntoIterator1 for VecDeque1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -455,7 +461,7 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
     fn try_from(items: VecDeque<T>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { VecDeque1::from_vec_deque_unchecked(items) }),
         }
     }

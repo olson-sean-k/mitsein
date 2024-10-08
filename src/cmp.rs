@@ -1,4 +1,10 @@
 /// # Safety
+///
+/// Types that implement this trait must exhibit consistent behavior as described for [`Ord`].
+/// Unlike [`Ord`] however, **inconsistent implementations of [`Ord`] and this trait are unsound**
+/// and bounds on this trait indicate that inconsistent behavior is not memory safe in APIs.
+///
+/// [`Ord`]: ::core::cmp::Ord
 #[diagnostic::on_unimplemented(
     message = "`{Self}` may not implement consistent total ordering",
     label = "types used here must implement consistent total ordering for soundness",

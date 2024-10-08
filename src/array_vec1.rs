@@ -128,16 +128,22 @@ where
     [T; N]: Array1,
 {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with the
+    /// immediate output of [`ArrayVec::new()`][`ArrayVec::new`].
+    ///
+    /// [`ArrayVec::new`]: arrayvec::ArrayVec::new
     pub const unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
         ArrayVec1 { items }
     }
 
     pub fn from_one(item: T) -> Self {
         unsafe {
-            // SAFETY:
+            // SAFETY: `items` must contain `item` and therefore is non-empty here.
             ArrayVec1::from_array_vec_unchecked({
                 let mut items = ArrayVec::new();
-                // SAFETY:
+                // SAFETY: The bound on `[T; N]: Array1` guarantees that pushing a first item onto
+                //         the `ArrayVec` is safe and succeeds.
                 items.push_unchecked(item);
                 items
             })
@@ -164,7 +170,7 @@ where
     }
 
     pub fn into_tail_and_head(mut self) -> (ArrayVec<T, N>, T) {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
     }
@@ -176,11 +182,14 @@ where
     pub fn try_into_array(self) -> Result<[T; N], Self> {
         self.items
             .into_inner()
-            // SAFETY:
+            // SAFETY: `self` must be non-empty.
             .map_err(|items| unsafe { ArrayVec1::from_array_vec_unchecked(items) })
     }
 
     /// # Safety
+    ///
+    /// The `ArrayVec1` must be saturated (length equals capacity), otherwise the output is
+    /// uninitialized and unsound.
     pub unsafe fn into_array_unchecked(self) -> [T; N] {
         self.items.into_inner_unchecked()
     }
@@ -201,7 +210,6 @@ where
     where
         F: FnOnce(&mut ArrayVec<T, N>) -> T,
     {
-        // SAFETY:
         self.many_or_else(f, move |items| {
             items.get(index).expect("index out of bounds")
         })
@@ -211,7 +219,7 @@ where
     where
         F: FnOnce(&mut ArrayVec<T, N>) -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_else(f, |items| unsafe { items.get_maybe_unchecked(0) })
     }
 
@@ -220,7 +228,7 @@ where
         F: FnOnce(&mut ArrayVec<T, N>) -> T,
         R: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_else(f, move |items| unsafe {
             mem::replace(items.get_maybe_unchecked_mut(0), replace())
         })
@@ -231,7 +239,7 @@ where
     }
 
     pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
@@ -243,7 +251,7 @@ where
     where
         F: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_replace_only_with(|items| unsafe { items.pop().unwrap_maybe_unchecked() }, f)
     }
 
@@ -277,12 +285,12 @@ where
     }
 
     pub const fn len(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 
     pub const fn capacity(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -291,12 +299,12 @@ where
     }
 
     pub fn as_slice1(&self) -> &Slice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }
 
     pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 
@@ -429,7 +437,7 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArrayVec1::from_array_vec_unchecked(ArrayVec::from(items)) }
     }
 }
@@ -440,7 +448,7 @@ where
     T: Copy,
 {
     fn from(items: &'a [T; N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArrayVec1::from_array_vec_unchecked(items.iter().copied().collect()) }
     }
 }
@@ -460,7 +468,7 @@ where
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArrayVec1::from_array_vec_unchecked(items.into_iter1().collect()) }
     }
 }
@@ -472,7 +480,7 @@ where
 {
     fn saturated(items: I) -> Feed<Self, I::IntoIter> {
         let mut remainder = items.into_iter1().into_iter();
-        // SAFETY:
+        // SAFETY: `items` is non-empty, so `remainder` is also non-empty. `N` is non-zero.
         let items =
             unsafe { ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect()) };
         Feed(items, remainder)
@@ -490,7 +498,7 @@ impl<T, const N: usize> IntoIterator for ArrayVec1<T, N> {
 
 impl<T, const N: usize> IntoIterator1 for ArrayVec1<T, N> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -565,7 +573,7 @@ where
 
     fn try_from(items: &'a Slice1<T>) -> Result<Self, Self::Error> {
         ArrayVec::try_from(items.as_slice())
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             .map(|items| unsafe { ArrayVec1::from_array_vec_unchecked(items) })
             .map_err(|_| items)
     }
@@ -580,7 +588,7 @@ where
     fn try_from(items: ArrayVec<T, N>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { ArrayVec1::from_array_vec_unchecked(items) }),
         }
     }
@@ -875,7 +883,8 @@ where
     self::push_or_else(
         items,
         item,
-        // SAFETY:
+        // SAFETY: In this closure, `items` must be saturated and `N` is non-zero, so `items` is
+        //         non-empty.
         |item, items| unsafe { (item, items.last().unwrap_maybe_unchecked()) },
     )
 }
@@ -887,7 +896,8 @@ where
     self::push_or_else(
         items,
         item,
-        // SAFETY:
+        // SAFETY: In this closure, `items` must be saturated and `N` is non-zero, so `items` is
+        //         non-empty.
         |item, items| unsafe { mem::replace(items.last_mut().unwrap_maybe_unchecked(), item) },
     )
 }

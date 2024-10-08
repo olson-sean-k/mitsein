@@ -16,6 +16,11 @@ pub type BoxedSlice1<T> = Box<Slice1<T>>;
 
 pub trait BoxedSlice1Ext<T>: Sized {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with
+    /// [`Box::<T>::from([])`][`Box::from`].
+    ///
+    /// [`Box::from`]: alloc::boxed::Box::from
     unsafe fn from_boxed_slice_unchecked(items: Box<[T]>) -> Self;
 
     fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, Box<[T]>>;
@@ -51,7 +56,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
     fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, Box<[T]>> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(items) }),
         }
     }
@@ -62,7 +67,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
     {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(Box::from(items)) }),
         }
     }
@@ -112,7 +117,7 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(Box::from(items)) }
     }
 }
@@ -122,7 +127,7 @@ where
     T: Clone,
 {
     fn from(items: &'a Slice1<T>) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(Box::from(items.as_slice())) }
     }
 }

@@ -354,6 +354,11 @@ pub type BTreeMap1<K, V> = NonEmpty<BTreeMap<K, V>>;
 
 impl<K, V> BTreeMap1<K, V> {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with the
+    /// immediate output of [`BTreeMap::new()`][`BTreeMap::new`].
+    ///
+    /// [`BTreeMap::new`]: alloc::collections::btree_map::BTreeMap::new
     pub const unsafe fn from_btree_map_unchecked(items: BTreeMap<K, V>) -> Self {
         BTreeMap1 { items }
     }
@@ -386,17 +391,19 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn into_keys1(self) -> Iterator1<btree_map::IntoKeys<K, V>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.into_keys()) }
     }
 
     pub fn into_values1(self) -> Iterator1<btree_map::IntoValues<K, V>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
-    fn arity(&mut self) -> Cardinality<'_, K, V> {
+    fn cardinality(&mut self) -> Cardinality<'_, K, V> {
         // `BTreeMap::len` is reliable even in the face of a non-conformant `Ord` implementation.
+        // The `BTreeMap1` implementation relies on this to maintain its non-empty invariant
+        // without bounds on `UnsafeOrd`.
         match self.items.len() {
             0 => unreachable!(),
             1 => Cardinality::One(&mut self.items),
@@ -409,8 +416,8 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
         F: FnOnce(&'a mut BTreeMap<K, V>) -> T,
     {
-        match self.arity() {
-            // SAFETY:
+        match self.cardinality() {
+            // SAFETY: `self` must be non-empty.
             Cardinality::One(one) => Err(OnlyEntry::from_occupied_entry(unsafe {
                 one.first_entry().unwrap_maybe_unchecked()
             })),
@@ -428,8 +435,8 @@ impl<K, V> BTreeMap1<K, V> {
         Q: Ord + ?Sized,
         F: FnOnce(&'a mut BTreeMap<K, V>) -> Option<T>,
     {
-        let result = match self.arity() {
-            // SAFETY:
+        let result = match self.cardinality() {
+            // SAFETY: `self` must be non-empty.
             Cardinality::One(one) => Err(one.contains_key(query).then(|| {
                 OnlyEntry::from_occupied_entry(unsafe {
                     one.first_entry().unwrap_maybe_unchecked()
@@ -469,7 +476,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        match self.arity() {
+        match self.cardinality() {
             Cardinality::One(one) => Entry::from_entry_only(one.entry(key)),
             Cardinality::Many(many) => Entry::from_entry_many(many.entry(key)),
         }
@@ -486,7 +493,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
     }
 
@@ -513,7 +520,7 @@ impl<K, V> BTreeMap1<K, V> {
         while let Ok(item) = self.pop_first_or_get_only() {
             f(item);
         }
-        // SAFETY:
+        // SAFETY: All but the last item has been popped here.
         unsafe { self.pop_first_or_get_only().err().unwrap_maybe_unchecked() }
     }
 
@@ -521,7 +528,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
     }
 
@@ -548,7 +555,7 @@ impl<K, V> BTreeMap1<K, V> {
         while let Ok(item) = self.pop_last_or_get_only() {
             f(item);
         }
-        // SAFETY:
+        // SAFETY: All but the first item has been popped here.
         unsafe { self.pop_last_or_get_only().err().unwrap_maybe_unchecked() }
     }
 
@@ -588,7 +595,7 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
@@ -596,7 +603,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.first_key_value().unwrap_maybe_unchecked() }
     }
 
@@ -604,7 +611,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         match self.many_or_get_only(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() })
         {
             Ok(many) => many.into(),
@@ -616,7 +623,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.last_key_value().unwrap_maybe_unchecked() }
     }
 
@@ -624,7 +631,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         match self.many_or_get_only(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() })
         {
             Ok(many) => many.into(),
@@ -633,27 +640,27 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn iter1(&self) -> Iterator1<btree_map::Iter<'_, K, V>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<btree_map::IterMut<'_, K, V>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
     pub fn keys1(&self) -> Iterator1<btree_map::Keys<'_, K, V>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.keys()) }
     }
 
     pub fn values1(&self) -> Iterator1<btree_map::Values<'_, K, V>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.values()) }
     }
 
     pub fn values1_mut(&mut self) -> Iterator1<btree_map::ValuesMut<'_, K, V>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.values_mut()) }
     }
 
@@ -698,7 +705,7 @@ where
     K: Ord,
 {
     fn from(items: [(K, V); N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { BTreeMap1::from_btree_map_unchecked(BTreeMap::from(items)) }
     }
 }
@@ -717,7 +724,7 @@ where
     where
         I: IntoIterator1<Item = (K, V)>,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { BTreeMap1::from_btree_map_unchecked(items.into_iter1().collect()) }
     }
 }
@@ -733,7 +740,7 @@ impl<K, V> IntoIterator for BTreeMap1<K, V> {
 
 impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -782,7 +789,7 @@ impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
     fn try_from(items: BTreeMap<K, V>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BTreeMap1::from_btree_map_unchecked(items) }),
         }
     }

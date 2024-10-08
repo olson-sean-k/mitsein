@@ -6,7 +6,6 @@ use alloc::sync::{Arc, Weak};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{FromIterator1, IntoIterator1};
-use crate::safety::ResultExt as _;
 use crate::slice1::Slice1;
 use crate::vec1::{CowSlice1, CowSlice1Ext as _, Vec1};
 
@@ -14,6 +13,11 @@ pub type ArcSlice1<T> = Arc<Slice1<T>>;
 
 pub trait ArcSlice1Ext<T>: Sized {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with
+    /// [`Arc::<T>::from([])`][`Arc::from`].
+    ///
+    /// [`Arc::from`]: alloc::sync::Arc::from
     unsafe fn from_arc_slice_unchecked(items: Arc<[T]>) -> Self;
 
     fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, Arc<[T]>>;
@@ -49,7 +53,7 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, Arc<[T]>> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { ArcSlice1::from_arc_slice_unchecked(items) }),
         }
     }
@@ -58,12 +62,12 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     where
         [T; N]: Array1,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items)) }
     }
 
     fn from_boxed_slice1(items: BoxedSlice1<T>) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.into_boxed_slice())) }
     }
 
@@ -71,17 +75,15 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     where
         T: Clone,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.into_cow_slice())) }
     }
 
     fn try_into_arc_array<const N: usize>(self) -> Result<Arc<[T; N]>, Self> {
-        if self.len().get() == N {
-            // SAFETY:
-            Ok(unsafe { self.into_arc_slice().try_into().unwrap_maybe_unchecked() })
-        }
-        else {
-            Err(self)
+        match self.into_arc_slice().try_into() {
+            Ok(items) => Ok(items),
+            // SAFETY: `self` and therefore `items` must be non-empty.
+            Err(items) => Err(unsafe { ArcSlice1::from_arc_slice_unchecked(items) }),
         }
     }
 
@@ -95,7 +97,7 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     }
 
     fn as_slice1(&self) -> &Slice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_ref()) }
     }
 }
@@ -105,14 +107,14 @@ where
     T: Clone,
 {
     fn from(items: &'a Slice1<T>) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.as_slice())) }
     }
 }
 
 impl<T> From<Vec1<T>> for ArcSlice1<T> {
     fn from(items: Vec1<T>) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArcSlice1::from_arc_slice_unchecked(Arc::from(items.items)) }
     }
 }
@@ -122,7 +124,7 @@ impl<T> FromIterator1<T> for ArcSlice1<T> {
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { ArcSlice1::from_arc_slice_unchecked(items.into_iter1().collect()) }
     }
 }
@@ -131,6 +133,11 @@ pub type WeakSlice1<T> = Weak<Slice1<T>>;
 
 pub trait WeakSlice1Ext<T>: Sized {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with
+    /// [`Arc::downgrade(&Arc::<T>::from([]))`][`Arc::downgrade`].
+    ///
+    /// [`Arc::downgrade`]: alloc::sync::Arc::downgrade
     unsafe fn from_weak_slice_unchecked(items: Weak<[T]>) -> Self;
 }
 

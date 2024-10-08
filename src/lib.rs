@@ -1,5 +1,24 @@
-// TODO: Implement more tests. At time of writing, testing is minimal and some important tests are
-//       absent.
+// SAFETY: This crate implements non-empty collections, slices, and iterators. This non-empty
+//         invariant is critical to memory safety and soundness, because these implementations use
+//         unsafe code to omit branches and checks that are unnecessary if and only if the
+//         invariant holds.
+//
+//         The non-empty invariant is pervasive: code within `unsafe` blocks tends to be
+//         uninteresting and is very unlikely to be the source of memory safety bugs. It is trivial
+//         and more likely for safe code to break this invariant! Sometimes maintaining this
+//         invariant can be subtle, such as interactions with `drain` and `Ord`.
+//
+//         Most unsafe code in this crate falls into the following basic categories:
+//
+//           1. The code implements a `NonEmpty` type and therefore assumes that `self` is indeed
+//              non-empty.
+//           2. The code converts into or from another `NonEmpty` type and so assumes that the
+//              input is non-empty.
+//           3. The code explicitly checks the invariant or constructs non-empty data.
+//
+//         Unsafe code in categories (1) and (2) relies on the implementation and public APIs of
+//         `NonEmpty` types. Unsafe code in category (3) relies on much more local checks or
+//         enforcement of the non-empty invariant.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // LINT: The serialization implementations for `NonEmpty<T>` rely on conversions between

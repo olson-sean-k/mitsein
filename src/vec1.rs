@@ -121,6 +121,11 @@ pub type Vec1<T> = NonEmpty<Vec<T>>;
 
 impl<T> Vec1<T> {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with the
+    /// immediate output of [`Vec::new()`][`Vec::new`].
+    ///
+    /// [`Vec::new`]: alloc::vec::Vec::new
     pub const unsafe fn from_vec_unchecked(items: Vec<T>) -> Self {
         Vec1 { items }
     }
@@ -132,7 +137,8 @@ impl<T> Vec1<T> {
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
         let mut items = Vec::with_capacity(capacity);
         items.push(item);
-        // SAFETY:
+        // SAFETY: `items` must contain `item` and therefore is non-empty here, because `push`
+        //         either pushes the item or panics.
         unsafe { Vec1::from_vec_unchecked(items) }
     }
 
@@ -156,7 +162,7 @@ impl<T> Vec1<T> {
     }
 
     pub fn into_tail_and_head(mut self) -> (Vec<T>, T) {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
     }
@@ -166,7 +172,7 @@ impl<T> Vec1<T> {
     }
 
     pub fn into_boxed_slice1(self) -> BoxedSlice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice()) }
     }
 
@@ -193,7 +199,7 @@ impl<T> Vec1<T> {
     where
         F: FnOnce(&mut Vec<T>) -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_else(f, |items| unsafe { items.get_maybe_unchecked(0) })
     }
 
@@ -202,14 +208,14 @@ impl<T> Vec1<T> {
         F: FnOnce(&mut Vec<T>) -> T,
         R: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_else(f, move |items| unsafe {
             mem::replace(items.get_maybe_unchecked_mut(0), replace())
         })
     }
 
     pub fn leak<'a>(self) -> &'a mut Slice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.leak()) }
     }
 
@@ -245,7 +251,7 @@ impl<T> Vec1<T> {
     }
 
     pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
@@ -257,7 +263,7 @@ impl<T> Vec1<T> {
     where
         F: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_replace_only_with(|items| unsafe { items.pop().unwrap_maybe_unchecked() }, f)
     }
 
@@ -291,12 +297,12 @@ impl<T> Vec1<T> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -313,12 +319,12 @@ impl<T> Vec1<T> {
     }
 
     pub fn as_slice1(&self) -> &Slice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }
 
     pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 
@@ -425,7 +431,7 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` must be non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items)) }
     }
 }
@@ -436,7 +442,7 @@ where
     T: Copy,
 {
     fn from(items: &'a [T; N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` must be non-empty.
         unsafe { Vec1::from_vec_unchecked(items.iter().copied().collect()) }
     }
 }
@@ -446,14 +452,14 @@ where
     T: Clone,
 {
     fn from(items: &'a Slice1<T>) -> Self {
-        // SAFETY:
+        // SAFETY: `items` must be non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items.as_slice())) }
     }
 }
 
 impl<T> From<BoxedSlice1<T>> for Vec1<T> {
     fn from(items: BoxedSlice1<T>) -> Self {
-        // SAFETY:
+        // SAFETY: `items` must be non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items.into_boxed_slice())) }
     }
 }
@@ -469,7 +475,7 @@ impl<T> FromIterator1<T> for Vec1<T> {
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY:
+        // SAFETY: `items` must be non-empty.
         unsafe { Vec1::from_vec_unchecked(items.into_iter1().collect()) }
     }
 }
@@ -505,7 +511,7 @@ impl<T> IntoIterator for Vec1<T> {
 
 impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -543,7 +549,7 @@ where
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { Vec1::from_vec_unchecked(Vec::from(items)) }),
         }
     }
@@ -555,7 +561,7 @@ impl<T> TryFrom<Vec<T>> for Vec1<T> {
     fn try_from(items: Vec<T>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { Vec1::from_vec_unchecked(items) }),
         }
     }
@@ -1066,7 +1072,7 @@ macro_rules! vec1 {
     ($($item:expr $(,)?)+) => {{
         extern crate alloc;
 
-        // SAFETY:
+        // SAFETY: There must be one or more `item` metavariables in the repetition.
         unsafe { $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$($item,)+]) }
     }};
 }

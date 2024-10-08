@@ -1,3 +1,8 @@
+// SAFETY: Though this module contains no unsafe code, an incorrect implementation is unsound. The
+//         segmentation APIs interact with non-empty collections and bugs here may break the
+//         non-empty invariant. In particular, range types, intersection, and projection must be
+//         correct.
+
 pub mod range;
 
 use core::fmt::{self, Debug, Formatter};

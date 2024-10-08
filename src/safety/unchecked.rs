@@ -43,6 +43,8 @@ impl<T> safety::SliceExt<T> for [T] {
 }
 
 /// # Safety
+///
+/// `n` must be non-zero.
 #[inline(always)]
 pub const unsafe fn non_zero_from_usize_maybe_unchecked(n: usize) -> NonZeroUsize {
     NonZeroUsize::new_unchecked(n)

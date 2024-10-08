@@ -87,6 +87,11 @@ pub type BTreeSet1<T> = NonEmpty<BTreeSet<T>>;
 
 impl<T> BTreeSet1<T> {
     /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with the
+    /// immediate output of [`BTreeSet::new()`][`BTreeSet::new`].
+    ///
+    /// [`BTreeSet::new`]: alloc::collections::btree_set::BTreeSet::new
     pub const unsafe fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
         BTreeSet1 { items }
     }
@@ -118,8 +123,10 @@ impl<T> BTreeSet1<T> {
         self.items
     }
 
-    fn arity(&mut self) -> Cardinality<'_, T> {
+    fn cardinality(&mut self) -> Cardinality<'_, T> {
         // `BTreeSet::len` is reliable even in the face of a non-conformant `Ord` implementation.
+        // The `BTreeSet1` implementation relies on this to maintain its non-empty invariant
+        // without bounds on `UnsafeOrd`.
         match self.items.len() {
             0 => unreachable!(),
             1 => Cardinality::One(&mut self.items),
@@ -132,8 +139,8 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         F: FnOnce(&mut BTreeSet<T>) -> T,
     {
-        match self.arity() {
-            // SAFETY:
+        match self.cardinality() {
+            // SAFETY: `self` must be non-empty.
             Cardinality::One(one) => Err(unsafe { one.first().unwrap_maybe_unchecked() }),
             Cardinality::Many(many) => Ok(f(many)),
         }
@@ -145,7 +152,7 @@ impl<T> BTreeSet1<T> {
         Q: Ord + ?Sized,
         F: FnOnce(&mut BTreeSet<T>) -> Option<T>,
     {
-        let result = match self.arity() {
+        let result = match self.cardinality() {
             Cardinality::One(one) => Err(one.get(query)),
             Cardinality::Many(many) => Ok(f(many)),
         };
@@ -195,7 +202,7 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
     }
 
@@ -214,7 +221,7 @@ impl<T> BTreeSet1<T> {
         while let Ok(item) = self.pop_first_or_get_only() {
             f(item);
         }
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.pop_first_or_get_only().err().unwrap_maybe_unchecked() }
     }
 
@@ -222,7 +229,7 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         self.many_or_get_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
     }
 
@@ -241,7 +248,7 @@ impl<T> BTreeSet1<T> {
         while let Ok(item) = self.pop_last_or_get_only() {
             f(item);
         }
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.pop_last_or_get_only().err().unwrap_maybe_unchecked() }
     }
 
@@ -276,7 +283,7 @@ impl<T> BTreeSet1<T> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
@@ -284,7 +291,7 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
@@ -292,7 +299,7 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
@@ -337,12 +344,13 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         R: AsRef<BTreeSet<T>>,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty and `BTreeSet::union` cannot reduce the cardinality of
+        //         its inputs.
         unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_ref())) }
     }
 
     pub fn iter1(&self) -> Iterator1<btree_set::Iter<'_, T>> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
@@ -403,7 +411,8 @@ where
     type Output = BTreeSet1<T>;
 
     fn bitor(self, rhs: &'_ R) -> Self::Output {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty and `BTreeSet::bitor` cannot reduce the cardinality of
+        //         its inputs.
         unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_ref()) }
     }
 }
@@ -447,7 +456,7 @@ where
     T: Ord,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { BTreeSet1::from_btree_set_unchecked(BTreeSet::from(items)) }
     }
 }
@@ -466,7 +475,7 @@ where
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { BTreeSet1::from_btree_set_unchecked(items.into_iter1().collect()) }
     }
 }
@@ -482,7 +491,7 @@ impl<T> IntoIterator for BTreeSet1<T> {
 
 impl<T> IntoIterator1 for BTreeSet1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -543,7 +552,7 @@ impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
     fn try_from(items: BTreeSet<T>) -> Result<Self, Self::Error> {
         match items.len() {
             0 => Err(items),
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BTreeSet1::from_btree_set_unchecked(items) }),
         }
     }

@@ -1,3 +1,8 @@
+// SAFETY: `Iterator1` relies on the behavior of certain iterator types in `core` to maintain its
+//         non-empty invariant, especially in unchecked constructions. Checked construction relies
+//         on `Peekable`. Similarly, this implementation relies on the behavior of iterator types
+//         in `itertools` when integration is enabled.
+
 use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, Flatten, Inspect, Map, Peekable, Repeat, Rev,
@@ -52,7 +57,10 @@ pub trait ThenIterator1<K>: Sized {
 
     fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
-        T: IntoIterator1<Item = Self::Item>;
+        T: IntoIterator1<Item = Self::Item>,
+    {
+        self.or_else_non_empty(move || items)
+    }
 
     fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
     where
@@ -76,15 +84,8 @@ where
     where
         T: IntoIterator1<Item = Self::Item>,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.chain(items.into_iter1())) }
-    }
-
-    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
-    where
-        T: IntoIterator1<Item = Self::Item>,
-    {
-        Iterator1::try_from_iter(self).or_non_empty(items)
     }
 
     fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
@@ -324,7 +325,7 @@ where
     where
         T: IntoIterator1<Item = Self::Item>,
     {
-        // SAFETY:
+        // SAFETY: `items` is non-empty and is chained with the input iterator.
         unsafe {
             Iterator1::from_iter_unchecked(
                 match self {
@@ -336,25 +337,12 @@ where
         }
     }
 
-    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
-    where
-        T: IntoIterator1<Item = Self::Item>,
-    {
-        // SAFETY:
-        unsafe {
-            Iterator1::from_iter_unchecked(match self {
-                Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
-                Err(empty) => empty.chain(empty_or_into(Some(items))),
-            })
-        }
-    }
-
     fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
     where
         T: IntoIterator1<Item = Self::Item>,
         F: FnOnce() -> T,
     {
-        // SAFETY:
+        // SAFETY: Both `T` and `self` (when `Ok`) are non-empty.
         unsafe {
             Iterator1::from_iter_unchecked(match self {
                 Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
@@ -474,6 +462,13 @@ pub struct Iterator1<I> {
 
 impl<I> Iterator1<I> {
     /// # Safety
+    ///
+    /// `items` must yield one or more items from its [`IntoIterator`] implementation. For example,
+    /// it is unsound to call this function with [`None::<I>`][`Option::None`] or any other empty
+    /// [`IntoIterator`].
+    ///
+    /// [`IntoIterator`]: core::iter::IntoIterator
+    /// [`Option::None`]: core::option::Option::None
     pub unsafe fn from_iter_unchecked<T>(items: T) -> Self
     where
         T: IntoIterator<IntoIter = I>,
@@ -494,12 +489,20 @@ where
     {
         let mut items = items.into_iter().peekable();
         match items.peek() {
-            // SAFETY:
+            // SAFETY: `items` is non-empty.
             Some(_) => Ok(unsafe { Iterator1::from_iter_unchecked(items) }),
             _ => Err(items),
         }
     }
 
+    /// # Safety
+    ///
+    /// The combinator function `f` must not reduce the cardinality of the iterator to zero. For
+    /// example, it is unsound to call this function with [`Iterator::skip`] for an arbitrary or
+    /// unchecked number of skipped items, because this could skip all items and produce an empty
+    /// iterator.
+    ///
+    /// [`Iterator::skip`]: core::iter::Iterator::skip
     #[inline(always)]
     unsafe fn non_empty<J, F>(self, f: F) -> Iterator1<J>
     where
@@ -535,17 +538,17 @@ where
     }
 
     pub fn first(mut self) -> I::Item {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.next().unwrap_maybe_unchecked() }
     }
 
     pub fn last(self) -> I::Item {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn into_head_and_tail(mut self) -> (I::Item, I) {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         let head = unsafe { self.items.next().unwrap_maybe_unchecked() };
         (head, self.items)
     }
@@ -554,7 +557,7 @@ where
     where
         I::Item: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.min().unwrap_maybe_unchecked() }
     }
 
@@ -562,7 +565,7 @@ where
     where
         I::Item: Ord,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.max().unwrap_maybe_unchecked() }
     }
 
@@ -570,7 +573,7 @@ where
     where
         F: FnMut(I::Item, I::Item) -> I::Item,
     {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
     }
 
@@ -587,7 +590,7 @@ where
         T: 'a + Copy,
         I: Iterator<Item = &'a T>,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::copied) }
     }
 
@@ -596,12 +599,12 @@ where
         T: 'a + Clone,
         I: Iterator<Item = &'a T>,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::cloned) }
     }
 
     pub fn enumerate(self) -> Iterator1<Enumerate<I>> {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::enumerate) }
     }
 
@@ -609,7 +612,7 @@ where
     where
         F: FnMut(I::Item) -> T,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(move |items| items.map(f)) }
     }
 
@@ -620,7 +623,7 @@ where
         T: FnOnce(I) -> J,
     {
         let first = self.items.next().map(head);
-        // SAFETY:
+        // SAFETY: `self` must be non-empty so that `first` is also non-empty.
         unsafe { Iterator1::from_iter_unchecked(first.into_iter().chain(tail(self.items))) }
     }
 
@@ -640,7 +643,7 @@ where
     where
         I: Clone,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::cycle) }
     }
 
@@ -648,12 +651,12 @@ where
     where
         T: IntoIterator<Item = I::Item>,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(move |items| items.chain(chained)) }
     }
 
     pub fn step_by(self, step: usize) -> Iterator1<StepBy<I>> {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(move |items| items.step_by(step)) }
     }
 
@@ -661,12 +664,12 @@ where
     where
         F: FnMut(&I::Item),
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(move |items| items.inspect(f)) }
     }
 
     pub fn peekable(self) -> Iterator1<Peekable<I>> {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::peekable) }
     }
 
@@ -674,7 +677,7 @@ where
     where
         I: DoubleEndedIterator,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::rev) }
     }
 
@@ -710,7 +713,7 @@ where
     where
         I::Item: Into<T>,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::map_into) }
     }
 
@@ -719,19 +722,19 @@ where
         I: Iterator<Item = result::Result<T, E>>,
         F: FnMut(T) -> U,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(move |items| items.map_ok(f)) }
     }
 
     pub fn with_position(self) -> Iterator1<WithPosition<I>> {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::with_position) }
     }
 
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn multipeek(self) -> Iterator1<MultiPeek<I>> {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::multipeek) }
     }
 
@@ -741,7 +744,7 @@ where
     where
         I::Item: Ord,
     {
-        // SAFETY:
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.non_empty(I::sorted) }
     }
 }
@@ -762,7 +765,7 @@ where
     I: Iterator,
 {
     pub fn peek(&mut self) -> &I::Item {
-        // SAFETY:
+        // SAFETY: `self` must be non-empty.
         unsafe { self.items.peek().unwrap_maybe_unchecked() }
     }
 }
@@ -845,7 +848,7 @@ where
 }
 
 pub fn one<T>(item: T) -> ExactlyOne<T> {
-    // SAFETY:
+    // SAFETY: `Some(item)` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(Some(item)) }
 }
 
@@ -853,7 +856,7 @@ pub fn one_with<T, F>(f: F) -> ExactlyOneWith<F>
 where
     F: FnOnce() -> T,
 {
-    // SAFETY:
+    // SAFETY: The output `OnceWith` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(iter::once_with(f)) }
 }
 
@@ -875,7 +878,7 @@ pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
 where
     T: Clone,
 {
-    // SAFETY:
+    // SAFETY: The output `Repeat` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(iter::repeat(item)) }
 }
 
