@@ -9,8 +9,8 @@ use crate::sync1::ArcSlice1;
 use crate::vec1::Vec1;
 
 #[diagnostic::on_unimplemented(
-    note = "due to a technical limitation, `Array1` is not yet implemented for all non-empty array \
-            types"
+    note = "a non-empty size, length, or capacity parameter may be zero",
+    note = "`Array1` is not yet implemented for all non-empty array types and non-zero constants"
 )]
 pub trait Array1:
     AsMut<Slice1<Self::Item>>

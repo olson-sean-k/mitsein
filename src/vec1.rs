@@ -1067,6 +1067,7 @@ impl DrainRange {
     }
 }
 
+// TODO: Test that empty constructions do not build.
 #[macro_export]
 macro_rules! vec1 {
     ($($item:expr $(,)?)+) => {{
@@ -1074,6 +1075,18 @@ macro_rules! vec1 {
 
         // SAFETY: There must be one or more `item` metavariables in the repetition.
         unsafe { $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$($item,)+]) }
+    }};
+    ($item:expr ; $N:literal) => {{
+        extern crate alloc;
+
+        const fn non_zero_usize_capacity<const N: usize>()
+        where
+            [(); N]: $crate::array1::Array1,
+        {}
+        non_zero_usize_capacity::<$N>();
+
+        // SAFETY: The literal `$N` is non-zero.
+        unsafe { $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$item; $N]) }
     }};
 }
 pub use vec1;
