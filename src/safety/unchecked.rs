@@ -1,3 +1,4 @@
+use core::hint;
 use core::num::NonZeroUsize;
 use core::slice::SliceIndex;
 
@@ -48,4 +49,12 @@ impl<T> safety::SliceExt<T> for [T] {
 #[inline(always)]
 pub const unsafe fn non_zero_from_usize_maybe_unchecked(n: usize) -> NonZeroUsize {
     NonZeroUsize::new_unchecked(n)
+}
+
+/// # Safety
+///
+/// Reaching this function is undefined behavior.
+#[inline(always)]
+pub const unsafe fn unreachable_maybe_unchecked() -> ! {
+    hint::unreachable_unchecked()
 }

@@ -200,7 +200,8 @@ where
         O: FnOnce(&'a mut ArrayVec<T, N>) -> U,
     {
         match self.items.len() {
-            0 => unreachable!(),
+            // SAFETY: `self` must be non-empty.
+            0 => unsafe { safety::unreachable_maybe_unchecked() },
             1 => Err(one(&mut self.items)),
             _ => Ok(many(&mut self.items)),
         }

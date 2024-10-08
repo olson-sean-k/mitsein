@@ -10,7 +10,7 @@ use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
-use crate::safety::{NonZeroExt as _, OptionExt as _};
+use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::NonEmpty;
@@ -128,7 +128,8 @@ impl<T> BTreeSet1<T> {
         // The `BTreeSet1` implementation relies on this to maintain its non-empty invariant
         // without bounds on `UnsafeOrd`.
         match self.items.len() {
-            0 => unreachable!(),
+            // SAFETY: `self` must be non-empty.
+            0 => unsafe { safety::unreachable_maybe_unchecked() },
             1 => Cardinality::One(&mut self.items),
             _ => Cardinality::Many(&mut self.items),
         }

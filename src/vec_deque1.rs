@@ -13,7 +13,7 @@ use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::iter1::{self, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
-use crate::safety::{NonZeroExt as _, OptionExt as _};
+use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
@@ -129,7 +129,8 @@ impl<T> VecDeque1<T> {
         O: FnOnce(&'a mut VecDeque<T>) -> U,
     {
         match self.items.len() {
-            0 => unreachable!(),
+            // SAFETY: `self` must be non-empty.
+            0 => unsafe { safety::unreachable_maybe_unchecked() },
             1 => Err(one(&mut self.items)),
             _ => Ok(many(&mut self.items)),
         }
@@ -141,7 +142,8 @@ impl<T> VecDeque1<T> {
         O: FnOnce(&'a mut VecDeque<T>) -> Option<U>,
     {
         match self.items.len() {
-            0 => unreachable!(),
+            // SAFETY: `self` must be non-empty.
+            0 => unsafe { safety::unreachable_maybe_unchecked() },
             1 => one(&mut self.items).map(Err),
             _ => many(&mut self.items).map(Ok),
         }

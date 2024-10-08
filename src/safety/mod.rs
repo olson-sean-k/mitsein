@@ -16,10 +16,10 @@ use core::slice::SliceIndex;
 
 // TODO: At time of writing, traits cannot expose `const` functions. Remove this in favor of
 //       extension traits when this is possible.
-// LINT: This function is unused depending on which features are enabled. The set of features may
-//       be complicated, so this module prefers `allow` over `cfg_attr` and `expect`.
+// LINT: Some of these functions are unused depending on which features are enabled. The set of
+//       features may be complicated, so this module prefers `allow` over `cfg_attr` and `expect`.
 #[allow(unused_imports)]
-pub use maybe::non_zero_from_usize_maybe_unchecked;
+pub use maybe::{non_zero_from_usize_maybe_unchecked, unreachable_maybe_unchecked};
 
 pub trait NonZeroExt<T> {
     /// # Safety

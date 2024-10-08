@@ -49,3 +49,10 @@ pub const unsafe fn non_zero_from_usize_maybe_unchecked(n: usize) -> NonZeroUsiz
         _ => panic!(),
     }
 }
+
+/// # Safety
+///
+/// Reaching this function is undefined behavior.
+pub const unsafe fn unreachable_maybe_unchecked() -> ! {
+    unreachable!()
+}
