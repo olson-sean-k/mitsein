@@ -1,6 +1,6 @@
 **Mitsein** is a Rust library that provides strongly typed APIs for non-empty
-collections and views, including (but not limited to) iterators, slices, and
-vectors.
+and ordered collections and views, including (but not limited to) iterators,
+slices, and vectors.
 
 [![GitHub](https://img.shields.io/badge/GitHub-olson--sean--k/mitsein-8da0cb?logo=github&style=for-the-badge)](https://github.com/olson-sean-k/mitsein)
 [![docs.rs](https://img.shields.io/badge/docs.rs-mitsein-66c2a5?logo=rust&style=for-the-badge)](https://docs.rs/mitsein)
@@ -116,7 +116,7 @@ xs.segment(1..).truncate(2);
 assert_eq!(xs.as_slice(), &[0i32, 1, 2]);
 ```
 
-**Mitsein provides complete coverage of ordered collections and heap container
+**Mitsein provides comprehensive coverage of ordered collections and container
 APIs in `core` and `alloc`.** This notably includes `slice`, `BTreeMap`,
 `BTreeSet`, `Box`, and `Arc`. (`BinaryHeap` is an intentional exception.) The
 [`nonempty`] and [`vec1`] crates lack support for primitive types like `slice`

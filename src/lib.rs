@@ -1,3 +1,211 @@
+//! Mitsein provides strongly typed APIs for non-empty and ordered collections and views, including
+//! iterators, slices, and containers. Where possible, unnecessary branches are omitted and APIs
+//! enforce and reflect the non-empty invariant.
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = vec1![0i64, 1, -3];
+//! xs.push(2);
+//!
+//! assert_eq!(&0, xs.first());
+//! assert_eq!(6, xs.into_iter1().map(|x| x * 2).map(i64::abs).max());
+#![doc = "```"]
+//!
+//! Note in the above example that operations on `xs` yield non-[optional][`Option`] outputs,
+//! because `xs` is non-empty.
+//!
+//! Modules in this crate reflect corresponding modules in [`core`], [`alloc`], and [`std`], though
+//! collection modules are exported at the crate root rather than a `collections` module. For
+//! example, [`Vec`] is exported in `alloc::vec::Vec` and its non-empty counterpart [`Vec1`] is
+//! exported in `mitsein::vec1::Vec1`. APIs typically append `1` to the names of their
+//! counterparts.
+//!
+//! At time of writing, `rustdoc` ignores input type parameters in the "Methods from
+//! `Deref<Target = _>`" section. For types that implement `Deref<Target = NonEmpty<_>>`, **the API
+//! documentation may be incorrect** and list all methods of [`NonEmpty`] regardless of its
+//! input type parameter. This is mostly a problem for types that dereference to [`Slice1`], such
+//! as [`Vec1`]. See [this `rustdoc` bug](https://github.com/rust-lang/rust/issues/24686).
+//!
+//! # Non-Empty Types
+//!
+//! Types that represent non-empty collections, containers, or views present APIs that reflect the
+//! non-empty guarantee. The names of these types append `1` to their counterparts. For example,
+//! the non-empty [`Vec`] type is [`Vec1`].
+//!
+//! ## Collections
+//!
+//! This crate provides the following non-empty collections and supporting APIs (depending on which
+//! [Cargo features](#integrations-and-cargo-features) are enabled):
+//!
+//! - [`ArrayVec1`]
+//! - [`BTreeMap1`]
+//! - [`BTreeSet1`]
+//! - [`Vec1`]
+//! - [`VecDeque1`]
+//!
+//! Non-empty collections are represented with the [`NonEmpty`] type constructor. These types are
+//! exported as type definitions in their respective modules. Similarly to `std::prelude`, the
+//! [`prelude`] module notably re-exports [`Vec1`] and the `vec1` macro.
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
+//! while let Ok(_) = xs.pop_or_get_only() {}
+//!
+//! assert_eq!(xs.as_slice(), &[0]);
+#![doc = "```"]
+//!
+//! ## Slices
+//!
+//! Like collections, non-empty slices are represented with the [`NonEmpty`] type constructor and
+//! the [`Slice1`] type definition. These types are unsized and so are accessed via references just
+//! like standard slices.
+//!
+//! ```rust
+//! use mitsein::slice1::{slice1, Slice1};
+//!
+//! fn fold_terminals<T, U, F>(xs: &Slice1<T>, f: F) -> U
+//! where
+//!     F: FnOnce(&T, &T) -> U,
+//! {
+//!     f(xs.first(), xs.last())
+//! }
+//!
+//! let xs = slice1![0i64, 1, 2, 3];
+//! let y = fold_terminals(xs, |first, last| first + last);
+//!
+//! assert_eq!(y, 3);
+//! ```
+//!
+//! See the [`slice1`] module.
+//!
+//! ## Containers
+//!
+//! This crate provides the following non-empty containers for slices:
+//!
+//! - [`ArcSlice1`]
+//! - [`BoxedSlice1`]
+//! - [`CowSlice1`]
+//!
+//! Each of these type definitions has an accompanying extension trait for operations and
+//! conversions that take advantage of the non-empty guarantee. For example, [`ArcSlice1Ext`]
+//! provides APIs for non-empty slices in an [`Arc`]. Some collection types like [`Vec1`] support
+//! conversions from and into these containers.
+//!
+//! ## Iterators
+//!
+//! Non-empty iterators are provided by the [`Iterator1`] type constructor. [`Iterator1`] types can
+//! be fallibly constructed from [`Iterator`] types and support many infallible constructions from
+//! non-empty collections and views as well as combinators that cannot reduce cardinality to zero
+//! (e.g., [`map`][`Iterator1::map`]).
+//!
+//! Supporting traits are re-exported in the [`prelude`] module and provide methods for bridging
+//! between non-empty [`Iterator1`] types and [`Iterator`] types.
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::iter1;
+//! use mitsein::prelude::*;
+//!
+//! let xs = iter1::head_and_tail(0i32, [1, 2]);
+//! let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
+//! assert_eq!(xs.as_slice(), &[3]);
+#![doc = "```"]
+//!
+//! Non-empty collections and views naturally support iteration, collection, etc. via
+//! [`Iterator1`].
+//!
+//! See the [`iter1`] module.
+//!
+//! ## Arrays
+//!
+//! Because primitive arrays must contain initialized items at capacity in safe code, the only
+//! non-empty array types are `[_; 0]`. The [`Array1`] trait is implemented for arrays with a
+//! non-zero cardinality and provides conversions and operations that take advantage of the
+//! non-empty guarantee of such arrays.
+//!
+//! ```rust
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = [0i64, 1, 2, 3];
+//! let x = xs.as_mut_slice1().first_mut();
+//! *x = 4;
+//!
+//! assert_eq!(xs.as_slice(), &[4, 1, 2, 3]);
+//! ```
+//!
+//! See the [`array1`] module.
+//!
+//! # Segmentation
+//!
+//! A [`Segment`] is a view over a subset of a collection that can mutate both the items and
+//! topology of its target. This is somewhat similar to a mutable slice, but items can be inserted
+//! and removed through a [`Segment`]. This crate implements segmentation for both standard and
+//! non-empty collections and is one of the most efficient ways to remove and drain items from
+//! non-empty collections.
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = vec1![0i64, 1, 2, 3, 4];
+//! xs.tail().clear(); // Efficiently clears the tail segment of `xs`.
+//!
+//! assert_eq!(xs.as_slice(), &[0]);
+#![doc = "```"]
+//!
+//! See the [`Segmentation`] trait.
+//!
+//! # Integrations and Cargo Features
+//!
+//! Mitsein supports `no_std` environments and provides features for integrating as needed with
+//! [`alloc`] and [`std`]. By default, the `std` feature is enabled for complete support of the
+//! standard library.
+//!
+//! The following table summarizes supported Cargo features and integrations.
+//!
+//! | Feature     | Default | Primary Dependency | Description                                               |
+//! |-------------|---------|--------------------|-----------------------------------------------------------|
+//! | `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like [`Vec1`].       |
+//! | `arrayvec`  | No      | `arrayvec`         | Non-empty implementation of [`ArrayVec`].                 |
+//! | `itertools` | No      | `itertools`        | Combinators from [`itertools`] for [`Iterator1`].         |
+//! | `serde`     | No      | `serde`            | De/serialization of non-empty collections with [`serde`]. |
+//! | `std`       | Yes     | `std`              | Integrations with [`std::io`].                            |
+//!
+//! [`alloc`]: alloc
+//! [`Arc`]: alloc::sync::Arc
+//! [`ArcSlice1`]: crate::sync1::ArcSlice1
+//! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
+//! [`Array1`]: crate::array1::Array1
+//! [`ArrayVec`]: arrayvec::ArrayVec
+//! [`ArrayVec1`]: crate::array_vec1::ArrayVec1
+//! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
+//! [`BTreeMap1`]: crate::btree_map1::BTreeMap1
+//! [`BTreeSet1`]: crate::btree_set1::BTreeSet1
+//! [`core`]: core
+//! [`CowSlice1`]: crate::vec1::CowSlice1
+//! [`Iterator1`]: crate::iter1::Iterator1
+//! [`Iterator1::map`]: crate::iter1::Iterator1::map
+//! [`itertools`]: itertools
+//! [`Option`]: core::option::Option
+//! [`prelude`]: crate::prelude
+//! [`serde`]: ::serde
+//! [`Slice1`]: crate::slice1::Slice1
+//! [`std`]: std
+//! [`std::io`]: std::io
+//! [`Vec`]: alloc::vec::Vec
+//! [`Vec1`]: crate::vec1::Vec1
+//! [`VecDeque1`]: crate::vec_deque1::VecDeque1
+
+// TODO: At time of writing, it is not possible to specify or enable features required for
+//       documentation examples without explicitly applying `doc` attributes. These attributes harm
+//       the legibility of non-rendered documentation. Migrate this to a cleaner mechanism when
+//       possible.
+
 // SAFETY: This crate implements non-empty collections, slices, and iterators. This non-empty
 //         invariant is critical to memory safety and soundness, because these implementations use
 //         unsafe code to omit branches and checks that are unnecessary if and only if the
