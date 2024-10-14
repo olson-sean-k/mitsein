@@ -356,6 +356,14 @@ where
 pub struct Feed<T, I>(pub T, pub I);
 
 impl<T, I> Feed<T, I> {
+    pub fn output(self) -> T {
+        self.0
+    }
+
+    pub fn remainder(self) -> I {
+        self.1
+    }
+
     pub fn with_output_and_then_remainder<F>(self, f: F) -> I
     where
         F: FnOnce(T),
