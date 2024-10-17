@@ -63,10 +63,10 @@
 //!
 //! Like collections, non-empty slices are represented with the [`NonEmpty`] type constructor and
 //! the [`Slice1`] type definition. These types are unsized and so are accessed via references just
-//! like standard slices.
+//! like standard slices. The [`prelude`] module re-exports [`Slice1`] and the `slice1` macro.
 //!
 //! ```rust
-//! use mitsein::slice1::{slice1, Slice1};
+//! use mitsein::prelude::*;
 //!
 //! fn fold_terminals<T, U, F>(xs: &Slice1<T>, f: F) -> U
 //! where
@@ -287,6 +287,7 @@ pub mod prelude {
         ExtendUntil, FromIterator1, FromIteratorUntil, IntoIterator1, IteratorExt as _, QueryAnd,
         ThenIterator1,
     };
+    pub use crate::slice1::{slice1, Slice1};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
     pub use crate::{Segmentation, Vacancy};
