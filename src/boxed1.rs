@@ -1,3 +1,7 @@
+//! Non-empty [boxed][`boxed`] collections.
+//!
+//! [`boxed`]: alloc::boxed
+
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 

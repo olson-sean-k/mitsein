@@ -1,3 +1,7 @@
+//! Non-empty [synchronized][`sync`] collections.
+//!
+//! [`sync`]: alloc::sync
+
 #![cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 #![cfg_attr(docsrs, doc(cfg(all(feature = "alloc", target_has_atomic = "ptr"))))]
 

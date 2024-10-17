@@ -1,3 +1,7 @@
+//! A non-empty [`ArrayVec`].
+//!
+//! [`ArrayVec`]: arrayvec::ArrayVec
+
 #![cfg(feature = "arrayvec")]
 #![cfg_attr(docsrs, doc(cfg(feature = "arrayvec")))]
 

@@ -1,3 +1,7 @@
+//! A non-empty [`BTreeSet`][`btree_set`].
+//!
+//! [`btree_set`]: alloc::collections::btree_set
+
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 

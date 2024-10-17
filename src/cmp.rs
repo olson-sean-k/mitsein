@@ -1,3 +1,7 @@
+//! Comparison and ordering extensions.
+
+/// Types that can be used with APIs in which inconsistent total ordering is undefined behavior.
+///
 /// # Safety
 ///
 /// Types that implement this trait must exhibit consistent behavior as described for [`Ord`].

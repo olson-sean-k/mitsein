@@ -47,7 +47,7 @@
 //!
 //! Non-empty collections are represented with the [`NonEmpty`] type constructor. These types are
 //! exported as type definitions in their respective modules. Similarly to `std::prelude`, the
-//! [`prelude`] module notably re-exports [`Vec1`] and the `vec1` macro.
+//! [`prelude`] module notably re-exports [`Vec1`] and the [`vec1!`] macro.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]
 #![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
@@ -63,7 +63,7 @@
 //!
 //! Like collections, non-empty slices are represented with the [`NonEmpty`] type constructor and
 //! the [`Slice1`] type definition. These types are unsized and so are accessed via references just
-//! like standard slices. The [`prelude`] module re-exports [`Slice1`] and the `slice1` macro.
+//! like standard slices. The [`prelude`] module re-exports [`Slice1`] and the [`slice1!`] macro.
 //!
 //! ```rust
 //! use mitsein::prelude::*;
@@ -193,12 +193,16 @@
 //! [`itertools`]: itertools
 //! [`Option`]: core::option::Option
 //! [`prelude`]: crate::prelude
+//! [`Segment`]: crate::Segment
+//! [`Segmentation`]: crate::Segmentation
 //! [`serde`]: ::serde
 //! [`Slice1`]: crate::slice1::Slice1
+//! [`slice1!`]: crate::slice1::slice1!
 //! [`std`]: std
 //! [`std::io`]: std::io
 //! [`Vec`]: alloc::vec::Vec
 //! [`Vec1`]: crate::vec1::Vec1
+//! [`vec1!`]: crate::vec1::vec1!
 //! [`VecDeque1`]: crate::vec_deque1::VecDeque1
 
 // TODO: At time of writing, it is not possible to specify or enable features required for
@@ -280,6 +284,8 @@ pub mod vec1;
 pub mod vec_deque1;
 
 pub mod prelude {
+    //! Re-exports of recommended APIs and extension traits for glob imports.
+
     pub use crate::array1::Array1;
     #[cfg(feature = "arrayvec")]
     pub use crate::array_vec1::OrSaturated;

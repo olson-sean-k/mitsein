@@ -1,3 +1,7 @@
+//! A non-empty [`BTreeMap`][`btree_map`].
+//!
+//! [`btree_map`]: alloc::collections::btree_map
+
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 

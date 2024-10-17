@@ -1,3 +1,7 @@
+//! Non-empty [iterators][`iter`].
+//!
+//! [`iter`]: core::iter
+
 // SAFETY: `Iterator1` relies on the behavior of certain iterator types in `core` to maintain its
 //         non-empty invariant, especially in unchecked constructions. Checked construction relies
 //         on `Peekable`. Similarly, this implementation relies on the behavior of iterator types
