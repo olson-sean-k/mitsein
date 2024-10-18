@@ -10,7 +10,7 @@
 use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, Flatten, Inspect, Map, Peekable, Repeat, Rev,
-    StepBy, Take,
+    Skip, StepBy, Take,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -35,7 +35,7 @@ use crate::Vacancy;
 // `Iterator` type `I` versus `Result<I>`.
 //
 // This is unfortunate and, though this trait is not meant to be used in this way, makes bounds on
-// the trait unusual:
+// the trait and type definitions for its outputs unusual:
 //
 //   fn max<I, K>(items: I) -> i64
 //   where
@@ -381,8 +381,6 @@ pub type HeadAndTail<T> =
 pub type TailAndHead<T> =
     Iterator1<Chain<<T as IntoIterator>::IntoIter, AtMostOne<<T as IntoIterator>::Item>>>;
 
-pub type FirstAndThen<I> = Iterator1<Chain<AtMostOne<<I as Iterator>::Item>, I>>;
-
 pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
 
 pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
@@ -702,18 +700,18 @@ where
         unsafe { self.non_empty(move |items| items.map(f)) }
     }
 
-    pub fn map_first_and_then<U, J, H, T>(mut self, head: H, tail: T) -> FirstAndThen<J>
+    pub fn map_first_and_then<J, H, T>(mut self, head: H, tail: T) -> HeadAndTail<J>
     where
-        J: Iterator<Item = U>,
-        H: FnOnce(I::Item) -> U,
+        J: Iterator,
+        H: FnOnce(I::Item) -> J::Item,
         T: FnOnce(I) -> J,
     {
-        let first = self.items.next().map(head);
-        // SAFETY: `self` must be non-empty so that `first` is also non-empty.
-        unsafe { Iterator1::from_iter_unchecked(first.into_iter().chain(tail(self.items))) }
+        // SAFETY: `self` must be non-empty so that `next` yields `Some` here.
+        let first = unsafe { self.items.next().map(head).unwrap_maybe_unchecked() };
+        self::head_and_tail(first, tail(self.items))
     }
 
-    pub fn first_and_then<J, F>(self, f: F) -> FirstAndThen<J>
+    pub fn first_and_then<J, F>(self, f: F) -> HeadAndTail<J>
     where
         J: Iterator<Item = I::Item>,
         F: FnOnce(I) -> J,
@@ -721,8 +719,12 @@ where
         self.map_first_and_then(|first| first, f)
     }
 
-    pub fn first_and_then_take(self, n: usize) -> FirstAndThen<Take<I>> {
+    pub fn first_and_then_take(self, n: usize) -> HeadAndTail<Take<I>> {
         self.first_and_then(|items| items.take(n))
+    }
+
+    pub fn first_and_then_skip(self, n: usize) -> HeadAndTail<Skip<I>> {
+        self.first_and_then(|items| items.skip(n))
     }
 
     pub fn cycle(self) -> Iterator1<Cycle<I>>
