@@ -7,6 +7,7 @@
 //         on `Peekable`. Similarly, this implementation relies on the behavior of iterator types
 //         in `itertools` when integration is enabled.
 
+use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, Flatten, Inspect, Map, Peekable, Repeat, Rev,
@@ -639,20 +640,50 @@ where
         (head, self.items)
     }
 
+    pub fn min_by<F>(self, f: F) -> I::Item
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { self.items.min_by(f).unwrap_maybe_unchecked() }
+    }
+
+    pub fn min_by_key<B, F>(self, mut f: F) -> I::Item
+    where
+        B: Ord,
+        F: FnMut(&I::Item) -> B,
+    {
+        self.min_by(move |lhs, rhs| f(lhs).cmp(&f(rhs)))
+    }
+
     pub fn min(self) -> I::Item
     where
         I::Item: Ord,
     {
+        self.min_by(Ord::cmp)
+    }
+
+    pub fn max_by<F>(self, f: F) -> I::Item
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.min().unwrap_maybe_unchecked() }
+        unsafe { self.items.max_by(f).unwrap_maybe_unchecked() }
+    }
+
+    pub fn max_by_key<B, F>(self, mut f: F) -> I::Item
+    where
+        B: Ord,
+        F: FnMut(&I::Item) -> B,
+    {
+        self.max_by(move |lhs, rhs| f(lhs).cmp(&f(rhs)))
     }
 
     pub fn max(self) -> I::Item
     where
         I::Item: Ord,
     {
-        // SAFETY: `self` must be non-empty.
-        unsafe { self.items.max().unwrap_maybe_unchecked() }
+        self.max_by(Ord::cmp)
     }
 
     pub fn reduce<F>(self, f: F) -> I::Item
