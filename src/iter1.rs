@@ -280,6 +280,80 @@ pub trait FromIterator1<T> {
 //     }
 // }
 
+impl<T, U> FromIterator1<Option<T>> for Option<U>
+where
+    U: FromIterator1<T>,
+{
+    fn from_iter1<I>(items: I) -> Self
+    where
+        I: IntoIterator1<Item = Option<T>>,
+    {
+        let mut items = items.into_iter1().into_iter();
+        let mut unit = None;
+        let residual = &mut unit;
+
+        let items = iter::from_fn(move || {
+            items.next().and_then(|option| {
+                if option.is_none() {
+                    *residual = Some(());
+                }
+                option
+            })
+        })
+        .fuse();
+        // Because `U::try_from_iter` can be implemented arbitrarily, the `Iterator1` is
+        // constructed more directly here since its constructor has a known implementation and
+        // behavior.
+        match Iterator1::try_from_iter(items).map(U::from_iter1) {
+            Ok(value) => match unit {
+                Some(_) => None,
+                _ => Some(value),
+            },
+            // `Iterator1::try_from_iter` only returns an error if the `items` iterator encounters
+            // `None`.
+            _ => None,
+        }
+    }
+}
+
+impl<T, U, E> FromIterator1<result::Result<T, E>> for result::Result<U, E>
+where
+    U: FromIterator1<T>,
+{
+    fn from_iter1<I>(items: I) -> Self
+    where
+        I: IntoIterator1<Item = result::Result<T, E>>,
+    {
+        let mut items = items.into_iter1().into_iter();
+        let mut error = None;
+        let residual = &mut error;
+
+        let items = iter::from_fn(move || {
+            items.next().and_then(|result| match result {
+                Ok(value) => Some(value),
+                Err(error) => {
+                    *residual = Some(error);
+                    None
+                },
+            })
+        })
+        .fuse();
+        // Because `U::try_from_iter` can be implemented arbitrarily, the `Iterator1` is
+        // constructed more directly here since its constructor has a known implementation and
+        // behavior. See below.
+        match Iterator1::try_from_iter(items).map(U::from_iter1) {
+            Ok(value) => match error {
+                Some(error) => Err(error),
+                _ => Ok(value),
+            },
+            // SAFETY: The `Iterator1::try_from_iter` function never returns an error unless the
+            //         `items` iterator encounters an error (at the first item) and so `error` must
+            //         be `Some`. See the use of `iter::from_fn` above.
+            Err(_) => Err(unsafe { error.unwrap_maybe_unchecked() }),
+        }
+    }
+}
+
 pub trait IntoIterator1: IntoIterator {
     fn into_iter1(self) -> Iterator1<Self::IntoIter>;
 }
@@ -958,6 +1032,34 @@ mod tests {
     use crate::iter1::harness::{self, matched_none_non_empty, matched_some_non_empty, xs1, Xs1};
     use crate::iter1::{Feed, IntoIterator1, IsMatch, Matched, QueryAnd, ThenIterator1};
     use crate::slice1::{slice1, Slice1};
+    #[cfg(feature = "alloc")]
+    use crate::vec1::Vec1;
+
+    #[cfg(feature = "alloc")]
+    #[rstest]
+    #[case::some([Some(0), Some(1), Some(2)], Some(Vec1::from([0, 1, 2])))]
+    #[case::none_at_first([None, Some(1), Some(2)], None)]
+    #[case::none_at_last([Some(0), Some(1), None], None)]
+    fn collect1_options_into_option_of_vec1_then_eq(
+        #[case] xs: impl IntoIterator1<Item = Option<u8>>,
+        #[case] expected: Option<Vec1<u8>>,
+    ) {
+        let xs: Option<Vec1<_>> = xs.into_iter1().collect1();
+        assert_eq!(xs, expected);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[rstest]
+    #[case::ok([Ok(0), Ok(1), Ok(2)], Ok(Vec1::from([0, 1, 2])))]
+    #[case::error_at_first([Err(()), Ok(1), Ok(2)], Err(()))]
+    #[case::error_at_last([Ok(0), Ok(1), Err(())], Err(()))]
+    fn collect1_results_into_result_of_vec1_then_eq(
+        #[case] xs: impl IntoIterator1<Item = Result<u8, ()>>,
+        #[case] expected: Result<Vec1<u8>, ()>,
+    ) {
+        let xs: Result<Vec1<_>, _> = xs.into_iter1().collect1();
+        assert_eq!(xs, expected);
+    }
 
     #[rstest]
     #[case::non_empty_iter([0], [255], slice1![0])]
