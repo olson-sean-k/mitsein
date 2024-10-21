@@ -16,18 +16,29 @@ use core::iter::{
 use core::num::NonZeroUsize;
 use core::option;
 use core::result;
+#[cfg(all(feature = "std", feature = "itertools"))]
+use itertools::{Unique, UniqueBy};
 #[cfg(all(feature = "alloc", feature = "itertools"))]
-use {alloc::vec, itertools::MultiPeek};
+use {
+    alloc::vec,
+    core::hash::Hash,
+    itertools::{MultiPeek, Powerset, Tee},
+};
 #[cfg(feature = "itertools")]
 use {
     core::borrow::Borrow,
-    itertools::{Itertools, MapInto, MapOk, WithPosition},
+    itertools::{
+        Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge,
+        MergeBy, MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
+    },
 };
 
 use crate::safety::OptionExt as _;
 use crate::NonZeroExt as _;
 #[cfg(any(feature = "alloc", feature = "arrayvec"))]
 use crate::Vacancy;
+#[cfg(feature = "itertools")]
+use crate::{safety, Cardinality};
 
 // The input type parameter `K` is unused in this trait, but is required to prevent a coherence
 // error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
@@ -539,6 +550,10 @@ impl<I> From<IsMatch<I>> for bool {
     }
 }
 
+#[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+pub type MinMax<T> = Cardinality<T, (T, T)>;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct Iterator1<I> {
@@ -624,6 +639,14 @@ where
             .expect("non-empty iterator has zero items or overflow in count")
     }
 
+    pub fn eq<J>(self, other: J) -> bool
+    where
+        J: IntoIterator,
+        I::Item: PartialEq<J::Item>,
+    {
+        self.into_iter().eq(other)
+    }
+
     pub fn first(mut self) -> I::Item {
         // SAFETY: `self` must be non-empty.
         unsafe { self.items.next().unwrap_maybe_unchecked() }
@@ -692,14 +715,6 @@ where
     {
         // SAFETY: `self` must be non-empty.
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
-    }
-
-    pub fn eq<J>(self, other: J) -> bool
-    where
-        J: IntoIterator,
-        I::Item: PartialEq<J::Item>,
-    {
-        self.into_iter().eq(other)
     }
 
     pub fn copied<'a, T>(self) -> Iterator1<Copied<I>>
@@ -830,6 +845,18 @@ impl<I> Iterator1<I>
 where
     I: Iterator,
 {
+    pub fn minmax(self) -> MinMax<I::Item>
+    where
+        I::Item: PartialOrd,
+    {
+        match self.into_iter().minmax() {
+            // SAFETY: `self` must be non-empty.
+            MinMaxResult::NoElements => unsafe { safety::unreachable_maybe_unchecked() },
+            MinMaxResult::OneElement(item) => MinMax::One(item),
+            MinMaxResult::MinMax(min, max) => MinMax::Many((min, max)),
+        }
+    }
+
     pub fn map_into<T>(self) -> Iterator1<MapInto<I, T>>
     where
         I::Item: Into<T>,
@@ -847,9 +874,98 @@ where
         unsafe { self.with_non_empty(move |items| items.map_ok(f)) }
     }
 
+    pub fn update<F>(self, f: F) -> Iterator1<Update<I, F>>
+    where
+        F: FnMut(&mut I::Item),
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.update(f)) }
+    }
+
+    pub fn dedup(self) -> Iterator1<Dedup<I>>
+    where
+        I::Item: PartialOrd,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(I::dedup) }
+    }
+
+    pub fn dedup_with_count(self) -> Iterator1<DedupWithCount<I>>
+    where
+        I::Item: PartialOrd,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(I::dedup_with_count) }
+    }
+
+    pub fn dedup_by<F>(self, f: F) -> Iterator1<DedupBy<I, F>>
+    where
+        F: FnMut(&I::Item, &I::Item) -> bool,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.dedup_by(f)) }
+    }
+
+    pub fn dedup_by_with_count<F>(self, f: F) -> Iterator1<DedupByWithCount<I, F>>
+    where
+        F: FnMut(&I::Item, &I::Item) -> bool,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.dedup_by_with_count(f)) }
+    }
+
     pub fn with_position(self) -> Iterator1<WithPosition<I>> {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.with_non_empty(I::with_position) }
+    }
+
+    pub fn first_and_then_pad_with<F>(self, min: usize, f: F) -> HeadAndTail<PadUsing<I, F>>
+    where
+        F: FnMut(usize) -> I::Item,
+    {
+        self.first_and_then(move |items| items.pad_using(min, f))
+    }
+
+    pub fn merge<T>(self, merged: T) -> Iterator1<Merge<I, T::IntoIter>>
+    where
+        I::Item: PartialOrd,
+        T: IntoIterator<Item = I::Item>,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.merge(merged)) }
+    }
+
+    pub fn merge_by<T, F>(self, merged: T, f: F) -> Iterator1<MergeBy<I, T::IntoIter, F>>
+    where
+        T: IntoIterator<Item = I::Item>,
+        F: FnMut(&I::Item, &I::Item) -> bool,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.merge_by(merged, f)) }
+    }
+
+    pub fn zip_longest<T>(self, zipped: T) -> Iterator1<ZipLongest<I, T::IntoIter>>
+    where
+        T: IntoIterator,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.zip_longest(zipped)) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn tee(self) -> (Iterator1<Tee<I>>, Iterator1<Tee<I>>)
+    where
+        I::Item: Clone,
+    {
+        let (xs, ys) = self.items.tee();
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe {
+            (
+                Iterator1::from_iter_unchecked(xs),
+                Iterator1::from_iter_unchecked(ys),
+            )
+        }
     }
 
     #[cfg(feature = "alloc")]
@@ -867,6 +983,69 @@ where
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.with_non_empty(I::sorted) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn sorted_by<F>(self, f: F) -> Iterator1<vec::IntoIter<I::Item>>
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.sorted_by(f)) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn sorted_by_key<K, F>(self, f: F) -> Iterator1<vec::IntoIter<I::Item>>
+    where
+        K: Ord,
+        F: FnMut(&I::Item) -> K,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.sorted_by_key(f)) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn sorted_by_cached_key<K, F>(self, f: F) -> Iterator1<vec::IntoIter<I::Item>>
+    where
+        K: Ord,
+        F: FnMut(&I::Item) -> K,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.sorted_by_cached_key(f)) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn powerset(self) -> Iterator1<Powerset<I>>
+    where
+        I::Item: Clone,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(I::powerset) }
+    }
+
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    pub fn unique(self) -> Iterator1<Unique<I>>
+    where
+        I::Item: Clone + Eq + Hash,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(I::unique) }
+    }
+
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    pub fn unique_by<K, F>(self, f: F) -> Iterator1<UniqueBy<I, K, F>>
+    where
+        K: Eq + Hash,
+        F: FnMut(&I::Item) -> K,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.with_non_empty(move |items| items.unique_by(f)) }
     }
 }
 
