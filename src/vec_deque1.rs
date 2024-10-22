@@ -100,10 +100,20 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {
-        let mut items = VecDeque::with_capacity(capacity);
-        items.push_back(item);
-        // SAFETY: `items` must contain `item` and therefore is non-empty here, because `push_back`
-        //         either pushes the item or panics.
+        VecDeque1::from_iter1_with_capacity([item], capacity)
+    }
+
+    pub fn from_iter1_with_capacity<U>(items: U, capacity: usize) -> Self
+    where
+        U: IntoIterator1<Item = T>,
+    {
+        let items = {
+            let mut xs = VecDeque::with_capacity(capacity);
+            xs.extend(items);
+            xs
+        };
+        // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
+        //         items or panics, so `items` must be non-empty here.
         unsafe { VecDeque1::from_vec_deque_unchecked(items) }
     }
 
