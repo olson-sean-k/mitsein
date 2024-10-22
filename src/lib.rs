@@ -113,6 +113,7 @@
 //!
 //! let xs = iter1::head_and_tail(0i32, [1, 2]);
 //! let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
+//!
 //! assert_eq!(xs.as_slice(), &[3]);
 #![doc = "```"]
 //!
@@ -160,6 +161,36 @@
 //!
 //! See the [`Segmentation`] trait.
 //!
+//! # Vacancy and Saturation
+//!
+//! This crate provides collection and iterator APIs for interacting with capacity. Collections can
+//! be queried for vacancy and collecting and extending into collections can be limited to
+//! capacity.
+#![doc = ""]
+#![cfg_attr(all(feature = "alloc", feature = "arrayvec"), doc = "```rust")]
+#![cfg_attr(
+    not(all(feature = "alloc", feature = "arrayvec")),
+    doc = "```rust,ignore"
+)]
+//! use mitsein::array_vec1::ArrayVec1;
+//! use mitsein::iter1;
+//! use mitsein::prelude::*;
+//!
+//! // `saturate` returns an output and remainder: the output is an `ArrayVec1` here.
+//! let xs: ArrayVec1<_, 4> = iter1::repeat(0i64).saturate().output();
+//!
+//! let mut ys = Vec1::from_one_with_capacity(0i64, 4);
+//! let vacancy = ys.vacancy();
+//! ys.saturate(iter1::repeat(1i64));
+//!
+//! assert_eq!(xs.as_slice(), &[0, 0, 0, 0]);
+//! assert_eq!(ys.as_slice(), &[0, 1, 1, 1]);
+//! assert_eq!(ys.vacancy(), 0);
+//! assert_eq!(vacancy, 3);
+#![doc = "```"]
+//!
+//! See the [`Vacancy`] trait and the [`ExtendUntil`] and [`FromIteratorUntil`] traits.
+//!
 //! # Integrations and Cargo Features
 //!
 //! Mitsein supports `no_std` environments and provides features for integrating as needed with
@@ -191,6 +222,8 @@
 //! [`BTreeSet1`]: crate::btree_set1::BTreeSet1
 //! [`core`]: core
 //! [`CowSlice1`]: crate::vec1::CowSlice1
+//! [`ExtendUntil`]: crate::iter1::ExtendUntil
+//! [`FromIteratorUntil`]: crate::iter1::FromIteratorUntil
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
 //! [`itertools`]: itertools
@@ -203,6 +236,7 @@
 //! [`slice1!`]: crate::slice1::slice1!
 //! [`std`]: std
 //! [`std::io`]: std::io
+//! [`Vacancy`]: crate::Vacancy
 //! [`Vec`]: alloc::vec::Vec
 //! [`Vec1`]: crate::vec1::Vec1
 //! [`vec1!`]: crate::vec1::vec1!
