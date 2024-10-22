@@ -39,11 +39,11 @@
 //! This crate provides the following non-empty collections and supporting APIs (depending on which
 //! [Cargo features](#integrations-and-cargo-features) are enabled):
 //!
-//! - [`ArrayVec1`]
-//! - [`BTreeMap1`]
-//! - [`BTreeSet1`]
-//! - [`Vec1`]
-//! - [`VecDeque1`]
+//! - [`ArrayVec1`][`array_vec1`]
+//! - [`BTreeMap1`][`btree_map1`]
+//! - [`BTreeSet1`][`btree_set1`]
+//! - [`Vec1`][`vec1`]
+//! - [`VecDeque1`][`vec_deque1`]
 //!
 //! Non-empty collections are represented with the [`NonEmpty`] type constructor. These types are
 //! exported as type definitions in their respective modules. Similarly to `std::prelude`, the
@@ -216,9 +216,12 @@
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`Array1`]: crate::array1::Array1
 //! [`ArrayVec`]: arrayvec::ArrayVec
+//! [`array_vec1`]: crate::array_vec1
 //! [`ArrayVec1`]: crate::array_vec1::ArrayVec1
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
+//! [`btree_map1`]: crate::btree_map1
 //! [`BTreeMap1`]: crate::btree_map1::BTreeMap1
+//! [`btree_set1`]: crate::btree_set1
 //! [`BTreeSet1`]: crate::btree_set1::BTreeSet1
 //! [`core`]: core
 //! [`CowSlice1`]: crate::vec1::CowSlice1
@@ -238,8 +241,10 @@
 //! [`std::io`]: std::io
 //! [`Vacancy`]: crate::Vacancy
 //! [`Vec`]: alloc::vec::Vec
+//! [`vec1`]: mod@crate::vec1
 //! [`Vec1`]: crate::vec1::Vec1
-//! [`vec1!`]: crate::vec1::vec1!
+//! [`vec1!`]: macro@crate::vec1::vec1!
+//! [`vec_deque1`]: crate::vec_deque1
 //! [`VecDeque1`]: crate::vec_deque1::VecDeque1
 
 // TODO: At time of writing, it is not possible to specify or enable features required for
