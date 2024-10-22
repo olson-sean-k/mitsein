@@ -42,7 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
-//! - [`Vec1`][`vec1`]
+//! - [`Vec1`][`mod@vec1`]
 //! - [`VecDeque1`][`vec_deque1`]
 //!
 //! Non-empty collections are represented with the [`NonEmpty`] type constructor. These types are
@@ -81,7 +81,7 @@
 //! assert_eq!(y, 3);
 //! ```
 //!
-//! See the [`slice1`] module.
+//! See the [`slice1`][`mod@slice1`] module.
 //!
 //! ## Containers
 //!
@@ -210,42 +210,21 @@
 //! Some features enable other crate and dependency features. For example, `std` enables `alloc`
 //! and both of these features enable similar features in optional dependencies when applicable.
 //!
-//! [`alloc`]: alloc
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1`]: crate::sync1::ArcSlice1
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`Array1`]: crate::array1::Array1
 //! [`ArrayVec`]: arrayvec::ArrayVec
-//! [`array_vec1`]: crate::array_vec1
-//! [`ArrayVec1`]: crate::array_vec1::ArrayVec1
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
-//! [`btree_map1`]: crate::btree_map1
-//! [`BTreeMap1`]: crate::btree_map1::BTreeMap1
-//! [`btree_set1`]: crate::btree_set1
-//! [`BTreeSet1`]: crate::btree_set1::BTreeSet1
-//! [`core`]: core
 //! [`CowSlice1`]: crate::vec1::CowSlice1
 //! [`ExtendUntil`]: crate::iter1::ExtendUntil
 //! [`FromIteratorUntil`]: crate::iter1::FromIteratorUntil
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
-//! [`itertools`]: itertools
-//! [`Option`]: core::option::Option
-//! [`prelude`]: crate::prelude
-//! [`Segment`]: crate::Segment
-//! [`Segmentation`]: crate::Segmentation
 //! [`serde`]: ::serde
 //! [`Slice1`]: crate::slice1::Slice1
-//! [`slice1!`]: crate::slice1::slice1!
-//! [`std`]: std
-//! [`std::io`]: std::io
-//! [`Vacancy`]: crate::Vacancy
 //! [`Vec`]: alloc::vec::Vec
-//! [`vec1`]: mod@crate::vec1
 //! [`Vec1`]: crate::vec1::Vec1
-//! [`vec1!`]: macro@crate::vec1::vec1!
-//! [`vec_deque1`]: crate::vec_deque1
-//! [`VecDeque1`]: crate::vec_deque1::VecDeque1
 
 // TODO: At time of writing, it is not possible to specify or enable features required for
 //       documentation examples without explicitly applying `doc` attributes. These attributes harm

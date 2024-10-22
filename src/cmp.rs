@@ -11,7 +11,6 @@
 /// non-empty guarantee.
 ///
 /// [`BTreeSet1::split_off_tail`]: crate::btree_set1::BTreeSet1::split_off_tail
-/// [`Ord`]: ::core::cmp::Ord
 #[diagnostic::on_unimplemented(
     message = "`{Self}` may not implement consistent total ordering",
     label = "types used here must implement consistent total ordering for soundness",

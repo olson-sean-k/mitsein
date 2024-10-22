@@ -1,6 +1,4 @@
-//! Non-empty [arrays][`array`].
-//!
-//! [`array`]: prim@array
+//! Non-empty [arrays][`prim@array`].
 
 use core::borrow::{Borrow, BorrowMut};
 use core::num::NonZeroUsize;

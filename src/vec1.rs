@@ -1,6 +1,4 @@
 //! A non-empty [`Vec`][`vec`].
-//!
-//! [`vec`]: mod@alloc::vec
 
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]

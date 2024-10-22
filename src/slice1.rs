@@ -1,6 +1,4 @@
-//! A non-empty [slice][`slice`].
-//!
-//! [`slice`]: prim@slice
+//! A non-empty [slice][`prim@slice`].
 
 use core::fmt::{self, Debug, Formatter};
 use core::mem;

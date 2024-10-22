@@ -1,6 +1,4 @@
 //! A non-empty [`VecDeque`][`vec_deque`].
-//!
-//! [`vec_deque`]: alloc::collections::vec_deque
 
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
