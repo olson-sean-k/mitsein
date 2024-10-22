@@ -6,7 +6,7 @@ use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
-use core::slice;
+use core::slice::{self, Chunks, ChunksMut, RChunks, RChunksMut};
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
@@ -113,6 +113,26 @@ impl<T> Slice1<T> {
     pub fn last_mut(&mut self) -> &mut T {
         // SAFETY: `self` must be non-empty.
         unsafe { self.items.last_mut().unwrap_maybe_unchecked() }
+    }
+
+    pub fn chunks(&self, n: usize) -> Iterator1<Chunks<'_, T>> {
+        // SAFETY: This iterator cannot have a cardinality of zero.
+        unsafe { Iterator1::from_iter_unchecked(self.items.chunks(n)) }
+    }
+
+    pub fn chunks_mut(&mut self, n: usize) -> Iterator1<ChunksMut<'_, T>> {
+        // SAFETY: This iterator cannot have a cardinality of zero.
+        unsafe { Iterator1::from_iter_unchecked(self.items.chunks_mut(n)) }
+    }
+
+    pub fn rchunks(&self, n: usize) -> Iterator1<RChunks<'_, T>> {
+        // SAFETY: This iterator cannot have a cardinality of zero.
+        unsafe { Iterator1::from_iter_unchecked(self.items.rchunks(n)) }
+    }
+
+    pub fn rchunks_mut(&mut self, n: usize) -> Iterator1<RChunksMut<'_, T>> {
+        // SAFETY: This iterator cannot have a cardinality of zero.
+        unsafe { Iterator1::from_iter_unchecked(self.items.rchunks_mut(n)) }
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
