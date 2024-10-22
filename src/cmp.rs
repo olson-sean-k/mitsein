@@ -1,13 +1,16 @@
 //! Comparison and ordering extensions.
 
-/// Types that can be used with APIs in which inconsistent total ordering is undefined behavior.
+/// Types that can be used in APIs where consistent total ordering is required for memory safety.
 ///
 /// # Safety
 ///
 /// Types that implement this trait must exhibit consistent behavior as described for [`Ord`].
-/// Unlike [`Ord`] however, **inconsistent implementations of [`Ord`] and this trait are unsound**
-/// and bounds on this trait indicate that inconsistent behavior is not memory safe in APIs.
+/// Unlike [`Ord`] however, **inconsistent implementations of [`Ord`] and this trait are unsound**.
+/// Bounds on this trait indicate that inconsistent [`Ord`] implementations are not memory safe.
+/// For example, [`BTreeSet1::split_off_tail`] requires consistent ordering to maintain its
+/// non-empty guarantee.
 ///
+/// [`BTreeSet1::split_off_tail`]: crate::btree_set1::BTreeSet1::split_off_tail
 /// [`Ord`]: ::core::cmp::Ord
 #[diagnostic::on_unimplemented(
     message = "`{Self}` may not implement consistent total ordering",
