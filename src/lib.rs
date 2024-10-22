@@ -176,6 +176,9 @@
 //! | `serde`     | No      | `serde`            | De/serialization of non-empty collections with [`serde`]. |
 //! | `std`       | Yes     | `std`              | Integrations with [`std::io`].                            |
 //!
+//! Some features enable other crate and dependency features. For example, `std` enables `alloc`
+//! and both of these features enable similar features in optional dependencies when applicable.
+//!
 //! [`alloc`]: alloc
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1`]: crate::sync1::ArcSlice1

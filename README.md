@@ -127,18 +127,18 @@ iterators, and arrays can be used in contexts where OS features or allocation
 are not available.** Integration with [`arrayvec`][`arrayvec`] also functions in
 `no_std` environments.
 
-## Cargo Features
+## Integrations and Cargo Features
 
 Mitsein provides some optional features and integrations via the following Cargo
 features.
 
-| Feature     | Default | Dependencies            | Description                                               |
-|-------------|---------|-------------------------|-----------------------------------------------------------|
-| `alloc`     | No      | `alloc`                 | Non-empty collections that allocate, like `Vec1`.         |
-| `arrayvec`  | No      | `arrayvec`              | Non-empty implementation of [`ArrayVec`][`arrayvec`].     |
-| `itertools` | No      | `itertools`             | Combinators from [`itertools`] for `Iterator1`.           |
-| `serde`     | No      | `serde`, `serde_derive` | De/serialization of non-empty collections with [`serde`]. |
-| `std`       | Yes     | `std`                   | Integrations with `std::io`.                              |
+| Feature     | Default | Primary Dependency | Description                                               |
+|-------------|---------|--------------------|-----------------------------------------------------------|
+| `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like `Vec1`.         |
+| `arrayvec`  | No      | `arrayvec`         | Non-empty implementation of [`ArrayVec`][`arrayvec`].     |
+| `itertools` | No      | `itertools`        | Combinators from [`itertools`] for `Iterator1`.           |
+| `serde`     | No      | `serde`            | De/serialization of non-empty collections with [`serde`]. |
+| `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 
 Some features enable other crate and dependency features. For example, `std`
 enables `alloc` and both of these features enable similar features in optional
