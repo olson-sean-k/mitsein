@@ -221,6 +221,7 @@
 //! [`FromIteratorUntil`]: crate::iter1::FromIteratorUntil
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
+//! [`itertools`]: ::itertools
 //! [`serde`]: ::serde
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`Vec`]: alloc::vec::Vec
