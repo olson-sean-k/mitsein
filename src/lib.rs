@@ -85,7 +85,8 @@
 //!
 //! ## Containers
 //!
-//! This crate provides the following non-empty containers for slices:
+//! This crate provides the following non-empty containers for slices (depending on which [Cargo
+//! features](#integrations-and-cargo-features) are enabled):
 //!
 //! - [`ArcSlice1`]
 //! - [`BoxedSlice1`]
@@ -125,9 +126,9 @@
 //! ## Arrays
 //!
 //! Because primitive arrays must contain initialized items at capacity in safe code, the only
-//! non-empty array types are `[_; 0]`. The [`Array1`] trait is implemented for arrays with a
-//! non-zero cardinality and provides conversions and operations that take advantage of the
-//! non-empty guarantee of such arrays.
+//! empty array types are `[_; 0]`. The [`Array1`] trait is implemented for arrays with a non-zero
+//! cardinality and provides conversions and operations that take advantage of the non-empty
+//! guarantee of such arrays.
 //!
 //! ```rust
 //! use mitsein::prelude::*;
@@ -144,10 +145,10 @@
 //! # Segmentation
 //!
 //! A [`Segment`] is a view over a subset of a collection that can mutate both the items and
-//! topology of its target. This is somewhat similar to a mutable slice, but items can be inserted
-//! and removed through a [`Segment`]. This crate implements segmentation for both standard and
-//! non-empty collections and is one of the most efficient ways to remove and drain items from
-//! non-empty collections.
+//! topology of its target. This is somewhat similar to a mutable slice, but items can also be
+//! inserted and removed through a [`Segment`]. This crate implements segmentation for both
+//! standard and non-empty collections and is one of the most efficient ways to remove and drain
+//! items from non-empty collections.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]
 #![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
