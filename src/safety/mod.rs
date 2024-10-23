@@ -1,13 +1,20 @@
-// LINT: Avoid an explosion of `cfg_attr` attributes in these APIs. This requires more careful
-//       auditing, since the linter cannot warn when an API is dead.
+// LINT: APIs in this module are pervasive and the set of features that require an item can be
+//       volatile and difficult to determine. Dead code is allowed instead, though it requires more
+//       careful auditing. Items with a more obvious or simple set of dependent features are
+//       annotated with `cfg` or `cfg_attr` when possible. Contrast `OptionExt` with `ArrayVecExt`,
+//       for example.
 #![allow(dead_code)]
 
-// Checked implementation of extension traits. Failures panic.
+// Checked implementation of extension traits that fails or panics in error conditions.
+//
+// This implementation is used in test builds, but not Miri builds.
 #[cfg(all(not(miri), test))]
 #[path = "checked.rs"]
 mod maybe;
-// Unchecked implementation of extension traits. Failures are ignored or unobserved. This is UB if
-// the crate implementation is incorrect or its APIs are unsound.
+// Unchecked implementation of extension traits that ignores error conditions and so has undefined
+// behavior if such a condition occurs.
+//
+// This implementation is used in non-test builds and Miri builds.
 #[cfg(not(all(not(miri), test)))]
 #[path = "unchecked.rs"]
 mod maybe;
@@ -20,6 +27,14 @@ use core::slice::SliceIndex;
 //       features may be complicated, so this module prefers `allow` over `cfg_attr` and `expect`.
 #[allow(unused_imports)]
 pub use maybe::{non_zero_from_usize_maybe_unchecked, unreachable_maybe_unchecked};
+
+#[cfg(feature = "arrayvec")]
+pub trait ArrayVecExt<T> {
+    /// # Safety
+    ///
+    /// `self` must have non-zero vacancy (length must be less than capacity).
+    unsafe fn push_maybe_unchecked(&mut self, item: T);
+}
 
 pub trait NonZeroExt<T> {
     /// # Safety

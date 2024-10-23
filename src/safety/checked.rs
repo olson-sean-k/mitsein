@@ -1,7 +1,16 @@
+#[cfg(feature = "arrayvec")]
+use arrayvec::ArrayVec;
 use core::num::NonZeroUsize;
 use core::slice::SliceIndex;
 
 use crate::safety;
+
+#[cfg(feature = "arrayvec")]
+impl<T, const N: usize> safety::ArrayVecExt<T> for ArrayVec<T, N> {
+    unsafe fn push_maybe_unchecked(&mut self, item: T) {
+        self.push(item)
+    }
+}
 
 impl safety::NonZeroExt<usize> for NonZeroUsize {
     unsafe fn new_maybe_unchecked(n: usize) -> Self {

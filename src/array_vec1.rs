@@ -20,7 +20,7 @@ use crate::array1::Array1;
 use crate::iter1::{
     self, ExtendUntil, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1,
 };
-use crate::safety::{self, OptionExt as _, SliceExt as _};
+use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
@@ -144,9 +144,9 @@ where
             // SAFETY: `items` must contain `item` and therefore is non-empty here.
             ArrayVec1::from_array_vec_unchecked({
                 let mut items = ArrayVec::new();
-                // SAFETY: The bound on `[T; N]: Array1` guarantees that pushing a first item onto
-                //         the `ArrayVec` is safe and succeeds.
-                items.push_unchecked(item);
+                // SAFETY: The bound on `[T; N]: Array1` guarantees that `items` has vacancy for a
+                //         first item here.
+                items.push_maybe_unchecked(item);
                 items
             })
         }
