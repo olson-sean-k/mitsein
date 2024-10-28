@@ -810,11 +810,27 @@ where
         self.range.put_from_end(1);
     }
 
+    pub fn insert_back(&mut self, item: T) {
+        self.items.insert(self.range.end, item);
+        self.range.put_from_end(1);
+    }
+
     pub fn remove(&mut self, index: usize) -> T {
         let index = self.range.project(&index).expect_in_bounds();
         let item = self.items.remove(index);
         self.range.take_from_end(1);
         item
+    }
+
+    pub fn remove_back(&mut self) -> Option<T> {
+        if self.range.is_empty() {
+            None
+        }
+        else {
+            let item = self.items.remove(self.range.end - 1);
+            self.range.take_from_end(1);
+            Some(item)
+        }
     }
 
     pub fn swap_remove(&mut self, index: usize) -> T {
@@ -1119,12 +1135,14 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
+    use core::iter;
     use core::mem;
     use core::ops::RangeBounds;
     use rstest::rstest;
     #[cfg(feature = "serde")]
     use {alloc::vec::Vec, serde_test::Token};
 
+    use crate::iter1::IntoIterator1;
     use crate::segment::range::{PositionalRange, Project};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
@@ -1144,6 +1162,45 @@ mod tests {
             assert_eq!(xs1.pop_or_get_only(), Err(&first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
+    }
+
+    #[rstest]
+    #[case::one_into_empty_front(0..0, [42], slice1![42, 0, 1, 2, 3, 4])]
+    #[case::many_into_empty_front(0..0, [42, 88], slice1![42, 88, 0, 1, 2, 3, 4])]
+    #[case::one_into_empty_back(5..5, [42], slice1![0, 1, 2, 3, 4, 42])]
+    #[case::many_into_empty_back(5..5, [42, 88], slice1![0, 1, 2, 3, 4, 42, 88])]
+    #[case::one_into_empty_middle(2..2, [42], slice1![0, 1, 42, 2, 3, 4])]
+    #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
+    #[case::one_into_non_empty(0..2, [42], slice1![0, 1, 42, 2, 3, 4])]
+    #[case::many_into_non_empty(0..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
+    fn insert_back_into_vec1_segment_then_vec1_eq<S, T>(
+        mut xs1: Vec1<u8>,
+        #[case] segment: S,
+        #[case] items: T,
+        #[case] expected: &Slice1<u8>,
+    ) where
+        S: RangeBounds<usize>,
+        T: IntoIterator1<Item = u8>,
+    {
+        let mut segment = xs1.segment(segment);
+        for item in items {
+            segment.insert_back(item);
+        }
+        assert_eq!(xs1.as_slice1(), expected);
+    }
+
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn remove_back_all_from_tail_of_vec1_then_vec1_eq_head(#[case] mut xs1: Vec1<u8>) {
+        let n = xs1.len().get();
+        let mut tail = xs1.tail();
+        iter::from_fn(|| tail.remove_back())
+            .take(n)
+            .for_each(|_| {});
+        assert!(tail.is_empty());
+        assert_eq!(xs1.as_slice(), &[0]);
     }
 
     #[rstest]

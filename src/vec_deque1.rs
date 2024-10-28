@@ -562,11 +562,43 @@ where
         self.range.put_from_end(1);
     }
 
+    pub fn insert_front(&mut self, item: T) {
+        self.items.insert(self.range.start, item);
+        self.range.put_from_end(1);
+    }
+
+    pub fn insert_back(&mut self, item: T) {
+        self.items.insert(self.range.end, item);
+        self.range.put_from_end(1);
+    }
+
     pub fn remove(&mut self, index: usize) -> Option<T> {
         let index = self.range.project(&index).ok()?;
         self.items
             .remove(index)
             .inspect(|_| self.range.take_from_end(1))
+    }
+
+    pub fn remove_front(&mut self) -> Option<T> {
+        if self.range.is_empty() {
+            None
+        }
+        else {
+            self.items
+                .remove(self.range.start)
+                .inspect(|_| self.range.take_from_end(1))
+        }
+    }
+
+    pub fn remove_back(&mut self) -> Option<T> {
+        if self.range.is_empty() {
+            None
+        }
+        else {
+            self.items
+                .remove(self.range.end - 1)
+                .inspect(|_| self.range.take_from_end(1))
+        }
     }
 
     pub fn swap_remove_front(&mut self, index: usize) -> Option<T> {
@@ -743,10 +775,14 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
+    use core::iter;
+    use core::ops::RangeBounds;
     use rstest::rstest;
     #[cfg(feature = "serde")]
     use {alloc::vec::Vec, serde_test::Token};
 
+    use crate::iter1::IntoIterator1;
+    use crate::slice1::{slice1, Slice1};
     use crate::vec_deque1::harness;
     use crate::vec_deque1::VecDeque1;
     use crate::Segmentation;
@@ -755,6 +791,89 @@ mod tests {
         serde::{self, harness::sequence},
         vec_deque1::harness::xs1,
     };
+
+    #[rstest]
+    #[case::one_into_empty_front(0..0, [42], slice1![42, 0, 1, 2, 3, 4])]
+    #[case::many_into_empty_front(0..0, [42, 88], slice1![88, 42, 0, 1, 2, 3, 4])]
+    #[case::one_into_empty_back(5..5, [42], slice1![0, 1, 2, 3, 4, 42])]
+    #[case::many_into_empty_back(5..5, [42, 88], slice1![0, 1, 2, 3, 4, 88, 42])]
+    #[case::one_into_empty_middle(2..2, [42], slice1![0, 1, 42, 2, 3, 4])]
+    #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 88, 42, 2, 3, 4])]
+    #[case::one_into_non_empty(1..2, [42], slice1![0, 42, 1, 2, 3, 4])]
+    #[case::many_into_non_empty(1..2, [42, 88], slice1![0, 88, 42, 1, 2, 3, 4])]
+    fn insert_front_into_vec_deque1_segment_then_vec_deque1_eq<S, T>(
+        mut xs1: VecDeque1<u8>,
+        #[case] segment: S,
+        #[case] items: T,
+        #[case] expected: &Slice1<u8>,
+    ) where
+        S: RangeBounds<usize>,
+        T: IntoIterator1<Item = u8>,
+    {
+        let mut segment = xs1.segment(segment);
+        for item in items {
+            segment.insert_front(item);
+        }
+        assert_eq!(xs1.make_contiguous(), expected);
+    }
+
+    #[rstest]
+    #[case::one_into_empty_front(0..0, [42], slice1![42, 0, 1, 2, 3, 4])]
+    #[case::many_into_empty_front(0..0, [42, 88], slice1![42, 88, 0, 1, 2, 3, 4])]
+    #[case::one_into_empty_back(5..5, [42], slice1![0, 1, 2, 3, 4, 42])]
+    #[case::many_into_empty_back(5..5, [42, 88], slice1![0, 1, 2, 3, 4, 42, 88])]
+    #[case::one_into_empty_middle(2..2, [42], slice1![0, 1, 42, 2, 3, 4])]
+    #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
+    #[case::one_into_non_empty(0..2, [42], slice1![0, 1, 42, 2, 3, 4])]
+    #[case::many_into_non_empty(0..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
+    fn insert_back_into_vec_deque1_segment_then_vec_deque1_eq<S, T>(
+        mut xs1: VecDeque1<u8>,
+        #[case] segment: S,
+        #[case] items: T,
+        #[case] expected: &Slice1<u8>,
+    ) where
+        S: RangeBounds<usize>,
+        T: IntoIterator1<Item = u8>,
+    {
+        let mut segment = xs1.segment(segment);
+        for item in items {
+            segment.insert_back(item);
+        }
+        assert_eq!(xs1.make_contiguous(), expected);
+    }
+
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn remove_front_all_from_rtail_of_vec_deque1_then_vec_deque1_eq_rhead(
+        #[case] mut xs1: VecDeque1<u8>,
+    ) {
+        let n = xs1.len().get();
+        let rhead = *xs1.back();
+        let mut rtail = xs1.rtail();
+        iter::from_fn(|| rtail.remove_front())
+            .take(n)
+            .for_each(|_| {});
+        assert!(rtail.is_empty());
+        assert_eq!(xs1.make_contiguous().as_slice(), &[rhead]);
+    }
+
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail(harness::xs1(1))]
+    #[case::many_tail(harness::xs1(2))]
+    fn remove_back_all_from_tail_of_vec_deque1_then_vec_deque1_eq_head(
+        #[case] mut xs1: VecDeque1<u8>,
+    ) {
+        let n = xs1.len().get();
+        let mut tail = xs1.tail();
+        iter::from_fn(|| tail.remove_back())
+            .take(n)
+            .for_each(|_| {});
+        assert!(tail.is_empty());
+        assert_eq!(xs1.make_contiguous().as_slice(), &[0]);
+    }
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]

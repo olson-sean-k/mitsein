@@ -642,11 +642,27 @@ where
         self.range.put_from_end(1);
     }
 
+    pub fn insert_back(&mut self, item: T) {
+        self.items.insert(self.range.end, item);
+        self.range.put_from_end(1);
+    }
+
     pub fn remove(&mut self, index: usize) -> T {
         let index = self.range.project(&index).expect_in_bounds();
         let item = self.items.remove(index);
         self.range.take_from_end(1);
         item
+    }
+
+    pub fn remove_back(&mut self) -> Option<T> {
+        if self.range.is_empty() {
+            None
+        }
+        else {
+            let item = self.items.remove(self.range.end - 1);
+            self.range.take_from_end(1);
+            Some(item)
+        }
     }
 
     pub fn swap_remove(&mut self, index: usize) -> T {
