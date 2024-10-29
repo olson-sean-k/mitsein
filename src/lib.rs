@@ -177,12 +177,14 @@
 //! use mitsein::iter1;
 //! use mitsein::prelude::*;
 //!
-//! // `saturate` returns an output and remainder: the output is an `ArrayVec1` here.
-//! let xs: ArrayVec1<_, 4> = iter1::repeat(0i64).saturate().output();
+//! // `saturate` returns an output and remainder: here, the output is an `ArrayVec1`.
+//! let mut xs: ArrayVec1<_, 4> = iter1::repeat(0i64).saturate().output();
+//! assert_eq!(xs.push_or_get_last(42), Err((42, &0)));
 //!
 //! let mut ys = Vec1::from_one_with_capacity(0i64, 4);
 //! let vacancy = ys.vacancy();
 //! ys.saturate(iter1::repeat(1i64));
+//! assert_eq!(ys.insert_or_get(1, 88), Err((88, &1)));
 //!
 //! assert_eq!(xs.as_slice(), &[0, 0, 0, 0]);
 //! assert_eq!(ys.as_slice(), &[0, 1, 1, 1]);
@@ -190,7 +192,8 @@
 //! assert_eq!(vacancy, 3);
 #![doc = "```"]
 //!
-//! See the [`Vacancy`] trait and the [`ExtendUntil`] and [`FromIteratorUntil`] traits.
+//! See the [`Vacancy`] and [`OrSaturated`] traits and also the [`ExtendUntil`] and
+//! [`FromIteratorUntil`] traits.
 //!
 //! # Integrations and Cargo Features
 //!
