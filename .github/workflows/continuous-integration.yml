@@ -37,6 +37,8 @@ jobs:
           args: --all-features --all-targets -- -D clippy::all
   test:
     name: Test
+    env:
+      RUSTFLAGS: -D warnings
     needs: [clippy, rustfmt]
     runs-on: ${{ matrix.os }}
     strategy:
