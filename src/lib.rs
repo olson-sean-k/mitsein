@@ -310,8 +310,6 @@ pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
 
     pub use crate::array1::Array1;
-    #[cfg(feature = "arrayvec")]
-    pub use crate::array_vec1::OrSaturated;
     pub use crate::iter1::{
         ExtendUntil, FromIterator1, FromIteratorUntil, IntoIterator1, IteratorExt as _, QueryAnd,
         ThenIterator1,
@@ -319,7 +317,7 @@ pub mod prelude {
     pub use crate::slice1::{slice1, Slice1};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
-    pub use crate::{Segmentation, Vacancy};
+    pub use crate::{OrSaturated, Segmentation, Vacancy};
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
@@ -352,6 +350,24 @@ impl NonZeroExt<usize> for NonZeroUsize {
 
 pub trait Vacancy {
     fn vacancy(&self) -> usize;
+}
+
+pub trait OrSaturated<T> {
+    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)>;
+
+    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T;
+
+    fn push_or_replace_last(&mut self, item: T) -> Result<(), T>;
+
+    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)>;
+
+    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T;
+
+    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T>;
 }
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -433,6 +449,27 @@ impl<T> Cardinality<T, T> {
             Cardinality::One(one) => Cardinality::One(f(one)),
             Cardinality::Many(many) => Cardinality::Many(f(many)),
         }
+    }
+}
+
+#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+fn vacancy_with_or_else<'a, T, U, O, E, F, V, S>(
+    items: &'a mut T,
+    f: F,
+    vacant: V,
+    saturated: S,
+) -> Result<O, E>
+where
+    T: Vacancy,
+    F: FnOnce() -> U,
+    V: FnOnce(F, &'a mut T) -> O,
+    S: FnOnce(F, &'a mut T) -> E,
+{
+    if items.vacancy() > 0 {
+        Ok(vacant(f, items))
+    }
+    else {
+        Err(saturated(f, items))
     }
 }
 

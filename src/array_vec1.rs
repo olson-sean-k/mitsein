@@ -24,7 +24,7 @@ use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, Vacancy};
+use crate::{NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,
@@ -32,28 +32,55 @@ segment::impl_target_forward_type_and_definition!(
     ArrayVecSegment,
 );
 
-pub trait OrSaturated<T> {
-    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)>;
-
-    fn push_or_replace_last(&mut self, item: T) -> Result<(), T>;
-
-    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)>;
-}
-
 impl<T, const N: usize> OrSaturated<T> for ArrayVec<T, N>
 where
     [T; N]: Array1,
 {
     fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
-        self::push_or_get_last(self, item)
+        self::push_or_else(self, item, |item, items| {
+            // SAFETY: `push_or_else` executes this only if `items` is saturated and the bound
+            //         `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
+            //         last item.
+            (item, unsafe { items.last().unwrap_maybe_unchecked() })
+        })
+    }
+
+    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T,
+    {
+        // SAFETY: `push_with_or_else` executes this only if `items` is saturated and the bound
+        //         `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a last
+        //         item.
+        self::push_with_or_else(self, f, |_, items| unsafe {
+            items.last().unwrap_maybe_unchecked()
+        })
     }
 
     fn push_or_replace_last(&mut self, item: T) -> Result<(), T> {
-        self::push_or_replace_last(self, item)
+        self::push_or_else(self, item, |item, items| {
+            // SAFETY: `push_or_else` executes this only if `items` is saturated and the bound
+            //         `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
+            //         last item.
+            mem::replace(unsafe { items.last_mut().unwrap_maybe_unchecked() }, item)
+        })
     }
 
     fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
-        self::insert_or_get(self, index, item)
+        self::insert_or_else(self, index, item, move |item, items| (item, &items[index]))
+    }
+
+    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T,
+    {
+        self::insert_with_or_else(self, index, f, move |_, items| &items[index])
+    }
+
+    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T> {
+        self::insert_or_else(self, index, item, move |item, items| {
+            mem::replace(&mut items[index], item)
+        })
     }
 }
 
@@ -511,15 +538,33 @@ where
     [T; N]: Array1,
 {
     fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
-        self::push_or_get_last(&mut self.items, item)
+        self.items.push_or_get_last(item)
+    }
+
+    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.items.push_with_or_get_last(f)
     }
 
     fn push_or_replace_last(&mut self, item: T) -> Result<(), T> {
-        self::push_or_replace_last(&mut self.items, item)
+        self.items.push_or_replace_last(item)
     }
 
     fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
-        self::insert_or_get(&mut self.items, index, item)
+        self.items.insert_or_get(index, item)
+    }
+
+    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.items.insert_with_or_get(index, f)
+    }
+
+    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T> {
+        self.items.insert_or_replace(index, item)
     }
 }
 
@@ -866,82 +911,62 @@ where
     }
 }
 
-fn vacancy_or_else<'a, T, U, E, V, S, const N: usize>(
+fn push_or_else<'a, T, E, S, const N: usize>(
     items: &'a mut ArrayVec<T, N>,
     item: T,
-    vacant: V,
     saturated: S,
-) -> Result<U, E>
+) -> Result<(), E>
 where
-    V: FnOnce(T, &'a mut ArrayVec<T, N>) -> U,
     S: FnOnce(T, &'a mut ArrayVec<T, N>) -> E,
 {
-    if items.len() < N {
-        Ok(vacant(item, items))
-    }
-    else {
-        Err(saturated(item, items))
-    }
+    self::push_with_or_else(items, move || item, move |f, items| saturated(f(), items))
 }
 
-fn push_or_else<'a, T, U, F, const N: usize>(
+fn push_with_or_else<'a, T, E, F, S, const N: usize>(
     items: &'a mut ArrayVec<T, N>,
-    item: T,
     f: F,
-) -> Result<(), U>
+    saturated: S,
+) -> Result<(), E>
 where
-    F: FnOnce(T, &'a mut ArrayVec<T, N>) -> U,
+    F: FnOnce() -> T,
+    S: FnOnce(F, &'a mut ArrayVec<T, N>) -> E,
 {
-    self::vacancy_or_else(items, item, |item, items| items.push(item), f)
+    crate::vacancy_with_or_else(items, f, |f, items| items.push(f()), saturated)
 }
 
-fn push_or_get_last<T, const N: usize>(items: &mut ArrayVec<T, N>, item: T) -> Result<(), (T, &T)>
-where
-    [T; N]: Array1,
-{
-    self::push_or_else(
-        items,
-        item,
-        // SAFETY: In this closure, `items` must be saturated and `N` is non-zero, so `items` is
-        //         non-empty.
-        |item, items| unsafe { (item, items.last().unwrap_maybe_unchecked()) },
-    )
-}
-
-fn push_or_replace_last<T, const N: usize>(items: &mut ArrayVec<T, N>, item: T) -> Result<(), T>
-where
-    [T; N]: Array1,
-{
-    self::push_or_else(
-        items,
-        item,
-        // SAFETY: In this closure, `items` must be saturated and `N` is non-zero, so `items` is
-        //         non-empty.
-        |item, items| unsafe { mem::replace(items.last_mut().unwrap_maybe_unchecked(), item) },
-    )
-}
-
-fn insert_or_else<'a, T, U, F, const N: usize>(
+fn insert_or_else<'a, T, E, S, const N: usize>(
     items: &'a mut ArrayVec<T, N>,
     index: usize,
     item: T,
-    f: F,
-) -> Result<(), U>
+    saturated: S,
+) -> Result<(), E>
 where
-    F: FnOnce(T, &'a mut ArrayVec<T, N>) -> U,
+    S: FnOnce(T, &'a mut ArrayVec<T, N>) -> E,
 {
-    self::vacancy_or_else(items, item, move |item, items| items.insert(index, item), f)
+    self::insert_with_or_else(
+        items,
+        index,
+        move || item,
+        move |f, items| saturated(f(), items),
+    )
 }
 
-fn insert_or_get<T, const N: usize>(
-    items: &mut ArrayVec<T, N>,
+fn insert_with_or_else<'a, T, E, F, S, const N: usize>(
+    items: &'a mut ArrayVec<T, N>,
     index: usize,
-    item: T,
-) -> Result<(), (T, &T)>
+    f: F,
+    saturated: S,
+) -> Result<(), E>
 where
-    [T; N]: Array1,
+    F: FnOnce() -> T,
+    S: FnOnce(F, &'a mut ArrayVec<T, N>) -> E,
 {
-    self::insert_or_else(items, index, item, move |item, items| (item, &items[index]))
+    crate::vacancy_with_or_else(
+        items,
+        f,
+        move |f, items| items.insert(index, f()),
+        saturated,
+    )
 }
 
 #[cfg(test)]

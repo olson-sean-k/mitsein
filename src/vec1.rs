@@ -25,7 +25,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{NonEmpty, Vacancy};
+use crate::{NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => Vec,
@@ -526,6 +526,54 @@ impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T> OrSaturated<T> for Vec1<T> {
+    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
+        self::push_or_else(&mut self.items, item, |item, items| {
+            // SAFETY: `push_or_else` executes this only if `items` is saturated and `items` must
+            //         be non-empty, so there must be a last item.
+            (item, unsafe { items.last().unwrap_maybe_unchecked() })
+        })
+    }
+
+    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T,
+    {
+        // SAFETY: `push_with_or_else` executes this only if `items` is saturated and `items` must
+        //         be non-empty, so there must be a last item.
+        self::push_with_or_else(&mut self.items, f, |_, items| unsafe {
+            items.last().unwrap_maybe_unchecked()
+        })
+    }
+
+    fn push_or_replace_last(&mut self, item: T) -> Result<(), T> {
+        self::push_or_else(&mut self.items, item, |item, items| {
+            // SAFETY: `push_or_else` executes this only if `items` is saturated and `items` must
+            //         be non-empty, so there must be a last item.
+            mem::replace(unsafe { items.last_mut().unwrap_maybe_unchecked() }, item)
+        })
+    }
+
+    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
+        self::insert_or_else(&mut self.items, index, item, move |item, items| {
+            (item, &items[index])
+        })
+    }
+
+    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
+    where
+        F: FnOnce() -> T,
+    {
+        self::insert_with_or_else(&mut self.items, index, f, move |_, items| &items[index])
+    }
+
+    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T> {
+        self::insert_or_else(&mut self.items, index, item, move |item, items| {
+            mem::replace(&mut items[index], item)
+        })
     }
 }
 
@@ -1094,6 +1142,56 @@ impl DrainRange {
             after,
         }
     }
+}
+
+fn push_or_else<'a, T, E, S>(items: &'a mut Vec<T>, item: T, saturated: S) -> Result<(), E>
+where
+    S: FnOnce(T, &'a mut Vec<T>) -> E,
+{
+    self::push_with_or_else(items, move || item, move |f, items| saturated(f(), items))
+}
+
+fn push_with_or_else<'a, T, E, F, S>(items: &'a mut Vec<T>, f: F, saturated: S) -> Result<(), E>
+where
+    F: FnOnce() -> T,
+    S: FnOnce(F, &'a mut Vec<T>) -> E,
+{
+    crate::vacancy_with_or_else(items, f, |f, items| items.push(f()), saturated)
+}
+
+fn insert_or_else<'a, T, E, S>(
+    items: &'a mut Vec<T>,
+    index: usize,
+    item: T,
+    saturated: S,
+) -> Result<(), E>
+where
+    S: FnOnce(T, &'a mut Vec<T>) -> E,
+{
+    self::insert_with_or_else(
+        items,
+        index,
+        move || item,
+        move |f, items| saturated(f(), items),
+    )
+}
+
+fn insert_with_or_else<'a, T, E, F, S>(
+    items: &'a mut Vec<T>,
+    index: usize,
+    f: F,
+    saturated: S,
+) -> Result<(), E>
+where
+    F: FnOnce() -> T,
+    S: FnOnce(F, &'a mut Vec<T>) -> E,
+{
+    crate::vacancy_with_or_else(
+        items,
+        f,
+        move |f, items| items.insert(index, f()),
+        saturated,
+    )
 }
 
 // TODO: Test that empty constructions do not build.
