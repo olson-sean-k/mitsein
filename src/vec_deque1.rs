@@ -14,7 +14,7 @@ use core::ops::{Index, IndexMut, RangeBounds};
 use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
-use crate::iter1::{self, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
@@ -26,6 +26,18 @@ segment::impl_target_forward_type_and_definition!(
     VecDequeTarget,
     VecDequeSegment,
 );
+
+impl<T, I> Extend1<I> for VecDeque<T>
+where
+    I: IntoIterator1<Item = T>,
+{
+    fn extend_non_empty(mut self, items: I) -> VecDeque1<T> {
+        self.extend(items);
+        // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
+        //         items or panics, so `self` must be non-empty here.
+        unsafe { VecDeque1::from_vec_deque_unchecked(self) }
+    }
+}
 
 impl<T, I> ExtendUntil<I> for VecDeque<T>
 where

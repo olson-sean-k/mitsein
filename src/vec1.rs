@@ -16,7 +16,7 @@ use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
-use crate::iter1::{self, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
@@ -32,6 +32,18 @@ segment::impl_target_forward_type_and_definition!(
     VecTarget,
     VecSegment,
 );
+
+impl<T, I> Extend1<I> for Vec<T>
+where
+    I: IntoIterator1<Item = T>,
+{
+    fn extend_non_empty(mut self, items: I) -> Vec1<T> {
+        self.extend(items);
+        // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
+        //         items or panics, so `self` must be non-empty here.
+        unsafe { Vec1::from_vec_unchecked(self) }
+    }
+}
 
 impl<T, I> ExtendUntil<I> for Vec<T>
 where

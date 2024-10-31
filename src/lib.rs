@@ -115,7 +115,11 @@
 //! let xs = iter1::head_and_tail(0i32, [1, 2]);
 //! let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
 //!
+//! let ys = Vec::new();
+//! let ys = ys.extend_non_empty([0i32]);
+//!
 //! assert_eq!(xs.as_slice(), &[3]);
+//! assert_eq!(ys.as_slice(), &[0]);
 #![doc = "```"]
 //!
 //! Non-empty collections and views naturally support iteration, collection, etc. via
@@ -314,8 +318,8 @@ pub mod prelude {
 
     pub use crate::array1::Array1;
     pub use crate::iter1::{
-        ExtendUntil, FromIterator1, FromIteratorUntil, IntoIterator1, IteratorExt as _, QueryAnd,
-        ThenIterator1,
+        Extend1, ExtendUntil, FromIterator1, FromIteratorUntil, IntoIterator1, IteratorExt as _,
+        QueryAnd, ThenIterator1,
     };
     pub use crate::slice1::{slice1, Slice1};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]

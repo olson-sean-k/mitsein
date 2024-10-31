@@ -11,7 +11,7 @@ use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
-use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
@@ -22,6 +22,19 @@ segment::impl_target_forward_type_and_definition!(
     BTreeSetTarget,
     BTreeSetSegment,
 );
+
+impl<T, I> Extend1<I> for BTreeSet<T>
+where
+    T: Ord,
+    I: IntoIterator1<Item = T>,
+{
+    fn extend_non_empty(mut self, items: I) -> BTreeSet1<T> {
+        self.extend(items);
+        // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
+        //         items or panics, so `self` must be non-empty here.
+        unsafe { BTreeSet1::from_btree_set_unchecked(self) }
+    }
+}
 
 impl<T> Ranged for BTreeSet<T>
 where

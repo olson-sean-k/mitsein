@@ -32,6 +32,7 @@ use {
 };
 
 use crate::safety::OptionExt as _;
+use crate::NonEmpty;
 use crate::NonZeroExt as _;
 #[cfg(any(feature = "alloc", feature = "arrayvec"))]
 use crate::Vacancy;
@@ -244,6 +245,14 @@ pub trait IteratorExt: Iterator + Sized {
 }
 
 impl<I> IteratorExt for I where I: Iterator {}
+
+pub trait Extend1<I>
+where
+    I: IntoIterator1,
+{
+    #[must_use]
+    fn extend_non_empty(self, items: I) -> NonEmpty<Self>;
+}
 
 pub trait ExtendUntil<I>
 where

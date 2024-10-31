@@ -18,7 +18,7 @@ use {
 
 use crate::array1::Array1;
 use crate::iter1::{
-    self, ExtendUntil, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1,
+    self, Extend1, ExtendUntil, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1,
 };
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
@@ -31,6 +31,24 @@ segment::impl_target_forward_type_and_definition!(
     ArrayVecTarget,
     ArrayVecSegment,
 );
+
+impl<T, I, const N: usize> Extend1<I> for ArrayVec<T, N>
+where
+    I: IntoIterator1<Item = T>,
+    // This bound isn't necessary for memory safety here, because an `ArrayVec` with no capacity
+    // panics when any item is inserted, so `extend_non_empty` panics. However, this bound is
+    // logically appropriate and prevents the definition of a function that always panics and has a
+    // nonsense output type.
+    [T; N]: Array1,
+{
+    fn extend_non_empty(mut self, items: I) -> ArrayVec1<T, N> {
+        self.extend(items);
+        // SAFETY: The bound `[T; N]: Array1` guarantees that capacity is non-zero, input iterator
+        //         `items` is non-empty, and `extend` either pushes one or more items or panics, so
+        //         `self` must be non-empty here.
+        unsafe { ArrayVec1::from_array_vec_unchecked(self) }
+    }
+}
 
 impl<T, const N: usize> OrSaturated<T> for ArrayVec<T, N>
 where
