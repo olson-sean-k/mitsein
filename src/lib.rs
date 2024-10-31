@@ -333,6 +333,7 @@ pub mod prelude {
     };
 }
 
+use core::mem;
 use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
 use {
@@ -353,6 +354,63 @@ impl NonZeroExt<usize> for NonZeroUsize {
     fn clamped(n: usize) -> Self {
         NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
     }
+}
+
+/// # Safety
+///
+/// The implementation of this trait determines whether or not a collection or view is empty. This
+/// query is used to construct non-empty types, and an inconsistent implementation is unsound. In
+/// particular, it is unsound for [`MaybeEmpty::is_empty`] implementations to return `false` when
+/// `Self` is empty.
+unsafe trait MaybeEmpty: Sized {
+    fn is_empty(&self) -> bool;
+}
+
+trait MaybeEmptyExt: MaybeEmpty {
+    fn map_non_empty<T, F>(self, f: F) -> Result<T, Self>
+    where
+        F: FnOnce(Self) -> T;
+}
+
+// This blanket implementation of an extension trait prevents different behaviors of
+// `map_non_empty` for different `MaybeEmpty` types (as opposed to a default implementation in
+// `MaybeEmpty`, for example). This is important for memory safety, because `FromMaybeEmpty` relies
+// on this behavior with unsafe code.
+impl<T> MaybeEmptyExt for T
+where
+    T: MaybeEmpty,
+{
+    fn map_non_empty<U, F>(self, f: F) -> Result<U, Self>
+    where
+        F: FnOnce(Self) -> U,
+    {
+        if self.is_empty() {
+            Err(self)
+        }
+        else {
+            Ok(f(self))
+        }
+    }
+}
+
+// TODO: Blanket implementations of `FromIterator1`, `from_one`, etc., may be possible for
+//       `FromMaybeEmpty` types!
+trait FromMaybeEmpty<T>: Sized
+where
+    T: MaybeEmpty,
+{
+    fn try_from_maybe_empty(items: T) -> Result<Self, T> {
+        items.map_non_empty(|items| {
+            // SAFETY: The `map_non_empty` function only executes this code if `items` is
+            //         non-empty.
+            unsafe { Self::from_maybe_empty_unchecked(items) }
+        })
+    }
+
+    /// # Safety
+    ///
+    /// `items` must be non-empty. See [`MaybeEmpty::is_empty`].
+    unsafe fn from_maybe_empty_unchecked(items: T) -> Self;
 }
 
 pub trait Vacancy {
@@ -399,9 +457,58 @@ where
     items: T,
 }
 
+impl<'a, T> NonEmpty<T>
+where
+    T: 'a + ?Sized,
+{
+    // TODO: At time of writing, `const` functions are not supported in traits. Because `const`
+    //       construction of `Slice1` has some utility (unlike `Vec1`, for example), this inherent
+    //       function is used instead of `FromMaybeEmpty::from_maybe_empty_unchecked`. Remove this
+    //       in favor of that function when possible.
+    const unsafe fn from_maybe_empty_ref_unchecked(items: &'a T) -> &'a Self
+    where
+        &'a T: MaybeEmpty,
+    {
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
+        //         `NonEmpty<T>` are the same.
+        mem::transmute::<&'_ T, &'_ NonEmpty<T>>(items)
+    }
+}
+
 impl<T> AsRef<T> for NonEmpty<T> {
     fn as_ref(&self) -> &T {
         &self.items
+    }
+}
+
+impl<T> FromMaybeEmpty<T> for NonEmpty<T>
+where
+    T: MaybeEmpty,
+{
+    unsafe fn from_maybe_empty_unchecked(items: T) -> Self {
+        NonEmpty { items }
+    }
+}
+
+impl<'a, T> FromMaybeEmpty<&'a T> for &'a NonEmpty<T>
+where
+    T: ?Sized,
+    &'a T: MaybeEmpty,
+{
+    unsafe fn from_maybe_empty_unchecked(items: &'a T) -> Self {
+        NonEmpty::from_maybe_empty_ref_unchecked(items)
+    }
+}
+
+impl<'a, T> FromMaybeEmpty<&'a mut T> for &'a mut NonEmpty<T>
+where
+    T: ?Sized,
+    &'a mut T: MaybeEmpty,
+{
+    unsafe fn from_maybe_empty_unchecked(items: &'a mut T) -> Self {
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
+        //         `NonEmpty<T>` are the same.
+        mem::transmute::<&'_ mut T, &'_ mut NonEmpty<T>>(items)
     }
 }
 

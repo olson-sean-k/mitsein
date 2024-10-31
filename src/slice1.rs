@@ -1,7 +1,6 @@
 //! A non-empty [slice][`prim@slice`].
 
 use core::fmt::{self, Debug, Formatter};
-use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::{self, Chunks, ChunksMut, RChunks, RChunksMut};
@@ -10,9 +9,21 @@ use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
 use crate::safety::{self, OptionExt as _};
-use crate::NonEmpty;
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
+
+unsafe impl<'a, T> MaybeEmpty for &'a [T] {
+    fn is_empty(&self) -> bool {
+        <[T]>::is_empty(self)
+    }
+}
+
+unsafe impl<'a, T> MaybeEmpty for &'a mut [T] {
+    fn is_empty(&self) -> bool {
+        <[T]>::is_empty(self)
+    }
+}
 
 pub type Slice1<T> = NonEmpty<[T]>;
 
@@ -22,9 +33,8 @@ impl<T> Slice1<T> {
     /// `items` must be non-empty. For example, it is unsound to call this function with an empty
     /// slice literal `&[]`.
     pub const unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
-        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
-        //         `[T]` are the same.
-        mem::transmute::<&'_ [T], &'_ Slice1<T>>(items)
+        // TODO: See `from_maybe_empty_ref_unchecked`.
+        NonEmpty::from_maybe_empty_ref_unchecked(items)
     }
 
     /// # Safety
@@ -32,25 +42,17 @@ impl<T> Slice1<T> {
     /// `items` must be non-empty. For example, it is unsound to call this function with an empty
     /// slice literal `&mut []`.
     pub unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
-        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
-        //         `[T]` are the same.
-        mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items)
+        FromMaybeEmpty::from_maybe_empty_unchecked(items)
     }
 
+    // TODO: Remove this in favor of `TryFrom`.
     pub fn try_from_slice(items: &[T]) -> Result<&Self, &[T]> {
-        match items.len() {
-            0 => Err(items),
-            // SAFETY: `items` is non-empty.
-            _ => Ok(unsafe { Slice1::from_slice_unchecked(items) }),
-        }
+        items.try_into()
     }
 
+    // TODO: Remove this in favor of `TryFrom`.
     pub fn try_from_mut_slice(items: &mut [T]) -> Result<&mut Self, &mut [T]> {
-        match items.len() {
-            0 => Err(items),
-            // SAFETY: `items` is non-empty.
-            _ => Ok(unsafe { Slice1::from_mut_slice_unchecked(items) }),
-        }
+        items.try_into()
     }
 
     #[cfg(feature = "alloc")]
@@ -149,15 +151,11 @@ impl<T> Slice1<T> {
     }
 
     pub const fn as_slice(&self) -> &'_ [T] {
-        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
-        //         `[T]` are the same.
-        unsafe { mem::transmute::<&'_ Slice1<T>, &'_ [T]>(self) }
+        &self.items
     }
 
     pub fn as_mut_slice(&mut self) -> &'_ mut [T] {
-        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice1<T>` and
-        //         `[T]` are the same.
-        unsafe { mem::transmute::<&'_ mut Slice1<T>, &'_ mut [T]>(self) }
+        &mut self.items
     }
 }
 
@@ -240,6 +238,22 @@ where
 
     fn to_owned(&self) -> Self::Owned {
         Vec1::from(self)
+    }
+}
+
+impl<'a, T> TryFrom<&'a [T]> for &'a Slice1<T> {
+    type Error = &'a [T];
+
+    fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T> TryFrom<&'a mut [T]> for &'a mut Slice1<T> {
+    type Error = &'a mut [T];
+
+    fn try_from(items: &'a mut [T]) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }
 

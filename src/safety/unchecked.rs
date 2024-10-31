@@ -1,5 +1,3 @@
-#[cfg(feature = "arrayvec")]
-use arrayvec::ArrayVec;
 use core::hint;
 use core::num::NonZeroUsize;
 use core::slice::SliceIndex;
@@ -7,7 +5,7 @@ use core::slice::SliceIndex;
 use crate::safety;
 
 #[cfg(feature = "arrayvec")]
-impl<T, const N: usize> safety::ArrayVecExt<T> for ArrayVec<T, N> {
+impl<T, const N: usize> safety::ArrayVecExt<T> for arrayvec::ArrayVec<T, N> {
     #[inline(always)]
     unsafe fn push_maybe_unchecked(&mut self, item: T) {
         self.push_unchecked(item)

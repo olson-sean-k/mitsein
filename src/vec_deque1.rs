@@ -19,7 +19,7 @@ use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, Vacancy};
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => VecDeque,
@@ -45,6 +45,12 @@ where
 {
     fn saturate(&mut self, items: I) -> I::IntoIter {
         iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
+unsafe impl<T> MaybeEmpty for VecDeque<T> {
+    fn is_empty(&self) -> bool {
+        VecDeque::<T>::is_empty(self)
     }
 }
 
@@ -103,8 +109,8 @@ impl<T> VecDeque1<T> {
     /// immediate output of [`VecDeque::new()`][`VecDeque::new`].
     ///
     /// [`VecDeque::new`]: alloc::collections::vec_deque::VecDeque::new
-    pub const unsafe fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
-        VecDeque1 { items }
+    pub unsafe fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
+        FromMaybeEmpty::from_maybe_empty_unchecked(items)
     }
 
     pub fn from_one(item: T) -> Self {
@@ -485,11 +491,7 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
     type Error = VecDeque<T>;
 
     fn try_from(items: VecDeque<T>) -> Result<Self, Self::Error> {
-        match items.len() {
-            0 => Err(items),
-            // SAFETY: `items` is non-empty.
-            _ => Ok(unsafe { VecDeque1::from_vec_deque_unchecked(items) }),
-        }
+        FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }
 

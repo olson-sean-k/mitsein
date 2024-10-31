@@ -15,7 +15,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
-use crate::NonEmpty;
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> where T: Clone + Ord => BTreeSet,
@@ -33,6 +33,12 @@ where
         // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
         //         items or panics, so `self` must be non-empty here.
         unsafe { BTreeSet1::from_btree_set_unchecked(self) }
+    }
+}
+
+unsafe impl<T> MaybeEmpty for BTreeSet<T> {
+    fn is_empty(&self) -> bool {
+        BTreeSet::<T>::is_empty(self)
     }
 }
 
@@ -107,8 +113,8 @@ impl<T> BTreeSet1<T> {
     /// immediate output of [`BTreeSet::new()`][`BTreeSet::new`].
     ///
     /// [`BTreeSet::new`]: alloc::collections::btree_set::BTreeSet::new
-    pub const unsafe fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
-        BTreeSet1 { items }
+    pub unsafe fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
+        FromMaybeEmpty::from_maybe_empty_unchecked(items)
     }
 
     pub fn from_one(item: T) -> Self
@@ -566,11 +572,7 @@ impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
     type Error = BTreeSet<T>;
 
     fn try_from(items: BTreeSet<T>) -> Result<Self, Self::Error> {
-        match items.len() {
-            0 => Err(items),
-            // SAFETY: `items` is non-empty.
-            _ => Ok(unsafe { BTreeSet1::from_btree_set_unchecked(items) }),
-        }
+        FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }
 

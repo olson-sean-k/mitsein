@@ -24,7 +24,7 @@ use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{NonEmpty, OrSaturated, Vacancy};
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,
@@ -122,6 +122,12 @@ where
     }
 }
 
+unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
+    fn is_empty(&self) -> bool {
+        ArrayVec::<T, N>::is_empty(self)
+    }
+}
+
 impl<T, const N: usize> Ranged for ArrayVec<T, N> {
     type Range = PositionalRange;
 
@@ -180,8 +186,8 @@ where
     /// immediate output of [`ArrayVec::new()`][`ArrayVec::new`].
     ///
     /// [`ArrayVec::new`]: arrayvec::ArrayVec::new
-    pub const unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
-        ArrayVec1 { items }
+    pub unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
+        FromMaybeEmpty::from_maybe_empty_unchecked(items)
     }
 
     pub fn from_one(item: T) -> Self {
@@ -652,11 +658,7 @@ where
     type Error = ArrayVec<T, N>;
 
     fn try_from(items: ArrayVec<T, N>) -> Result<Self, Self::Error> {
-        match items.len() {
-            0 => Err(items),
-            // SAFETY: `items` is non-empty.
-            _ => Ok(unsafe { ArrayVec1::from_array_vec_unchecked(items) }),
-        }
+        FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }
 

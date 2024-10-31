@@ -25,7 +25,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{NonEmpty, OrSaturated, Vacancy};
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => Vec,
@@ -41,7 +41,7 @@ where
         self.extend(items);
         // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
         //         items or panics, so `self` must be non-empty here.
-        unsafe { Vec1::from_vec_unchecked(self) }
+        unsafe { Vec1::from_maybe_empty_unchecked(self) }
     }
 }
 
@@ -51,6 +51,12 @@ where
 {
     fn saturate(&mut self, items: I) -> I::IntoIter {
         iter1::saturate_positional_vacancy(self, items)
+    }
+}
+
+unsafe impl<T> MaybeEmpty for Vec<T> {
+    fn is_empty(&self) -> bool {
+        Vec::<T>::is_empty(self)
     }
 }
 
@@ -140,8 +146,8 @@ impl<T> Vec1<T> {
     /// immediate output of [`Vec::new()`][`Vec::new`].
     ///
     /// [`Vec::new`]: alloc::vec::Vec::new
-    pub const unsafe fn from_vec_unchecked(items: Vec<T>) -> Self {
-        Vec1 { items }
+    pub unsafe fn from_vec_unchecked(items: Vec<T>) -> Self {
+        FromMaybeEmpty::from_maybe_empty_unchecked(items)
     }
 
     pub fn from_one(item: T) -> Self {
@@ -620,11 +626,7 @@ where
     type Error = &'a [T];
 
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
-        match items.len() {
-            0 => Err(items),
-            // SAFETY: `items` is non-empty.
-            _ => Ok(unsafe { Vec1::from_vec_unchecked(Vec::from(items)) }),
-        }
+        Slice1::try_from_slice(items).map(Vec1::from)
     }
 }
 
@@ -632,11 +634,7 @@ impl<T> TryFrom<Vec<T>> for Vec1<T> {
     type Error = Vec<T>;
 
     fn try_from(items: Vec<T>) -> Result<Self, Self::Error> {
-        match items.len() {
-            0 => Err(items),
-            // SAFETY: `items` is non-empty.
-            _ => Ok(unsafe { Vec1::from_vec_unchecked(items) }),
-        }
+        FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }
 
