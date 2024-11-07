@@ -45,12 +45,10 @@ impl<T> Slice1<T> {
         FromMaybeEmpty::from_maybe_empty_unchecked(items)
     }
 
-    // TODO: Remove this in favor of `TryFrom`.
     pub fn try_from_slice(items: &[T]) -> Result<&Self, &[T]> {
         items.try_into()
     }
 
-    // TODO: Remove this in favor of `TryFrom`.
     pub fn try_from_mut_slice(items: &mut [T]) -> Result<&mut Self, &mut [T]> {
         items.try_into()
     }

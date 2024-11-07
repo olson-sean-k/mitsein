@@ -393,8 +393,6 @@ where
     }
 }
 
-// TODO: Blanket implementations of `FromIterator1`, `from_one`, etc., may be possible for
-//       `FromMaybeEmpty` types!
 trait FromMaybeEmpty<T>: Sized
 where
     T: MaybeEmpty,
