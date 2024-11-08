@@ -261,6 +261,14 @@
 //         Unsafe code in categories (1) and (2) relies on the implementation and public APIs of
 //         `NonEmpty` types. Unsafe code in category (3) relies on much more local checks or
 //         enforcement of the non-empty invariant.
+//
+//         This crate must trust undocumented or unpromised behavior of foreign code. For example,
+//         `Iterator1` combinators assume that implementations in `core` and `itertools` function
+//         in a particular way. If `Map` were ever to discard an item, then `Iterator1::map` would
+//         be unsound, for example. As another example, `SwapDrainSegment` relies on details of the
+//         `Vec::drain` implementation. For the overwhelming majority of this code, a change in
+//         behavior that this crate relies upon for memory safety would be a major bug in the
+//         upstream package and is very unlikely to occur.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // LINT: The serialization implementations for `NonEmpty<T>` rely on conversions between
