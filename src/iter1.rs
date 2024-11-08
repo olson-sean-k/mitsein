@@ -236,11 +236,18 @@ pub trait IteratorExt: Iterator + Sized {
         T::try_from_iter(self)
     }
 
-    fn saturate<T>(self) -> Feed<T, Self>
+    fn saturate<T>(self) -> T
     where
         T: FromIteratorUntil<Self>,
     {
         T::saturated(self)
+    }
+
+    fn saturate_and<T>(self) -> Feed<T, Self>
+    where
+        T: FromIteratorUntil<Self>,
+    {
+        T::saturated_and(self)
     }
 }
 
@@ -265,7 +272,11 @@ pub trait FromIteratorUntil<I>: Sized
 where
     I: IntoIterator,
 {
-    fn saturated(items: I) -> Feed<Self, I::IntoIter>;
+    fn saturated(items: I) -> Self {
+        Self::saturated_and(items).into_output()
+    }
+
+    fn saturated_and(items: I) -> Feed<Self, I::IntoIter>;
 }
 
 pub trait FromIterator1<T> {
@@ -824,6 +835,9 @@ where
         unsafe { self.with_non_empty(I::rev) }
     }
 
+    // TODO: Though convenient, remove this function for consistency and to reduce redundant
+    //       approaches. By design, `Iterator1` does not expose functions like this, which have no
+    //       different behavior when non-empty and can be reached trivially via `into_iter`.
     pub fn collect<T>(self) -> T
     where
         T: FromIterator<I::Item>,
@@ -838,11 +852,18 @@ where
         T::from_iter1(self)
     }
 
-    pub fn saturate<T>(self) -> Feed<T, I>
+    pub fn saturate<T>(self) -> T
     where
         T: FromIteratorUntil<Self>,
     {
         T::saturated(self)
+    }
+
+    pub fn saturate_and<T>(self) -> Feed<T, I>
+    where
+        T: FromIteratorUntil<Self>,
+    {
+        T::saturated_and(self)
     }
 }
 

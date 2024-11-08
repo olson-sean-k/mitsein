@@ -115,7 +115,7 @@ impl<T, I, const N: usize> FromIteratorUntil<I> for ArrayVec<T, N>
 where
     I: IntoIterator<Item = T>,
 {
-    fn saturated(items: I) -> Feed<Self, I::IntoIter> {
+    fn saturated_and(items: I) -> Feed<Self, I::IntoIter> {
         let mut remainder = items.into_iter();
         let items: ArrayVec<_, N> = remainder.by_ref().take(N).collect();
         Feed(items, remainder)
@@ -532,7 +532,7 @@ where
     [T; N]: Array1,
     I: IntoIterator1<Item = T>,
 {
-    fn saturated(items: I) -> Feed<Self, I::IntoIter> {
+    fn saturated_and(items: I) -> Feed<Self, I::IntoIter> {
         let mut remainder = items.into_iter1().into_iter();
         // SAFETY: `items` is non-empty, so `remainder` is also non-empty. `N` is non-zero.
         let items =
@@ -1071,7 +1071,7 @@ mod tests {
         #[case] items: impl IntoIterator<Item = u8>,
         #[case] expected: Feed<ArrayVec<u8, 3>, impl IntoIterator<Item = u8>>,
     ) {
-        let feed: Feed<ArrayVec<_, 3>, _> = items.into_iter().saturate();
+        let feed: Feed<ArrayVec<_, 3>, _> = items.into_iter().saturate_and();
         iter1::harness::assert_feed_eq(feed, expected)
     }
 
