@@ -498,7 +498,7 @@ where
         I: IntoIterator1<Item = T>,
     {
         // SAFETY: `items` is non-empty.
-        unsafe { BTreeSet1::from_btree_set_unchecked(items.into_iter1().collect()) }
+        unsafe { BTreeSet1::from_btree_set_unchecked(items.into_iter().collect()) }
     }
 }
 

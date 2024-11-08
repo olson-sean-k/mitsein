@@ -523,7 +523,7 @@ where
         I: IntoIterator1<Item = T>,
     {
         // SAFETY: `items` is non-empty.
-        unsafe { ArrayVec1::from_array_vec_unchecked(items.into_iter1().collect()) }
+        unsafe { ArrayVec1::from_array_vec_unchecked(items.into_iter().collect()) }
     }
 }
 

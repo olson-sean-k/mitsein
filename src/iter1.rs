@@ -298,6 +298,13 @@ pub trait FromIterator1<T> {
 //       which they cannot. If this is fixed and this implementation becomes possible, provide it
 //       and remove the distinction between `collect` and `collect1` in `Iterator1`.
 //
+//       Without this spurious coherence error, this can instead be implemented with an alternative
+//       `FromIterator` trait that, like `FromIteratorUntil`, lifts the input type parameter out of
+//       methods and into the trait. Note that `saturate` functions, which are analogous to
+//       `collect`, need not distinguish between maybe-empty and non-empty types.
+//
+//       See https://github.com/rust-lang/rust/issues/48869
+//
 // impl<T, U> FromIterator1<U> for T
 // where
 //     T: FromIterator<U>,
@@ -833,16 +840,6 @@ where
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.with_non_empty(I::rev) }
-    }
-
-    // TODO: Though convenient, remove this function for consistency and to reduce redundant
-    //       approaches. By design, `Iterator1` does not expose functions like this, which have no
-    //       different behavior when non-empty and can be reached trivially via `into_iter`.
-    pub fn collect<T>(self) -> T
-    where
-        T: FromIterator<I::Item>,
-    {
-        T::from_iter(self)
     }
 
     pub fn collect1<T>(self) -> T

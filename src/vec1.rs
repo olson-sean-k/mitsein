@@ -507,7 +507,7 @@ impl<T> FromIterator1<T> for Vec1<T> {
         I: IntoIterator1<Item = T>,
     {
         // SAFETY: `items` must be non-empty.
-        unsafe { Vec1::from_vec_unchecked(items.into_iter1().collect()) }
+        unsafe { Vec1::from_vec_unchecked(items.into_iter().collect()) }
     }
 }
 

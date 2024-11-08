@@ -747,7 +747,7 @@ where
         I: IntoIterator1<Item = (K, V)>,
     {
         // SAFETY: `items` is non-empty.
-        unsafe { BTreeMap1::from_btree_map_unchecked(items.into_iter1().collect()) }
+        unsafe { BTreeMap1::from_btree_map_unchecked(items.into_iter().collect()) }
     }
 }
 

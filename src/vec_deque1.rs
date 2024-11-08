@@ -421,7 +421,7 @@ impl<T> FromIterator1<T> for VecDeque1<T> {
         I: IntoIterator1<Item = T>,
     {
         // SAFETY: `items` must be non-empty.
-        unsafe { VecDeque1::from_vec_deque_unchecked(items.into_iter1().collect()) }
+        unsafe { VecDeque1::from_vec_deque_unchecked(items.into_iter().collect()) }
     }
 }
 
