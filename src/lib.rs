@@ -182,7 +182,7 @@
 //! use mitsein::prelude::*;
 //!
 //! // `saturate` returns an output and remainder: here, the output is an `ArrayVec1`.
-//! let mut xs: ArrayVec1<_, 4> = iter1::repeat(0i64).saturate().output();
+//! let mut xs: ArrayVec1<_, 4> = iter1::repeat(0i64).saturate().into_output();
 //! assert_eq!(xs.push_or_get_last(42), Err((42, &0)));
 //!
 //! let mut ys = Vec1::from_one_with_capacity(0i64, 4);

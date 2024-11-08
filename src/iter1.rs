@@ -451,11 +451,11 @@ where
 pub struct Feed<T, I>(pub T, pub I);
 
 impl<T, I> Feed<T, I> {
-    pub fn output(self) -> T {
+    pub fn into_output(self) -> T {
         self.0
     }
 
-    pub fn remainder(self) -> I {
+    pub fn into_remainder(self) -> I {
         self.1
     }
 
