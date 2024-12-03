@@ -54,7 +54,7 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
-//! while let Ok(_) = xs.pop_or_get_only() {}
+//! while let Ok(_) = xs.pop_or().get_only() {}
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
@@ -337,6 +337,7 @@ pub mod prelude {
     };
 }
 
+use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
@@ -459,6 +460,29 @@ where
     items: T,
 }
 
+impl<T> NonEmpty<T>
+where
+    T: ?Sized,
+{
+    fn take(&mut self, many: fn(&mut T, ()) -> <Self as IntoIterator>::Item) -> OrOnly<'_, T, ()>
+    where
+        Self: IntoIterator,
+    {
+        self.take_with((), many)
+    }
+
+    fn take_with<C>(
+        &mut self,
+        context: C,
+        many: fn(&mut T, C) -> <Self as IntoIterator>::Item,
+    ) -> OrOnly<'_, T, C>
+    where
+        Self: IntoIterator,
+    {
+        OrOnly::take(self, context, many)
+    }
+}
+
 impl<'a, T> NonEmpty<T>
 where
     T: 'a + ?Sized,
@@ -511,6 +535,49 @@ where
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
         //         `NonEmpty<T>` are the same.
         mem::transmute::<&'_ mut T, &'_ mut NonEmpty<T>>(items)
+    }
+}
+
+#[must_use]
+pub struct OrOnly<'a, T, C = ()>
+where
+    NonEmpty<T>: IntoIterator,
+    T: ?Sized,
+{
+    items: &'a mut NonEmpty<T>,
+    context: C,
+    many: fn(&mut T, C) -> <NonEmpty<T> as IntoIterator>::Item,
+}
+
+impl<'a, T, C> OrOnly<'a, T, C>
+where
+    NonEmpty<T>: IntoIterator,
+    T: ?Sized,
+{
+    fn take(
+        items: &'a mut NonEmpty<T>,
+        context: C,
+        many: fn(&mut T, C) -> <NonEmpty<T> as IntoIterator>::Item,
+    ) -> Self {
+        OrOnly {
+            items,
+            context,
+            many,
+        }
+    }
+}
+
+impl<'a, T> Debug for OrOnly<'a, T>
+where
+    NonEmpty<T>: Debug + IntoIterator,
+    T: ?Sized,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("OrOnly")
+            .field("items", &self.items)
+            .field("many", &self.many)
+            .finish()
     }
 }
 

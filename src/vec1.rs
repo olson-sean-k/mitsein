@@ -137,6 +137,61 @@ where
     }
 }
 
+pub type OrOnly<'a, T, C = ()> = crate::OrOnly<'a, Vec<T>, C>;
+
+impl<'a, T, C> OrOnly<'a, T, C> {
+    fn many_or_else<U, O>(self, one: O) -> Result<T, U>
+    where
+        O: FnOnce(&'a mut Vec<T>) -> U,
+    {
+        let OrOnly {
+            items,
+            context,
+            many,
+        } = self;
+        match items.items.len() {
+            // SAFETY: `self.items` must be non-empty.
+            0 => unsafe { safety::unreachable_maybe_unchecked() },
+            1 => Err(one(&mut items.items)),
+            _ => Ok((many)(&mut items.items, context)),
+        }
+    }
+
+    pub fn get_only(self) -> Result<T, &'a T> {
+        // SAFETY: `self.items` must be non-empty.
+        self.many_or_else(|items| unsafe { items.get_maybe_unchecked(0) })
+    }
+
+    pub fn replace_only(self, replacement: T) -> Result<T, T> {
+        self.replace_only_with(move || replacement)
+    }
+
+    pub fn replace_only_with<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        // SAFETY: `self.items` must be non-empty.
+        self.many_or_else(move |items| unsafe {
+            mem::replace(items.get_maybe_unchecked_mut(0), f())
+        })
+    }
+}
+
+impl<'a, T> OrOnly<'a, T, usize> {
+    pub fn get(self) -> Result<T, &'a T> {
+        let index = self.context;
+        self.many_or_else(move |items| &items[index])
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        let index = self.context;
+        self.many_or_else(move |items| mem::replace(&mut items[index], f()))
+    }
+}
+
 pub type Vec1<T> = NonEmpty<Vec<T>>;
 
 impl<T> Vec1<T> {
@@ -206,45 +261,6 @@ impl<T> Vec1<T> {
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice()) }
     }
 
-    fn many_or_else<'a, U, M, O>(&'a mut self, many: M, one: O) -> Result<T, U>
-    where
-        M: FnOnce(&'a mut Vec<T>) -> T,
-        O: FnOnce(&'a mut Vec<T>) -> U,
-    {
-        match self.items.len() {
-            // SAFETY: `self` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => Err(one(&mut self.items)),
-            _ => Ok(many(&mut self.items)),
-        }
-    }
-
-    fn many_or_get<F>(&mut self, index: usize, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut Vec<T>) -> T,
-    {
-        self.many_or_else(f, move |items| &items[index])
-    }
-
-    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut Vec<T>) -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, |items| unsafe { items.get_maybe_unchecked(0) })
-    }
-
-    fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
-    where
-        F: FnOnce(&mut Vec<T>) -> T,
-        R: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, move |items| unsafe {
-            mem::replace(items.get_maybe_unchecked_mut(0), replace())
-        })
-    }
-
     pub fn leak<'a>(self) -> &'a mut Slice1<T> {
         // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.leak()) }
@@ -281,50 +297,21 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
-    }
-
-    pub fn pop_or_replace_only(&mut self, replacement: T) -> Result<T, T> {
-        self.pop_or_replace_only_with(move || replacement)
-    }
-
-    pub fn pop_or_replace_only_with<F>(&mut self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_replace_only_with(|items| unsafe { items.pop().unwrap_maybe_unchecked() }, f)
-    }
-
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_get(index, move |items| items.remove(index))
+    pub fn pop_or(&mut self) -> OrOnly<'_, T> {
+        // SAFETY: `self` must be non-empty.
+        self.take(|items, ()| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
-    pub fn remove_or_replace_only(&mut self, index: usize, replacement: T) -> Result<T, T> {
-        self.remove_or_replace_only_with(index, move || replacement)
+    pub fn remove_or(&mut self, index: usize) -> OrOnly<'_, T, usize> {
+        self.take_with(index, move |items, index| items.remove(index))
     }
 
-    pub fn remove_or_replace_only_with<F>(&mut self, index: usize, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.many_or_replace_only_with(
-            |items| items.remove(index),
-            move || {
-                assert!(index == 0, "index out of bounds");
-                f()
-            },
-        )
-    }
-
-    pub fn swap_remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_get(index, move |items| items.swap_remove(index))
+    pub fn swap_remove_or(&mut self, index: usize) -> OrOnly<'_, T, usize> {
+        self.take_with(index, move |items, index| items.swap_remove(index))
     }
 
     pub fn len(&self) -> NonZeroUsize {
@@ -1263,11 +1250,11 @@ mod tests {
     fn pop_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
         let first = *xs1.first();
         let mut tail = xs1.as_slice()[1..].to_vec();
-        while let Ok(item) = xs1.pop_or_get_only() {
+        while let Ok(item) = xs1.pop_or().get_only() {
             assert_eq!(tail.pop().unwrap(), item);
         }
         for _ in 0..3 {
-            assert_eq!(xs1.pop_or_get_only(), Err(&first));
+            assert_eq!(xs1.pop_or().get_only(), Err(&first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
     }
