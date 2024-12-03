@@ -24,9 +24,9 @@
 //!
 //! At time of writing, `rustdoc` ignores input type parameters in the "Methods from
 //! `Deref<Target = _>`" section. For types that implement `Deref<Target = NonEmpty<_>>`, **the API
-//! documentation may be incorrect** and list all methods of [`NonEmpty`] regardless of its
-//! input type parameter. This is mostly a problem for types that dereference to [`Slice1`], such
-//! as [`Vec1`]. See [this `rustdoc` bug](https://github.com/rust-lang/rust/issues/24686).
+//! documentation may be misleading** and list all methods of [`NonEmpty`] regardless of its input
+//! type parameter. This is mostly a problem for types that dereference to [`Slice1`], such as
+//! [`Vec1`]. See [this `rustdoc` bug](https://github.com/rust-lang/rust/issues/24686).
 //!
 //! # Non-Empty Types
 //!
@@ -54,7 +54,7 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
-//! while let Ok(_) = xs.pop_or_get_only() {}
+//! while let Ok(_) = xs.pop_or().only() {}
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
@@ -189,8 +189,6 @@
 //! [`ArrayVec`]: arrayvec::ArrayVec
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
 //! [`CowSlice1`]: crate::vec1::CowSlice1
-//! [`ExtendUntil`]: crate::iter1::ExtendUntil
-//! [`FromIteratorUntil`]: crate::iter1::FromIteratorUntil
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
 //! [`itertools`]: ::itertools
@@ -272,6 +270,7 @@ extern crate std;
 mod safety;
 mod segment;
 mod serde;
+mod take;
 
 pub mod array1;
 pub mod array_vec1;
@@ -284,6 +283,21 @@ pub mod slice1;
 pub mod sync1;
 pub mod vec1;
 pub mod vec_deque1;
+
+mod sealed {
+    use crate::Cardinality;
+
+    /// # Safety
+    ///
+    /// The implementation of this trait determines whether or not a collection or view is empty.
+    /// This query is used to construct non-empty types, and an inconsistent implementation is
+    /// unsound. In particular, it is unsound for [`MaybeEmpty::cardinality`] implementations to
+    /// return `Some` when `Self` is empty.
+    pub unsafe trait MaybeEmpty: Sized {
+        fn cardinality(&self) -> Option<Cardinality<(), ()>>;
+    }
+}
+use crate::sealed::*;
 
 pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
@@ -299,11 +313,12 @@ pub mod prelude {
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
-        crate::btree_map1::OrOnlyExt as _,
+        crate::btree_map1::OrOnlyEntryExt as _,
         crate::vec1::{vec1, CowSlice1Ext as _, Vec1},
     };
 }
 
+use core::fmt::Debug;
 use core::mem;
 use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
@@ -316,6 +331,8 @@ use {
 use crate::serde::{EmptyError, Serde};
 
 pub use segment::{Segment, Segmentation, SegmentedBy};
+#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+pub use take::TakeOr;
 
 trait NonZeroExt<T> {
     fn clamped(n: T) -> Self;
@@ -327,20 +344,12 @@ impl NonZeroExt<usize> for NonZeroUsize {
     }
 }
 
-/// # Safety
-///
-/// The implementation of this trait determines whether or not a collection or view is empty. This
-/// query is used to construct non-empty types, and an inconsistent implementation is unsound. In
-/// particular, it is unsound for [`MaybeEmpty::is_empty`] implementations to return `false` when
-/// `Self` is empty.
-unsafe trait MaybeEmpty: Sized {
-    fn is_empty(&self) -> bool;
-}
-
 trait MaybeEmptyExt: MaybeEmpty {
     fn map_non_empty<T, F>(self, f: F) -> Result<T, Self>
     where
         F: FnOnce(Self) -> T;
+
+    fn is_empty(&self) -> bool;
 }
 
 // This blanket implementation of an extension trait prevents different behaviors of
@@ -361,6 +370,10 @@ where
         else {
             Ok(f(self))
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.cardinality().is_none()
     }
 }
 
@@ -402,6 +415,28 @@ where
     T: ?Sized,
 {
     items: T,
+}
+
+#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+impl<T> NonEmpty<T>
+where
+    T: MaybeEmpty + ?Sized,
+{
+    fn cardinality(&self) -> Cardinality<(), ()> {
+        match self.items.cardinality() {
+            // SAFETY: `self.items` must be non-empty.
+            None => unsafe { safety::unreachable_maybe_unchecked() },
+            Some(cardinality) => cardinality,
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    fn as_cardinality_items_mut(&mut self) -> Cardinality<&mut T, &mut T> {
+        match self.cardinality() {
+            Cardinality::One(_) => Cardinality::One(&mut self.items),
+            Cardinality::Many(_) => Cardinality::Many(&mut self.items),
+        }
+    }
 }
 
 impl<'a, T> NonEmpty<T>

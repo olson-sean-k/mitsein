@@ -9,19 +9,27 @@ use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
 use crate::safety::{self, OptionExt as _};
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 
 unsafe impl<'a, T> MaybeEmpty for &'a [T] {
-    fn is_empty(&self) -> bool {
-        <[T]>::is_empty(self)
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+        match self.len() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
     }
 }
 
 unsafe impl<'a, T> MaybeEmpty for &'a mut [T] {
-    fn is_empty(&self) -> bool {
-        <[T]>::is_empty(self)
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+        match self.len() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
     }
 }
 

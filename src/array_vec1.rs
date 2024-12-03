@@ -18,11 +18,12 @@ use {
 
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
-use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
+use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::take;
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,
@@ -49,8 +50,12 @@ where
 }
 
 unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
-    fn is_empty(&self) -> bool {
-        ArrayVec::<T, N>::is_empty(self)
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+        match self.len() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
     }
 }
 
@@ -92,6 +97,52 @@ where
 impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
     type Kind = ArrayVecTarget<Self>;
     type Target = Self;
+}
+
+type TakeOr<'a, T, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, T, M>;
+
+pub type PopOr<'a, T, const N: usize> = TakeOr<'a, T, (), N>;
+
+pub type RemoveOr<'a, T, const N: usize> = TakeOr<'a, T, usize, N>;
+
+impl<'a, T, M, const N: usize> TakeOr<'a, T, M, N>
+where
+    [T; N]: Array1,
+{
+    pub fn only(self) -> Result<T, &'a T> {
+        self.take_or_else(|items, _| items.first())
+    }
+
+    pub fn replace_only(self, replacement: T) -> Result<T, T> {
+        self.else_replace_only(move || replacement)
+    }
+
+    pub fn else_replace_only<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.take_or_else(move |items, _| mem::replace(items.first_mut(), f()))
+    }
+}
+
+impl<'a, T, const N: usize> TakeOr<'a, T, usize, N>
+where
+    [T; N]: Array1,
+{
+    pub fn get(self) -> Result<T, &'a T> {
+        self.take_or_else(|items, index| &items[index])
+    }
+
+    pub fn replace(self, replacement: T) -> Result<T, T> {
+        self.else_replace(move || replacement)
+    }
+
+    pub fn else_replace<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.take_or_else(move |items, index| mem::replace(&mut items[index], f()))
+    }
 }
 
 pub type ArrayVec1<T, const N: usize> = NonEmpty<ArrayVec<T, N>>;
@@ -167,95 +218,27 @@ where
         self.items.into_inner_unchecked()
     }
 
-    fn many_or_else<'a, U, M, O>(&'a mut self, many: M, one: O) -> Result<T, U>
-    where
-        M: FnOnce(&'a mut ArrayVec<T, N>) -> T,
-        O: FnOnce(&'a mut ArrayVec<T, N>) -> U,
-    {
-        match self.items.len() {
-            // SAFETY: `self` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => Err(one(&mut self.items)),
-            _ => Ok(many(&mut self.items)),
-        }
-    }
-
-    fn many_or_get<F>(&mut self, index: usize, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut ArrayVec<T, N>) -> T,
-    {
-        self.many_or_else(f, move |items| {
-            items.get(index).expect("index out of bounds")
-        })
-    }
-
-    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut ArrayVec<T, N>) -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, |items| unsafe { items.get_maybe_unchecked(0) })
-    }
-
-    fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
-    where
-        F: FnOnce(&mut ArrayVec<T, N>) -> T,
-        R: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, move |items| unsafe {
-            mem::replace(items.get_maybe_unchecked_mut(0), replace())
-        })
-    }
-
     pub fn push(&mut self, item: T) {
         self.items.push(item)
     }
 
-    pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
-    }
-
-    pub fn pop_or_replace_only(&mut self, replacement: T) -> Result<T, T> {
-        self.pop_or_replace_only_with(move || replacement)
-    }
-
-    pub fn pop_or_replace_only_with<F>(&mut self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_replace_only_with(|items| unsafe { items.pop().unwrap_maybe_unchecked() }, f)
+    pub fn pop_or(&mut self) -> PopOr<'_, T, N> {
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
+            items.items.pop().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_get(index, move |items| items.remove(index))
+    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, T, N> {
+        TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn remove_or_replace_only(&mut self, index: usize, replacement: T) -> Result<T, T> {
-        self.remove_or_replace_only_with(index, move || replacement)
-    }
-
-    pub fn remove_or_replace_only_with<F>(&mut self, index: usize, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.many_or_replace_only_with(
-            |items| items.remove(index),
-            move || {
-                assert!(index == 0, "index out of bounds");
-                f()
-            },
-        )
-    }
-
-    pub fn swap_remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_get(index, move |items| items.swap_remove(index))
+    pub fn swap_remove_or(&mut self, index: usize) -> RemoveOr<'_, T, N> {
+        TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub const fn len(&self) -> NonZeroUsize {

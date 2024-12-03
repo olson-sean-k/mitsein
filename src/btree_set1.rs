@@ -12,9 +12,10 @@ use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
-use crate::safety::{self, NonZeroExt as _, OptionExt as _};
+use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
+use crate::take;
 use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 segment::impl_target_forward_type_and_definition!(
@@ -37,8 +38,15 @@ where
 }
 
 unsafe impl<T> MaybeEmpty for BTreeSet<T> {
-    fn is_empty(&self) -> bool {
-        BTreeSet::<T>::is_empty(self)
+    fn cardinality(&self) -> Option<crate::Cardinality<(), ()>> {
+        // `BTreeSet::len` is reliable even in the face of a non-conformant `Ord` implementation.
+        // The `BTreeSet1` implementation relies on this to maintain its non-empty invariant
+        // without bounds on `UnsafeOrd`.
+        match self.len() {
+            0 => None,
+            1 => Some(crate::Cardinality::One(())),
+            _ => Some(crate::Cardinality::Many(())),
+        }
     }
 }
 
@@ -102,7 +110,42 @@ where
     type Target = Self;
 }
 
-type Cardinality<'a, T> = crate::Cardinality<&'a mut BTreeSet<T>, &'a mut BTreeSet<T>>;
+type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, BTreeSet<T>, U, N>;
+
+pub type PopOr<'a, T> = TakeOr<'a, T, T>;
+
+pub type DropRemoveOr<'a, 'q, T, Q> = TakeOr<'a, T, bool, &'q Q>;
+
+pub type TakeRemoveOr<'a, 'q, T, Q> = TakeOr<'a, T, Option<T>, &'q Q>;
+
+impl<'a, T, U, N> TakeOr<'a, T, U, N>
+where
+    T: Ord,
+{
+    pub fn only(self) -> Result<U, &'a T> {
+        self.take_or_else(|items, _| items.first())
+    }
+}
+
+impl<'a, 'q, T, Q> TakeOr<'a, T, bool, &'q Q>
+where
+    T: Borrow<Q> + Ord,
+    Q: Ord + ?Sized,
+{
+    pub fn get(self) -> Result<bool, Option<&'a T>> {
+        self.take_or_else(|items, query| items.get(query))
+    }
+}
+
+impl<'a, 'q, T, Q> TakeOr<'a, T, Option<T>, &'q Q>
+where
+    T: Borrow<Q> + Ord,
+    Q: Ord + ?Sized,
+{
+    pub fn get(self) -> Option<Result<T, &'a T>> {
+        self.try_take_or_else(|items, query| items.get(query))
+    }
+}
 
 pub type BTreeSet1<T> = NonEmpty<BTreeSet<T>>;
 
@@ -144,46 +187,6 @@ impl<T> BTreeSet1<T> {
         self.items
     }
 
-    fn cardinality(&mut self) -> Cardinality<'_, T> {
-        // `BTreeSet::len` is reliable even in the face of a non-conformant `Ord` implementation.
-        // The `BTreeSet1` implementation relies on this to maintain its non-empty invariant
-        // without bounds on `UnsafeOrd`.
-        match self.items.len() {
-            // SAFETY: `self` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => Cardinality::One(&mut self.items),
-            _ => Cardinality::Many(&mut self.items),
-        }
-    }
-
-    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
-    where
-        T: Ord,
-        F: FnOnce(&mut BTreeSet<T>) -> T,
-    {
-        match self.cardinality() {
-            // SAFETY: `self` must be non-empty.
-            Cardinality::One(one) => Err(unsafe { one.first().unwrap_maybe_unchecked() }),
-            Cardinality::Many(many) => Ok(f(many)),
-        }
-    }
-
-    fn many_or_get<Q, F>(&mut self, query: &Q, f: F) -> Option<Result<T, &T>>
-    where
-        T: Borrow<Q> + Ord,
-        Q: Ord + ?Sized,
-        F: FnOnce(&mut BTreeSet<T>) -> Option<T>,
-    {
-        let result = match self.cardinality() {
-            Cardinality::One(one) => Err(one.get(query)),
-            Cardinality::Many(many) => Ok(f(many)),
-        };
-        match result {
-            Err(one) => one.map(Err),
-            Ok(many) => many.map(Ok),
-        }
-    }
-
     pub fn split_off_tail(&mut self) -> BTreeSet<T>
     where
         T: Clone + UnsafeOrd,
@@ -220,12 +223,14 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_or_get_only(&mut self) -> Result<T, &T>
+    pub fn pop_first_or(&mut self) -> PopOr<'_, T>
     where
         T: Ord,
     {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
+            items.items.pop_first().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn pop_first_until_only(&mut self) -> &T
@@ -240,19 +245,20 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         F: FnMut(T),
     {
-        while let Ok(item) = self.pop_first_or_get_only() {
+        while let Some(item) = self.pop_first_or().none() {
             f(item);
         }
-        // SAFETY: `self` must be non-empty.
-        unsafe { self.pop_first_or_get_only().err().unwrap_maybe_unchecked() }
+        self.first()
     }
 
-    pub fn pop_last_or_get_only(&mut self) -> Result<T, &T>
+    pub fn pop_last_or(&mut self) -> PopOr<'_, T>
     where
         T: Ord,
     {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
+            items.items.pop_last().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn pop_last_until_only(&mut self) -> &T
@@ -267,33 +273,26 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         F: FnMut(T),
     {
-        while let Ok(item) = self.pop_last_or_get_only() {
+        while let Some(item) = self.pop_last_or().none() {
             f(item);
         }
-        // SAFETY: `self` must be non-empty.
-        unsafe { self.pop_last_or_get_only().err().unwrap_maybe_unchecked() }
+        self.last()
     }
 
-    pub fn remove_or_get_only<Q>(&mut self, query: &Q) -> Result<bool, &T>
+    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, T, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        match self
-            .many_or_get(query, move |items| items.take(query))
-            .transpose()
-        {
-            Ok(item) => Ok(item.is_some()),
-            Err(only) => Err(only),
-        }
+        TakeOr::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn take_or_get_only<Q>(&mut self, query: &Q) -> Option<Result<T, &T>>
+    pub fn take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, 'q, T, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        self.many_or_get(query, move |items| items.take(query))
+        TakeOr::with(self, query, |items, query| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>
