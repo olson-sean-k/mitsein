@@ -24,7 +24,7 @@ use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,
@@ -123,8 +123,12 @@ where
 }
 
 unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
-    fn is_empty(&self) -> bool {
-        ArrayVec::<T, N>::is_empty(self)
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+        match self.len() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
     }
 }
 

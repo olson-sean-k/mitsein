@@ -17,7 +17,7 @@ use std::io::{self, IoSlice, Write};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
-use crate::safety::{self, NonZeroExt as _, OptionExt as _, SliceExt as _};
+use crate::safety::{NonZeroExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
 };
@@ -25,7 +25,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => Vec,
@@ -55,8 +55,8 @@ where
 }
 
 unsafe impl<T> MaybeEmpty for Vec<T> {
-    fn is_empty(&self) -> bool {
-        Vec::<T>::is_empty(self)
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+        self.as_slice().cardinality()
     }
 }
 
@@ -140,23 +140,6 @@ where
 pub type OrOnly<'a, T, C = ()> = crate::OrOnly<'a, Vec<T>, C>;
 
 impl<'a, T, C> OrOnly<'a, T, C> {
-    fn many_or_else<U, O>(self, one: O) -> Result<T, U>
-    where
-        O: FnOnce(&'a mut Vec<T>) -> U,
-    {
-        let OrOnly {
-            items,
-            context,
-            many,
-        } = self;
-        match items.items.len() {
-            // SAFETY: `self.items` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => Err(one(&mut items.items)),
-            _ => Ok((many)(&mut items.items, context)),
-        }
-    }
-
     pub fn get_only(self) -> Result<T, &'a T> {
         // SAFETY: `self.items` must be non-empty.
         self.many_or_else(|items| unsafe { items.get_maybe_unchecked(0) })

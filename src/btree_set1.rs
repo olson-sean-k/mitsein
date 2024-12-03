@@ -37,8 +37,12 @@ where
 }
 
 unsafe impl<T> MaybeEmpty for BTreeSet<T> {
-    fn is_empty(&self) -> bool {
-        BTreeSet::<T>::is_empty(self)
+    fn cardinality(&self) -> Option<crate::Cardinality<(), ()>> {
+        match self.len() {
+            0 => None,
+            1 => Some(crate::Cardinality::One(())),
+            _ => Some(crate::Cardinality::Many(())),
+        }
     }
 }
 

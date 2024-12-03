@@ -368,13 +368,15 @@ impl NonZeroExt<usize> for NonZeroUsize {
 /// particular, it is unsound for [`MaybeEmpty::is_empty`] implementations to return `false` when
 /// `Self` is empty.
 unsafe trait MaybeEmpty: Sized {
-    fn is_empty(&self) -> bool;
+    fn cardinality(&self) -> Option<Cardinality<(), ()>>;
 }
 
 trait MaybeEmptyExt: MaybeEmpty {
     fn map_non_empty<T, F>(self, f: F) -> Result<T, Self>
     where
         F: FnOnce(Self) -> T;
+
+    fn is_empty(&self) -> bool;
 }
 
 // This blanket implementation of an extension trait prevents different behaviors of
@@ -395,6 +397,10 @@ where
         else {
             Ok(f(self))
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.cardinality().is_none()
     }
 }
 
@@ -564,6 +570,33 @@ where
             context,
             many,
         }
+    }
+}
+
+impl<'a, T, C> OrOnly<'a, T, C>
+where
+    NonEmpty<T>: IntoIterator,
+    T: MaybeEmpty + ?Sized,
+{
+    fn many_or_else<U, O>(self, one: O) -> Result<<NonEmpty<T> as IntoIterator>::Item, U>
+    where
+        O: FnOnce(&'a mut T) -> U,
+    {
+        let OrOnly {
+            items,
+            context,
+            many,
+        } = self;
+        match items.items.cardinality() {
+            // SAFETY: `self.items` must be non-empty.
+            None => unsafe { safety::unreachable_maybe_unchecked() },
+            Some(Cardinality::One(_)) => Err(one(&mut items.items)),
+            Some(Cardinality::Many(_)) => Ok((many)(&mut items.items, context)),
+        }
+    }
+
+    pub fn none(self) -> Option<<NonEmpty<T> as IntoIterator>::Item> {
+        self.many_or_else(|_| ()).ok()
     }
 }
 

@@ -19,7 +19,7 @@ use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, Vacancy};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => VecDeque,
@@ -49,8 +49,12 @@ where
 }
 
 unsafe impl<T> MaybeEmpty for VecDeque<T> {
-    fn is_empty(&self) -> bool {
-        VecDeque::<T>::is_empty(self)
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+        match self.len() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
     }
 }
 
