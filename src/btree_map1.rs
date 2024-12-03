@@ -12,10 +12,11 @@ use core::ops::RangeBounds;
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
-use crate::safety::{self, NonZeroExt as _, OptionExt as _};
+use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::take;
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 segment::impl_target_forward_type_and_definition!(
     for <K, V> where K: Clone + Ord => BTreeMap,
@@ -37,8 +38,15 @@ where
 }
 
 unsafe impl<K, V> MaybeEmpty for BTreeMap<K, V> {
-    fn is_empty(&self) -> bool {
-        BTreeMap::<K, V>::is_empty(self)
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+        // `BTreeMap::len` is reliable even in the face of a non-conformant `Ord` implementation.
+        // The `BTreeMap1` implementation relies on this to maintain its non-empty invariant
+        // without bounds on `UnsafeOrd`.
+        match self.len() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
     }
 }
 
@@ -111,8 +119,6 @@ where
     type Target = Self;
 }
 
-type Cardinality<'a, K, V> = crate::Cardinality<&'a mut BTreeMap<K, V>, &'a mut BTreeMap<K, V>>;
-
 pub type ManyEntry<'a, K, V> = btree_map::OccupiedEntry<'a, K, V>;
 
 #[derive(Debug)]
@@ -128,7 +134,7 @@ impl<'a, K, V> OnlyEntry<'a, K, V>
 where
     K: Ord,
 {
-    pub(crate) fn from_occupied_entry(entry: btree_map::OccupiedEntry<'a, K, V>) -> Self {
+    fn from_occupied_entry(entry: btree_map::OccupiedEntry<'a, K, V>) -> Self {
         OnlyEntry { entry }
     }
 
@@ -153,7 +159,7 @@ where
     }
 }
 
-pub type OccupiedEntry<'a, K, V> = crate::Cardinality<OnlyEntry<'a, K, V>, ManyEntry<'a, K, V>>;
+pub type OccupiedEntry<'a, K, V> = Cardinality<OnlyEntry<'a, K, V>, ManyEntry<'a, K, V>>;
 
 impl<'a, K, V> OccupiedEntry<'a, K, V>
 where
@@ -166,14 +172,14 @@ where
         }
     }
 
-    pub fn remove_key_value_or_get_only(self) -> KeyValueOrOnly<'a, K, V> {
+    pub fn remove_entry_or_get_only(self) -> OrOnlyEntry<'a, (K, V), K, V> {
         match self {
             OccupiedEntry::Many(many) => Ok(many.remove_entry()),
             OccupiedEntry::One(only) => Err(only),
         }
     }
 
-    pub fn remove_or_get_only(self) -> ValueOrOnly<'a, K, V> {
+    pub fn remove_or_get_only(self) -> OrOnlyEntry<'a, V, K, V> {
         match self {
             OccupiedEntry::Many(many) => Ok(many.remove()),
             OccupiedEntry::One(only) => Err(only),
@@ -240,7 +246,11 @@ impl<'a, K, V> Entry<'a, K, V>
 where
     K: Ord,
 {
-    fn from_entry_many(entry: btree_map::Entry<'a, K, V>) -> Self {
+    /// # Safety
+    ///
+    /// The `BTreeMap1` from which `entry` has been obtained must have a non-empty cardinality of
+    /// many (must have **more than one** item).
+    unsafe fn from_entry_many(entry: btree_map::Entry<'a, K, V>) -> Self {
         match entry {
             btree_map::Entry::Vacant(vacant) => Entry::Vacant(vacant),
             btree_map::Entry::Occupied(occupied) => Entry::Occupied(occupied.into()),
@@ -318,13 +328,9 @@ where
     }
 }
 
-pub type OrOnly<'a, T, K, V> = Result<T, OnlyEntry<'a, K, V>>;
+pub type OrOnlyEntry<'a, T, K, V> = Result<T, OnlyEntry<'a, K, V>>;
 
-pub type ValueOrOnly<'a, K, V> = OrOnly<'a, V, K, V>;
-
-pub type KeyValueOrOnly<'a, K, V> = OrOnly<'a, (K, V), K, V>;
-
-pub trait OrOnlyExt<'a, K, V>
+pub trait OrOnlyEntryExt<'a, K, V>
 where
     K: Ord,
 {
@@ -333,7 +339,7 @@ where
     fn get_mut(&mut self) -> &mut V;
 }
 
-impl<'a, K, V> OrOnlyExt<'a, K, V> for ValueOrOnly<'a, K, V>
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, V, K, V>
 where
     K: Ord,
 {
@@ -352,7 +358,7 @@ where
     }
 }
 
-impl<'a, K, V> OrOnlyExt<'a, K, V> for KeyValueOrOnly<'a, K, V>
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, (K, V), K, V>
 where
     K: Ord,
 {
@@ -368,6 +374,32 @@ where
             Ok((_, ref mut value)) => value,
             Err(ref mut only) => only.get_mut(),
         }
+    }
+}
+
+pub type TakeOr<'a, K, V, U, N = ()> = take::TakeOr<'a, BTreeMap<K, V>, U, N>;
+
+impl<'a, K, V, U, N> TakeOr<'a, K, V, U, N>
+where
+    K: Ord,
+{
+    pub fn only(self) -> Result<U, OnlyEntry<'a, K, V>> {
+        self.take_or_else(|items, _| items.first_entry_as_only())
+    }
+}
+
+impl<'a, K, V, U, Q> TakeOr<'a, K, V, Option<U>, &'a Q>
+where
+    K: Borrow<Q> + Ord,
+    Q: Ord + ?Sized,
+{
+    pub fn get(self) -> Option<Result<U, OnlyEntry<'a, K, V>>> {
+        self.try_take_or_else(|items, query| {
+            items
+                .items
+                .contains_key(query)
+                .then(|| items.first_entry_as_only())
+        })
     }
 }
 
@@ -421,57 +453,6 @@ impl<K, V> BTreeMap1<K, V> {
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
-    fn cardinality(&mut self) -> Cardinality<'_, K, V> {
-        // `BTreeMap::len` is reliable even in the face of a non-conformant `Ord` implementation.
-        // The `BTreeMap1` implementation relies on this to maintain its non-empty invariant
-        // without bounds on `UnsafeOrd`.
-        match self.items.len() {
-            // SAFETY: `self` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => Cardinality::One(&mut self.items),
-            _ => Cardinality::Many(&mut self.items),
-        }
-    }
-
-    fn many_or_get_only<'a, T, F>(&'a mut self, f: F) -> Result<T, OnlyEntry<'a, K, V>>
-    where
-        K: Ord,
-        F: FnOnce(&'a mut BTreeMap<K, V>) -> T,
-    {
-        match self.cardinality() {
-            // SAFETY: `self` must be non-empty.
-            Cardinality::One(one) => Err(OnlyEntry::from_occupied_entry(unsafe {
-                one.first_entry().unwrap_maybe_unchecked()
-            })),
-            Cardinality::Many(many) => Ok(f(many)),
-        }
-    }
-
-    fn many_or_get<'a, Q, T, F>(
-        &'a mut self,
-        query: &Q,
-        f: F,
-    ) -> Option<Result<T, OnlyEntry<'a, K, V>>>
-    where
-        K: Borrow<Q> + Ord,
-        Q: Ord + ?Sized,
-        F: FnOnce(&'a mut BTreeMap<K, V>) -> Option<T>,
-    {
-        let result = match self.cardinality() {
-            // SAFETY: `self` must be non-empty.
-            Cardinality::One(one) => Err(one.contains_key(query).then(|| {
-                OnlyEntry::from_occupied_entry(unsafe {
-                    one.first_entry().unwrap_maybe_unchecked()
-                })
-            })),
-            Cardinality::Many(many) => Ok(f(many)),
-        };
-        match result {
-            Err(one) => one.map(Err),
-            Ok(many) => many.map(Ok),
-        }
-    }
-
     pub fn split_off_tail(&mut self) -> BTreeMap<K, V>
     where
         K: Clone + UnsafeOrd,
@@ -498,9 +479,11 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        match self.cardinality() {
-            Cardinality::One(one) => Entry::from_entry_only(one.entry(key)),
-            Cardinality::Many(many) => Entry::from_entry_many(many.entry(key)),
+        match self.as_cardinality_items_mut() {
+            Cardinality::One(items) => Entry::from_entry_only(items.entry(key)),
+            // SAFETY: The `items` method returns the correct non-empty cardinality based on the
+            //         `MaybeEmpty` implementation.
+            Cardinality::Many(items) => unsafe { Entry::from_entry_many(items.entry(key)) },
         }
     }
 
@@ -511,20 +494,14 @@ impl<K, V> BTreeMap1<K, V> {
         self.items.insert(key, value)
     }
 
-    pub fn pop_first_key_value_or_get_only(&mut self) -> KeyValueOrOnly<'_, K, V>
+    pub fn pop_first_or(&mut self) -> TakeOr<'_, K, V, (K, V)>
     where
         K: Ord,
     {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop_first().unwrap_maybe_unchecked() })
-    }
-
-    pub fn pop_first_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
-    where
-        K: Ord,
-    {
-        self.pop_first_key_value_or_get_only()
-            .map(|(_key, value)| value)
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
+            items.items.pop_first().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn pop_first_until_only(&mut self) -> OnlyEntry<'_, K, V>
@@ -537,29 +514,22 @@ impl<K, V> BTreeMap1<K, V> {
     pub fn pop_first_until_only_with<F>(&mut self, mut f: F) -> OnlyEntry<'_, K, V>
     where
         K: Ord,
-        F: FnMut(V),
+        F: FnMut((K, V)),
     {
-        while let Ok(item) = self.pop_first_or_get_only() {
+        while let Some(item) = self.pop_first_or().none() {
             f(item);
         }
-        // SAFETY: All but the last item has been popped here.
-        unsafe { self.pop_first_or_get_only().err().unwrap_maybe_unchecked() }
+        self.first_entry_as_only()
     }
 
-    pub fn pop_last_key_value_or_get_only(&mut self) -> KeyValueOrOnly<'_, K, V>
+    pub fn pop_last_or(&mut self) -> TakeOr<'_, K, V, (K, V)>
     where
         K: Ord,
     {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop_last().unwrap_maybe_unchecked() })
-    }
-
-    pub fn pop_last_or_get_only(&mut self) -> ValueOrOnly<'_, K, V>
-    where
-        K: Ord,
-    {
-        self.pop_last_key_value_or_get_only()
-            .map(|(_key, value)| value)
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
+            items.items.pop_last().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn pop_last_until_only(&mut self) -> OnlyEntry<'_, K, V>
@@ -572,32 +542,31 @@ impl<K, V> BTreeMap1<K, V> {
     pub fn pop_last_until_only_with<F>(&mut self, mut f: F) -> OnlyEntry<'_, K, V>
     where
         K: Ord,
-        F: FnMut(V),
+        F: FnMut((K, V)),
     {
-        while let Ok(item) = self.pop_last_or_get_only() {
+        while let Some(item) = self.pop_last_or().none() {
             f(item);
         }
-        // SAFETY: All but the first item has been popped here.
-        unsafe { self.pop_last_or_get_only().err().unwrap_maybe_unchecked() }
+        self.first_entry_as_only()
     }
 
-    pub fn remove_key_value_or_get_only<'a, Q>(
+    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeOr<'a, K, V, Option<V>, &'q Q>
+    where
+        K: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        TakeOr::with(self, query, |items, query| items.items.remove(query))
+    }
+
+    pub fn remove_entry_or<'a, 'q, Q>(
         &'a mut self,
-        query: &Q,
-    ) -> Option<KeyValueOrOnly<'a, K, V>>
+        query: &'q Q,
+    ) -> TakeOr<'a, K, V, Option<(K, V)>, &'q Q>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        self.many_or_get(query, move |items| items.remove_entry(query))
-    }
-
-    pub fn remove_or_get_only<'a, Q>(&'a mut self, query: &Q) -> Option<ValueOrOnly<'a, K, V>>
-    where
-        K: Borrow<Q> + Ord,
-        Q: Ord + ?Sized,
-    {
-        self.many_or_get(query, move |items| items.remove(query))
+        TakeOr::with(self, query, |items, query| items.items.remove_entry(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&V>
@@ -606,6 +575,14 @@ impl<K, V> BTreeMap1<K, V> {
         Q: Ord + ?Sized,
     {
         self.items.get(query)
+    }
+
+    pub fn get_key_value<Q>(&self, query: &Q) -> Option<(&K, &V)>
+    where
+        K: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        self.items.get_key_value(query)
     }
 
     pub fn get_mut<Q>(&mut self, query: &Q) -> Option<&mut V>
@@ -633,12 +610,20 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
+        self.as_cardinality_items_mut()
+            // SAFETY: `self` must be non-empty.
+            .map(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() })
+            .map_one(OnlyEntry::from_occupied_entry)
+            .map_one(From::from)
+            .map_many(From::from)
+    }
+
+    fn first_entry_as_only(&mut self) -> OnlyEntry<'_, K, V>
+    where
+        K: Ord,
+    {
         // SAFETY: `self` must be non-empty.
-        match self.many_or_get_only(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() })
-        {
-            Ok(many) => many.into(),
-            Err(only) => only.into(),
-        }
+        OnlyEntry::from_occupied_entry(unsafe { self.items.first_entry().unwrap_maybe_unchecked() })
     }
 
     pub fn last_key_value(&self) -> (&K, &V)
@@ -653,12 +638,12 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY: `self` must be non-empty.
-        match self.many_or_get_only(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() })
-        {
-            Ok(many) => many.into(),
-            Err(only) => only.into(),
-        }
+        self.as_cardinality_items_mut()
+            // SAFETY: `self` must be non-empty.
+            .map(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() })
+            .map_one(OnlyEntry::from_occupied_entry)
+            .map_one(From::from)
+            .map_many(From::from)
     }
 
     pub fn iter1(&self) -> Iterator1<btree_map::Iter<'_, K, V>> {
