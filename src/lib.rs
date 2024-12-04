@@ -474,18 +474,18 @@ where
     where
         Self: IntoIterator,
     {
-        self.take_with((), many)
+        self.take_at((), many)
     }
 
-    fn take_with<C>(
+    fn take_at<N>(
         &mut self,
-        context: C,
-        many: fn(&mut T, C) -> <Self as IntoIterator>::Item,
-    ) -> OrOnly<'_, T, C>
+        index: N,
+        many: fn(&mut T, N) -> <Self as IntoIterator>::Item,
+    ) -> OrOnly<'_, T, N>
     where
         Self: IntoIterator,
     {
-        OrOnly::take(self, context, many)
+        OrOnly::take(self, index, many)
     }
 }
 
@@ -545,35 +545,31 @@ where
 }
 
 #[must_use]
-pub struct OrOnly<'a, T, C = ()>
+pub struct OrOnly<'a, T, N = ()>
 where
     NonEmpty<T>: IntoIterator,
     T: ?Sized,
 {
     items: &'a mut NonEmpty<T>,
-    context: C,
-    many: fn(&mut T, C) -> <NonEmpty<T> as IntoIterator>::Item,
+    index: N,
+    many: fn(&mut T, N) -> <NonEmpty<T> as IntoIterator>::Item,
 }
 
-impl<'a, T, C> OrOnly<'a, T, C>
+impl<'a, T, N> OrOnly<'a, T, N>
 where
     NonEmpty<T>: IntoIterator,
     T: ?Sized,
 {
     fn take(
         items: &'a mut NonEmpty<T>,
-        context: C,
-        many: fn(&mut T, C) -> <NonEmpty<T> as IntoIterator>::Item,
+        index: N,
+        many: fn(&mut T, N) -> <NonEmpty<T> as IntoIterator>::Item,
     ) -> Self {
-        OrOnly {
-            items,
-            context,
-            many,
-        }
+        OrOnly { items, index, many }
     }
 }
 
-impl<'a, T, C> OrOnly<'a, T, C>
+impl<'a, T, N> OrOnly<'a, T, N>
 where
     NonEmpty<T>: IntoIterator,
     T: MaybeEmpty + ?Sized,
@@ -582,16 +578,12 @@ where
     where
         O: FnOnce(&'a mut T) -> U,
     {
-        let OrOnly {
-            items,
-            context,
-            many,
-        } = self;
+        let OrOnly { items, index, many } = self;
         match items.items.cardinality() {
             // SAFETY: `self.items` must be non-empty.
             None => unsafe { safety::unreachable_maybe_unchecked() },
             Some(Cardinality::One(_)) => Err(one(&mut items.items)),
-            Some(Cardinality::Many(_)) => Ok((many)(&mut items.items, context)),
+            Some(Cardinality::Many(_)) => Ok((many)(&mut items.items, index)),
         }
     }
 
