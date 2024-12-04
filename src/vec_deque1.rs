@@ -15,7 +15,7 @@ use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
-use crate::safety::{self, NonZeroExt as _, OptionExt as _};
+use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
@@ -104,6 +104,60 @@ impl<T> Vacancy for VecDeque<T> {
     }
 }
 
+pub type OrOnly<'a, T> = crate::OrOnly<'a, VecDeque<T>, T, ()>;
+
+impl<'a, T> OrOnly<'a, T> {
+    pub fn get_only(self) -> Result<T, &'a T> {
+        // SAFETY: `self.items` must be non-empty.
+        self.many_or_else(|items| unsafe { items.front().unwrap_maybe_unchecked() })
+    }
+
+    pub fn replace_only(self, replacement: T) -> Result<T, T> {
+        self.replace_only_with(move || replacement)
+    }
+
+    pub fn replace_only_with<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        // SAFETY: `self.items` must be non-empty.
+        self.many_or_else(move |items| unsafe {
+            mem::replace(items.front_mut().unwrap_maybe_unchecked(), f())
+        })
+    }
+
+    pub fn none(self) -> Option<T> {
+        self.many_or_else(|_| ()).ok()
+    }
+}
+
+pub type OrIndex<'a, T> = crate::OrOnly<'a, VecDeque<T>, Option<T>, usize>;
+
+impl<'a, T> OrIndex<'a, T> {
+    pub fn get(self) -> Option<Result<T, &'a T>> {
+        // SAFETY: `self.items` must be non-empty.
+        let index = self.index;
+        self.try_many_or_else(move |items| items.get(index))
+    }
+
+    pub fn replace(self, replacement: T) -> Option<Result<T, T>> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Option<Result<T, T>>
+    where
+        F: FnOnce() -> T,
+    {
+        // SAFETY: `self.items` must be non-empty.
+        let index = self.index;
+        self.try_many_or_else(move |items| {
+            items
+                .get_mut(index)
+                .map(move |item| mem::replace(item, f()))
+        })
+    }
+}
+
 pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
 
 impl<T> VecDeque1<T> {
@@ -157,58 +211,6 @@ impl<T> VecDeque1<T> {
         self.items
     }
 
-    fn many_or_else<'a, U, M, O>(&'a mut self, many: M, one: O) -> Result<T, U>
-    where
-        M: FnOnce(&'a mut VecDeque<T>) -> T,
-        O: FnOnce(&'a mut VecDeque<T>) -> U,
-    {
-        match self.items.len() {
-            // SAFETY: `self` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => Err(one(&mut self.items)),
-            _ => Ok(many(&mut self.items)),
-        }
-    }
-
-    fn try_many_or_else<'a, U, M, O>(&'a mut self, many: M, one: O) -> Option<Result<T, U>>
-    where
-        M: FnOnce(&'a mut VecDeque<T>) -> Option<T>,
-        O: FnOnce(&'a mut VecDeque<T>) -> Option<U>,
-    {
-        match self.items.len() {
-            // SAFETY: `self` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => one(&mut self.items).map(Err),
-            _ => many(&mut self.items).map(Ok),
-        }
-    }
-
-    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut VecDeque<T>) -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, |items| unsafe { items.front().unwrap_maybe_unchecked() })
-    }
-
-    fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
-    where
-        F: FnOnce(&mut VecDeque<T>) -> T,
-        R: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, move |items| unsafe {
-            mem::replace(items.get_mut(0).unwrap_maybe_unchecked(), replace())
-        })
-    }
-
-    fn try_many_or_get<F>(&mut self, index: usize, f: F) -> Option<Result<T, &T>>
-    where
-        F: FnOnce(&mut VecDeque<T>) -> Option<T>,
-    {
-        self.try_many_or_else(f, move |items| items.get(index))
-    }
-
     pub fn shrink_to(&mut self, capacity: usize) {
         self.items.shrink_to(capacity)
     }
@@ -249,78 +251,30 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_or_get_only(&mut self) -> Result<T, &T> {
+    pub fn pop_front_or(&mut self) -> OrOnly<'_, T> {
         // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop_front().unwrap_maybe_unchecked() })
+        self.take(|items, ()| unsafe { items.pop_front().unwrap_maybe_unchecked() })
     }
 
-    pub fn pop_front_or_replace_only(&mut self, replacement: T) -> Result<T, T> {
-        self.pop_front_or_replace_only_with(move || replacement)
-    }
-
-    pub fn pop_front_or_replace_only_with<F>(&mut self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
+    pub fn pop_back_or(&mut self) -> OrOnly<'_, T> {
         // SAFETY: `self` must be non-empty.
-        self.many_or_replace_only_with(
-            |items| unsafe { items.pop_front().unwrap_maybe_unchecked() },
-            f,
-        )
-    }
-
-    pub fn pop_back_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop_back().unwrap_maybe_unchecked() })
-    }
-
-    pub fn pop_back_or_replace_only(&mut self, replacement: T) -> Result<T, T> {
-        self.pop_back_or_replace_only_with(move || replacement)
-    }
-
-    pub fn pop_back_or_replace_only_with<F>(&mut self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_replace_only_with(
-            |items| unsafe { items.pop_back().unwrap_maybe_unchecked() },
-            f,
-        )
+        self.take(|items, ()| unsafe { items.pop_back().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or_get_only(&mut self, index: usize) -> Option<Result<T, &T>> {
-        self.try_many_or_get(index, move |items| items.remove(index))
+    pub fn remove_or(&mut self, index: usize) -> OrIndex<'_, T> {
+        self.take_at(index, VecDeque::remove)
     }
 
-    pub fn remove_or_replace_only(&mut self, index: usize, replacement: T) -> Option<Result<T, T>> {
-        self.remove_or_replace_only_with(index, move || replacement)
+    pub fn swap_remove_front_or(&mut self, index: usize) -> OrIndex<'_, T> {
+        self.take_at(index, VecDeque::swap_remove_front)
     }
 
-    pub fn remove_or_replace_only_with<F>(&mut self, index: usize, f: F) -> Option<Result<T, T>>
-    where
-        F: FnOnce() -> T,
-    {
-        self.try_many_or_else(
-            move |items| items.remove(index),
-            move |items| {
-                items
-                    .get_mut(index)
-                    .map(move |only| mem::replace(only, f()))
-            },
-        )
-    }
-
-    pub fn swap_remove_front_or_get_only(&mut self, index: usize) -> Option<Result<T, &T>> {
-        self.try_many_or_get(index, move |items| items.swap_remove_front(index))
-    }
-
-    pub fn swap_remove_back_or_get_only(&mut self, index: usize) -> Option<Result<T, &T>> {
-        self.try_many_or_get(index, move |items| items.swap_remove_back(index))
+    pub fn swap_remove_back_or(&mut self, index: usize) -> OrIndex<'_, T> {
+        self.take_at(index, VecDeque::swap_remove_back)
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {

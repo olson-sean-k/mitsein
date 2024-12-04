@@ -470,21 +470,11 @@ impl<T> NonEmpty<T>
 where
     T: ?Sized,
 {
-    fn take(&mut self, many: fn(&mut T, ()) -> <Self as IntoIterator>::Item) -> OrOnly<'_, T, ()>
-    where
-        Self: IntoIterator,
-    {
+    fn take<U>(&mut self, many: fn(&mut T, ()) -> U) -> OrOnly<'_, T, U, ()> {
         self.take_at((), many)
     }
 
-    fn take_at<N>(
-        &mut self,
-        index: N,
-        many: fn(&mut T, N) -> <Self as IntoIterator>::Item,
-    ) -> OrOnly<'_, T, N>
-    where
-        Self: IntoIterator,
-    {
+    fn take_at<U, N>(&mut self, index: N, many: fn(&mut T, N) -> U) -> OrOnly<'_, T, U, N> {
         OrOnly::take(self, index, many)
     }
 }
@@ -545,38 +535,27 @@ where
 }
 
 #[must_use]
-pub struct OrOnly<'a, T, N = ()>
+pub struct OrOnly<'a, T, U, N = ()>
 where
-    NonEmpty<T>: IntoIterator,
     T: ?Sized,
 {
     items: &'a mut NonEmpty<T>,
     index: N,
-    many: fn(&mut T, N) -> <NonEmpty<T> as IntoIterator>::Item,
+    many: fn(&mut T, N) -> U,
 }
 
-impl<'a, T, N> OrOnly<'a, T, N>
+impl<'a, T, U, N> OrOnly<'a, T, U, N>
 where
-    NonEmpty<T>: IntoIterator,
     T: ?Sized,
 {
-    fn take(
-        items: &'a mut NonEmpty<T>,
-        index: N,
-        many: fn(&mut T, N) -> <NonEmpty<T> as IntoIterator>::Item,
-    ) -> Self {
+    fn take(items: &'a mut NonEmpty<T>, index: N, many: fn(&mut T, N) -> U) -> Self {
         OrOnly { items, index, many }
     }
-}
 
-impl<'a, T, N> OrOnly<'a, T, N>
-where
-    NonEmpty<T>: IntoIterator,
-    T: MaybeEmpty + ?Sized,
-{
-    fn many_or_else<U, O>(self, one: O) -> Result<<NonEmpty<T> as IntoIterator>::Item, U>
+    fn many_or_else<E, O>(self, one: O) -> Result<U, E>
     where
-        O: FnOnce(&'a mut T) -> U,
+        T: MaybeEmpty,
+        O: FnOnce(&'a mut T) -> E,
     {
         let OrOnly { items, index, many } = self;
         match items.items.cardinality() {
@@ -586,15 +565,30 @@ where
             Some(Cardinality::Many(_)) => Ok((many)(&mut items.items, index)),
         }
     }
+}
 
-    pub fn none(self) -> Option<<NonEmpty<T> as IntoIterator>::Item> {
-        self.many_or_else(|_| ()).ok()
+impl<'a, T, U, N> OrOnly<'a, T, Option<U>, N>
+where
+    T: ?Sized,
+{
+    fn try_many_or_else<E, O>(self, one: O) -> Option<Result<U, E>>
+    where
+        T: MaybeEmpty,
+        O: FnOnce(&'a mut T) -> Option<E>,
+    {
+        let OrOnly { items, index, many } = self;
+        match items.items.cardinality() {
+            // SAFETY: `self.items` must be non-empty.
+            None => unsafe { safety::unreachable_maybe_unchecked() },
+            Some(Cardinality::One(_)) => one(&mut items.items).map(Err),
+            Some(Cardinality::Many(_)) => (many)(&mut items.items, index).map(Ok),
+        }
     }
 }
 
-impl<'a, T> Debug for OrOnly<'a, T>
+impl<'a, T, U, N> Debug for OrOnly<'a, T, U, N>
 where
-    NonEmpty<T>: Debug + IntoIterator,
+    NonEmpty<T>: Debug,
     T: ?Sized,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {

@@ -137,9 +137,15 @@ where
     }
 }
 
-pub type OrOnly<'a, T, N = ()> = crate::OrOnly<'a, Vec<T>, N>;
+pub type OrOnly<'a, T> = crate::OrOnly<'a, Vec<T>, T, ()>;
 
-impl<'a, T, N> OrOnly<'a, T, N> {
+impl<'a, T, N> crate::OrOnly<'a, Vec<T>, T, N> {
+    pub fn none(self) -> Option<T> {
+        self.many_or_else(|_| ()).ok()
+    }
+}
+
+impl<'a, T> OrOnly<'a, T> {
     pub fn get_only(self) -> Result<T, &'a T> {
         // SAFETY: `self.items` must be non-empty.
         self.many_or_else(|items| unsafe { items.get_maybe_unchecked(0) })
@@ -160,7 +166,9 @@ impl<'a, T, N> OrOnly<'a, T, N> {
     }
 }
 
-impl<'a, T> OrOnly<'a, T, usize> {
+pub type OrIndex<'a, T> = crate::OrOnly<'a, Vec<T>, T, usize>;
+
+impl<'a, T> OrIndex<'a, T> {
     pub fn get(self) -> Result<T, &'a T> {
         let index = self.index;
         self.many_or_else(move |items| &items[index])
@@ -280,21 +288,21 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn insert(&mut self, index: usize, item: T) {
-        self.items.insert(index, item)
-    }
-
     pub fn pop_or(&mut self) -> OrOnly<'_, T> {
         // SAFETY: `self` must be non-empty.
         self.take(|items, ()| unsafe { items.pop().unwrap_maybe_unchecked() })
     }
 
-    pub fn remove_or(&mut self, index: usize) -> OrOnly<'_, T, usize> {
+    pub fn insert(&mut self, index: usize, item: T) {
+        self.items.insert(index, item)
+    }
+
+    pub fn remove_or(&mut self, index: usize) -> OrIndex<'_, T> {
         self.take_at(index, move |items, index| items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> OrOnly<'_, T, usize> {
-        self.take_at(index, move |items, index| items.swap_remove(index))
+    pub fn swap_remove_or(&mut self, index: usize) -> OrIndex<'_, T> {
+        self.take_at(index, Vec::swap_remove)
     }
 
     pub fn len(&self) -> NonZeroUsize {
