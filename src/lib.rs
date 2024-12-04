@@ -470,12 +470,16 @@ impl<T> NonEmpty<T>
 where
     T: ?Sized,
 {
-    fn take<U>(&mut self, many: fn(&mut T, ()) -> U) -> OrOnly<'_, T, U, ()> {
-        self.take_at((), many)
+    fn take_with<U>(&mut self, many: fn(&mut T, ()) -> U) -> TakeOrOnly<'_, T, U, ()> {
+        self.take_with_at((), many)
     }
 
-    fn take_at<U, N>(&mut self, index: N, many: fn(&mut T, N) -> U) -> OrOnly<'_, T, U, N> {
-        OrOnly::take(self, index, many)
+    fn take_with_at<U, N>(
+        &mut self,
+        index: N,
+        many: fn(&mut T, N) -> U,
+    ) -> TakeOrOnly<'_, T, U, N> {
+        TakeOrOnly::take_with(self, index, many)
     }
 }
 
@@ -535,7 +539,7 @@ where
 }
 
 #[must_use]
-pub struct OrOnly<'a, T, U, N = ()>
+pub struct TakeOrOnly<'a, T, U, N = ()>
 where
     T: ?Sized,
 {
@@ -544,12 +548,12 @@ where
     many: fn(&mut T, N) -> U,
 }
 
-impl<'a, T, U, N> OrOnly<'a, T, U, N>
+impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
 where
     T: ?Sized,
 {
-    fn take(items: &'a mut NonEmpty<T>, index: N, many: fn(&mut T, N) -> U) -> Self {
-        OrOnly { items, index, many }
+    fn take_with(items: &'a mut NonEmpty<T>, index: N, many: fn(&mut T, N) -> U) -> Self {
+        TakeOrOnly { items, index, many }
     }
 
     fn many_or_else<E, O>(self, one: O) -> Result<U, E>
@@ -557,7 +561,7 @@ where
         T: MaybeEmpty,
         O: FnOnce(&'a mut T) -> E,
     {
-        let OrOnly { items, index, many } = self;
+        let TakeOrOnly { items, index, many } = self;
         match items.items.cardinality() {
             // SAFETY: `self.items` must be non-empty.
             None => unsafe { safety::unreachable_maybe_unchecked() },
@@ -567,7 +571,7 @@ where
     }
 }
 
-impl<'a, T, U, N> OrOnly<'a, T, Option<U>, N>
+impl<'a, T, U, N> TakeOrOnly<'a, T, Option<U>, N>
 where
     T: ?Sized,
 {
@@ -576,7 +580,7 @@ where
         T: MaybeEmpty,
         O: FnOnce(&'a mut T) -> Option<E>,
     {
-        let OrOnly { items, index, many } = self;
+        let TakeOrOnly { items, index, many } = self;
         match items.items.cardinality() {
             // SAFETY: `self.items` must be non-empty.
             None => unsafe { safety::unreachable_maybe_unchecked() },
@@ -586,7 +590,7 @@ where
     }
 }
 
-impl<'a, T, U, N> Debug for OrOnly<'a, T, U, N>
+impl<'a, T, U, N> Debug for TakeOrOnly<'a, T, U, N>
 where
     NonEmpty<T>: Debug,
     T: ?Sized,

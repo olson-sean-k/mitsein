@@ -91,9 +91,9 @@ nominally contiguous collections.
 Non-empty collection APIs that exhibit different behavior from their
 counterparts have distinct names in Mitsein. For example, the [`vec1`] crate
 presents `Vec1::pop` and `Vec1::remove`, which may be unclear in context.
-Mitsein instead presents more explicit APIs like `Vec1::pop_or`, which returns
-an `OrOnly` with functions like `get_only` that determine what to do when only
-one item remains. This leads to explicit expressions like
+Mitsein instead presents more explicit APIs like `Vec1::pop_or`, which returns a
+`TakeOrOnly` that determine what to do when only one item remains. This leads to
+more explicit expressions like `xs.pop_or().get_only()` and
 `xs.pop_or().replace_only(0)`.
 
 **Mitsein separates many non-empty error concerns into a segmentation API.**

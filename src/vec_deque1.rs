@@ -104,7 +104,7 @@ impl<T> Vacancy for VecDeque<T> {
     }
 }
 
-pub type OrOnly<'a, T> = crate::OrOnly<'a, VecDeque<T>, T, ()>;
+pub type OrOnly<'a, T> = crate::TakeOrOnly<'a, VecDeque<T>, T, ()>;
 
 impl<'a, T> OrOnly<'a, T> {
     pub fn get_only(self) -> Result<T, &'a T> {
@@ -131,7 +131,7 @@ impl<'a, T> OrOnly<'a, T> {
     }
 }
 
-pub type OrIndex<'a, T> = crate::OrOnly<'a, VecDeque<T>, Option<T>, usize>;
+pub type OrIndex<'a, T> = crate::TakeOrOnly<'a, VecDeque<T>, Option<T>, usize>;
 
 impl<'a, T> OrIndex<'a, T> {
     pub fn get(self) -> Option<Result<T, &'a T>> {
@@ -253,12 +253,12 @@ impl<T> VecDeque1<T> {
 
     pub fn pop_front_or(&mut self) -> OrOnly<'_, T> {
         // SAFETY: `self` must be non-empty.
-        self.take(|items, ()| unsafe { items.pop_front().unwrap_maybe_unchecked() })
+        self.take_with(|items, ()| unsafe { items.pop_front().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_back_or(&mut self) -> OrOnly<'_, T> {
         // SAFETY: `self` must be non-empty.
-        self.take(|items, ()| unsafe { items.pop_back().unwrap_maybe_unchecked() })
+        self.take_with(|items, ()| unsafe { items.pop_back().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -266,15 +266,15 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn remove_or(&mut self, index: usize) -> OrIndex<'_, T> {
-        self.take_at(index, VecDeque::remove)
+        self.take_with_at(index, VecDeque::remove)
     }
 
     pub fn swap_remove_front_or(&mut self, index: usize) -> OrIndex<'_, T> {
-        self.take_at(index, VecDeque::swap_remove_front)
+        self.take_with_at(index, VecDeque::swap_remove_front)
     }
 
     pub fn swap_remove_back_or(&mut self, index: usize) -> OrIndex<'_, T> {
-        self.take_at(index, VecDeque::swap_remove_back)
+        self.take_with_at(index, VecDeque::swap_remove_back)
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
