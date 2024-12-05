@@ -362,7 +362,6 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::mem;
 use core::num::NonZeroUsize;
-use core::ops::IndexMut;
 #[cfg(feature = "serde")]
 use {
     ::serde::{Deserialize, Serialize},
@@ -593,49 +592,11 @@ where
         } = self;
         match items.vacancy() {
             0 => Err(saturated(items, index, item)),
-            _ => Ok((vacancy)(items, index, item)),
+            _ => {
+                (vacancy)(items, index, item);
+                Ok(())
+            },
         }
-    }
-}
-
-impl<'a, T, U, N> PutOrLast<'a, T, U, N, PutItem>
-where
-    T: IndexMut<N, Output = U> + Vacancy,
-{
-    pub fn get(self) -> Result<(), (U, &'a U)> {
-        self.vacancy_or_else(move |items, index, item| (item, &items[index]))
-    }
-
-    pub fn replace(self, replacement: U) -> Result<(), (U, U)> {
-        self.replace_with(move || replacement)
-    }
-
-    pub fn replace_with<F>(self, f: F) -> Result<(), (U, U)>
-    where
-        F: FnOnce() -> U,
-    {
-        self.vacancy_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
-    }
-}
-
-impl<'a, T, U, V, N> PutOrLast<'a, T, U, N, PutWith>
-where
-    T: IndexMut<N, Output = V> + Vacancy,
-    U: FnOnce() -> V,
-{
-    pub fn get(self) -> Result<(), &'a V> {
-        self.vacancy_or_else(move |items, index, _| &items[index])
-    }
-
-    pub fn replace(self, replacement: V) -> Result<(), V> {
-        self.replace_with(move || replacement)
-    }
-
-    pub fn replace_with<F>(self, f: F) -> Result<(), V>
-    where
-        F: FnOnce() -> V,
-    {
-        self.vacancy_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
     }
 }
 
@@ -692,27 +653,6 @@ where
             Cardinality::One(_) => one(items, index).map(Err),
             Cardinality::Many(_) => (many)(items, index).map(Ok),
         }
-    }
-}
-
-impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
-where
-    NonEmpty<T>: IndexMut<N, Output = U>,
-    T: MaybeEmpty + ?Sized,
-{
-    pub fn get(self) -> Result<U, &'a U> {
-        self.many_or_else(|items, index| &items[index])
-    }
-
-    pub fn replace(self, replacement: U) -> Result<U, U> {
-        self.replace_with(move || replacement)
-    }
-
-    pub fn replace_with<F>(self, f: F) -> Result<U, U>
-    where
-        F: FnOnce() -> U,
-    {
-        self.many_or_else(move |items, index| mem::replace(&mut items[index], f()))
     }
 }
 

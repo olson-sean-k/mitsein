@@ -126,15 +126,15 @@ impl<'a, T, N> TakeOrOnly<'a, T, N> {
 pub type TakeOrIndex<'a, T> = crate::TakeOrOnly<'a, VecDeque<T>, Option<T>, usize>;
 
 impl<'a, T> TakeOrIndex<'a, T> {
-    pub fn try_get(self) -> Option<Result<T, &'a T>> {
+    pub fn get(self) -> Option<Result<T, &'a T>> {
         self.try_many_or_else(|items, index| items.get(index))
     }
 
-    pub fn try_replace(self, replacement: T) -> Option<Result<T, T>> {
-        self.try_replace_with(move || replacement)
+    pub fn replace(self, replacement: T) -> Option<Result<T, T>> {
+        self.replace_with(move || replacement)
     }
 
-    pub fn try_replace_with<F>(self, f: F) -> Option<Result<T, T>>
+    pub fn replace_with<F>(self, f: F) -> Option<Result<T, T>>
     where
         F: FnOnce() -> T,
     {

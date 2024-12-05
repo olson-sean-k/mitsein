@@ -26,8 +26,7 @@ use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::{
-    Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, PutItem, PutOrLast, PutWith,
-    Vacancy,
+    Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, PutItem, PutWith, Vacancy,
 };
 
 segment::impl_target_forward_type_and_definition!(
@@ -140,7 +139,9 @@ where
     }
 }
 
-impl<'a, T, N> PutOrLast<'a, Vec1<T>, T, N, PutItem> {
+pub type PutOrLast<'a, T, U, N = (), B = PutItem> = crate::PutOrLast<'a, Vec1<T>, U, N, B>;
+
+impl<'a, T, N> PutOrLast<'a, T, T, N, PutItem> {
     pub fn get_last(self) -> Result<(), (T, &'a T)> {
         self.vacancy_or_else(|items, _, item| (item, items.last()))
     }
@@ -157,7 +158,7 @@ impl<'a, T, N> PutOrLast<'a, Vec1<T>, T, N, PutItem> {
     }
 }
 
-impl<'a, T, U, N> PutOrLast<'a, Vec1<T>, U, N, PutWith>
+impl<'a, T, U, N> PutOrLast<'a, T, U, N, PutWith>
 where
     U: FnOnce() -> T,
 {
@@ -174,6 +175,45 @@ where
         F: FnOnce() -> T,
     {
         self.vacancy_or_else(move |items, _, _| mem::replace(items.last_mut(), f()))
+    }
+}
+
+pub type PutOrIndex<'a, T, U, B = PutItem> = crate::PutOrLast<'a, Vec1<T>, U, usize, B>;
+
+impl<'a, T> PutOrIndex<'a, T, T, PutItem> {
+    pub fn get(self) -> Result<(), (T, &'a T)> {
+        self.vacancy_or_else(move |items, index, item| (item, &items[index]))
+    }
+
+    pub fn replace(self, replacement: T) -> Result<(), (T, T)> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<(), (T, T)>
+    where
+        F: FnOnce() -> T,
+    {
+        self.vacancy_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
+    }
+}
+
+impl<'a, T, U> PutOrIndex<'a, T, U, PutWith>
+where
+    U: FnOnce() -> T,
+{
+    pub fn get(self) -> Result<(), &'a T> {
+        self.vacancy_or_else(move |items, index, _| &items[index])
+    }
+
+    pub fn replace(self, replacement: T) -> Result<(), T> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<(), T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.vacancy_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
     }
 }
 
@@ -197,6 +237,23 @@ impl<'a, T, N> TakeOrOnly<'a, T, N> {
 }
 
 pub type TakeOrIndex<'a, T> = crate::TakeOrOnly<'a, Vec<T>, T, usize>;
+
+impl<'a, T> TakeOrIndex<'a, T> {
+    pub fn get(self) -> Result<T, &'a T> {
+        self.many_or_else(|items, index| &items[index])
+    }
+
+    pub fn replace(self, replacement: T) -> Result<T, T> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.many_or_else(move |items, index| mem::replace(&mut items[index], f()))
+    }
+}
 
 pub type Vec1<T> = NonEmpty<Vec<T>>;
 
@@ -543,24 +600,24 @@ impl<T> IntoIterator1 for Vec1<T> {
 }
 
 impl<T> OrSaturated<T> for Vec1<T> {
-    fn push_or(&mut self, item: T) -> PutOrLast<'_, Self, T, ()> {
+    fn push_or(&mut self, item: T) -> PutOrLast<'_, T, T> {
         PutOrLast::put_with(self, (), item, |items, (), item| items.push(item))
     }
 
-    fn push_with_or<F>(&mut self, f: F) -> PutOrLast<'_, Self, F, (), PutWith>
+    fn push_with_or<F>(&mut self, f: F) -> PutOrLast<'_, T, F, (), PutWith>
     where
         F: FnOnce() -> T,
     {
         PutOrLast::put_with(self, (), f, |items, (), f| items.push(f()))
     }
 
-    fn insert_or(&mut self, index: usize, item: T) -> PutOrLast<'_, Self, T, usize> {
+    fn insert_or(&mut self, index: usize, item: T) -> PutOrIndex<'_, T, T> {
         PutOrLast::put_with(self, index, item, |items, index, item| {
             items.insert(index, item)
         })
     }
 
-    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOrLast<'_, Self, F, usize, PutWith>
+    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOrIndex<'_, T, F, PutWith>
     where
         F: FnOnce() -> T,
     {
