@@ -20,7 +20,7 @@ use crate::array1::Array1;
 use crate::iter1::{
     self, Extend1, ExtendUntil, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1,
 };
-use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
+use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
@@ -352,6 +352,50 @@ where
     }
 }
 
+pub type TakeOrOnly<'a, T, M, const N: usize> = crate::TakeOrOnly<'a, ArrayVec<T, N>, T, M>;
+
+impl<'a, T, M, const N: usize> TakeOrOnly<'a, T, M, N>
+where
+    [T; N]: Array1,
+{
+    pub fn get_only(self) -> Result<T, &'a T> {
+        self.many_or_else(|items, _| items.first())
+    }
+
+    pub fn replace_only(self, replacement: T) -> Result<T, T> {
+        self.replace_only_with(move || replacement)
+    }
+
+    pub fn replace_only_with<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.many_or_else(move |items, _| mem::replace(items.first_mut(), f()))
+    }
+}
+
+pub type TakeOrIndex<'a, T, const N: usize> = crate::TakeOrOnly<'a, ArrayVec<T, N>, T, usize>;
+
+impl<'a, T, const N: usize> TakeOrIndex<'a, T, N>
+where
+    [T; N]: Array1,
+{
+    pub fn get(self) -> Result<T, &'a T> {
+        self.many_or_else(|items, index| &items[index])
+    }
+
+    pub fn replace(self, replacement: T) -> Result<T, T> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<T, T>
+    where
+        F: FnOnce() -> T,
+    {
+        self.many_or_else(move |items, index| mem::replace(&mut items[index], f()))
+    }
+}
+
 pub type ArrayVec1<T, const N: usize> = NonEmpty<ArrayVec<T, N>>;
 
 impl<T, const N: usize> ArrayVec1<T, N>
@@ -425,95 +469,27 @@ where
         self.items.into_inner_unchecked()
     }
 
-    fn many_or_else<'a, U, M, O>(&'a mut self, many: M, one: O) -> Result<T, U>
-    where
-        M: FnOnce(&'a mut ArrayVec<T, N>) -> T,
-        O: FnOnce(&'a mut ArrayVec<T, N>) -> U,
-    {
-        match self.items.len() {
-            // SAFETY: `self` must be non-empty.
-            0 => unsafe { safety::unreachable_maybe_unchecked() },
-            1 => Err(one(&mut self.items)),
-            _ => Ok(many(&mut self.items)),
-        }
-    }
-
-    fn many_or_get<F>(&mut self, index: usize, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut ArrayVec<T, N>) -> T,
-    {
-        self.many_or_else(f, move |items| {
-            items.get(index).expect("index out of bounds")
-        })
-    }
-
-    fn many_or_get_only<F>(&mut self, f: F) -> Result<T, &T>
-    where
-        F: FnOnce(&mut ArrayVec<T, N>) -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, |items| unsafe { items.get_maybe_unchecked(0) })
-    }
-
-    fn many_or_replace_only_with<F, R>(&mut self, f: F, replace: R) -> Result<T, T>
-    where
-        F: FnOnce(&mut ArrayVec<T, N>) -> T,
-        R: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_else(f, move |items| unsafe {
-            mem::replace(items.get_maybe_unchecked_mut(0), replace())
-        })
-    }
-
     pub fn push(&mut self, item: T) {
         self.items.push(item)
     }
 
-    pub fn pop_or_get_only(&mut self) -> Result<T, &T> {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_get_only(|items| unsafe { items.pop().unwrap_maybe_unchecked() })
-    }
-
-    pub fn pop_or_replace_only(&mut self, replacement: T) -> Result<T, T> {
-        self.pop_or_replace_only_with(move || replacement)
-    }
-
-    pub fn pop_or_replace_only_with<F>(&mut self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        // SAFETY: `self` must be non-empty.
-        self.many_or_replace_only_with(|items| unsafe { items.pop().unwrap_maybe_unchecked() }, f)
+    pub fn pop_or(&mut self) -> TakeOrOnly<'_, T, (), N> {
+        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
+        TakeOrOnly::take_with(self, (), |items, _| unsafe {
+            items.items.pop().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_get(index, move |items| items.remove(index))
+    pub fn remove_or(&mut self, index: usize) -> TakeOrIndex<'_, T, N> {
+        TakeOrIndex::take_with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn remove_or_replace_only(&mut self, index: usize, replacement: T) -> Result<T, T> {
-        self.remove_or_replace_only_with(index, move || replacement)
-    }
-
-    pub fn remove_or_replace_only_with<F>(&mut self, index: usize, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.many_or_replace_only_with(
-            |items| items.remove(index),
-            move || {
-                assert!(index == 0, "index out of bounds");
-                f()
-            },
-        )
-    }
-
-    pub fn swap_remove_or_get_only(&mut self, index: usize) -> Result<T, &T> {
-        self.many_or_get(index, move |items| items.swap_remove(index))
+    pub fn swap_remove_or(&mut self, index: usize) -> TakeOrIndex<'_, T, N> {
+        TakeOrIndex::take_with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub const fn len(&self) -> NonZeroUsize {

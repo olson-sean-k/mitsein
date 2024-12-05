@@ -240,14 +240,14 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn pop_front_or(&mut self) -> TakeOrOnly<'_, T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
         TakeOrOnly::take_with(self, (), |items, ()| unsafe {
             items.items.pop_front().unwrap_maybe_unchecked()
         })
     }
 
     pub fn pop_back_or(&mut self) -> TakeOrOnly<'_, T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
         TakeOrOnly::take_with(self, (), |items, ()| unsafe {
             items.items.pop_back().unwrap_maybe_unchecked()
         })
