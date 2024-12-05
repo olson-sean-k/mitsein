@@ -148,7 +148,7 @@ impl<T> BTreeSet1<T> {
         self.items
     }
 
-    fn cardinality(&mut self) -> Cardinality<'_, T> {
+    fn items(&mut self) -> Cardinality<'_, T> {
         // `BTreeSet::len` is reliable even in the face of a non-conformant `Ord` implementation.
         // The `BTreeSet1` implementation relies on this to maintain its non-empty invariant
         // without bounds on `UnsafeOrd`.
@@ -165,7 +165,7 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         F: FnOnce(&mut BTreeSet<T>) -> T,
     {
-        match self.cardinality() {
+        match self.items() {
             // SAFETY: `self` must be non-empty.
             Cardinality::One(one) => Err(unsafe { one.first().unwrap_maybe_unchecked() }),
             Cardinality::Many(many) => Ok(f(many)),
@@ -178,7 +178,7 @@ impl<T> BTreeSet1<T> {
         Q: Ord + ?Sized,
         F: FnOnce(&mut BTreeSet<T>) -> Option<T>,
     {
-        let result = match self.cardinality() {
+        let result = match self.items() {
             Cardinality::One(one) => Err(one.get(query)),
             Cardinality::Many(many) => Ok(f(many)),
         };

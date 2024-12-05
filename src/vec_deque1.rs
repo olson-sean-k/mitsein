@@ -104,12 +104,11 @@ impl<T> Vacancy for VecDeque<T> {
     }
 }
 
-pub type OrOnly<'a, T> = crate::TakeOrOnly<'a, VecDeque<T>, T, ()>;
+pub type TakeOrOnly<'a, T, N = ()> = crate::TakeOrOnly<'a, VecDeque<T>, T, N>;
 
-impl<'a, T> OrOnly<'a, T> {
+impl<'a, T, N> TakeOrOnly<'a, T, N> {
     pub fn get_only(self) -> Result<T, &'a T> {
-        // SAFETY: `self.items` must be non-empty.
-        self.many_or_else(|items| unsafe { items.front().unwrap_maybe_unchecked() })
+        self.many_or_else(|items, _| items.front())
     }
 
     pub fn replace_only(self, replacement: T) -> Result<T, T> {
@@ -120,37 +119,26 @@ impl<'a, T> OrOnly<'a, T> {
     where
         F: FnOnce() -> T,
     {
-        // SAFETY: `self.items` must be non-empty.
-        self.many_or_else(move |items| unsafe {
-            mem::replace(items.front_mut().unwrap_maybe_unchecked(), f())
-        })
-    }
-
-    pub fn none(self) -> Option<T> {
-        self.many_or_else(|_| ()).ok()
+        self.many_or_else(move |items, _| mem::replace(items.front_mut(), f()))
     }
 }
 
-pub type OrIndex<'a, T> = crate::TakeOrOnly<'a, VecDeque<T>, Option<T>, usize>;
+pub type TakeOrIndex<'a, T> = crate::TakeOrOnly<'a, VecDeque<T>, Option<T>, usize>;
 
-impl<'a, T> OrIndex<'a, T> {
-    pub fn get(self) -> Option<Result<T, &'a T>> {
-        // SAFETY: `self.items` must be non-empty.
-        let index = self.index;
-        self.try_many_or_else(move |items| items.get(index))
+impl<'a, T> TakeOrIndex<'a, T> {
+    pub fn try_get(self) -> Option<Result<T, &'a T>> {
+        self.try_many_or_else(|items, index| items.get(index))
     }
 
-    pub fn replace(self, replacement: T) -> Option<Result<T, T>> {
-        self.replace_with(move || replacement)
+    pub fn try_replace(self, replacement: T) -> Option<Result<T, T>> {
+        self.try_replace_with(move || replacement)
     }
 
-    pub fn replace_with<F>(self, f: F) -> Option<Result<T, T>>
+    pub fn try_replace_with<F>(self, f: F) -> Option<Result<T, T>>
     where
         F: FnOnce() -> T,
     {
-        // SAFETY: `self.items` must be non-empty.
-        let index = self.index;
-        self.try_many_or_else(move |items| {
+        self.try_many_or_else(move |items, index| {
             items
                 .get_mut(index)
                 .map(move |item| mem::replace(item, f()))
@@ -251,30 +239,38 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_or(&mut self) -> OrOnly<'_, T> {
+    pub fn pop_front_or(&mut self) -> TakeOrOnly<'_, T> {
         // SAFETY: `self` must be non-empty.
-        self.take_with(|items, ()| unsafe { items.pop_front().unwrap_maybe_unchecked() })
+        TakeOrOnly::take_with(self, (), |items, ()| unsafe {
+            items.items.pop_front().unwrap_maybe_unchecked()
+        })
     }
 
-    pub fn pop_back_or(&mut self) -> OrOnly<'_, T> {
+    pub fn pop_back_or(&mut self) -> TakeOrOnly<'_, T> {
         // SAFETY: `self` must be non-empty.
-        self.take_with(|items, ()| unsafe { items.pop_back().unwrap_maybe_unchecked() })
+        TakeOrOnly::take_with(self, (), |items, ()| unsafe {
+            items.items.pop_back().unwrap_maybe_unchecked()
+        })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> OrIndex<'_, T> {
-        self.take_with_at(index, VecDeque::remove)
+    pub fn remove_or(&mut self, index: usize) -> TakeOrIndex<'_, T> {
+        TakeOrIndex::take_with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_front_or(&mut self, index: usize) -> OrIndex<'_, T> {
-        self.take_with_at(index, VecDeque::swap_remove_front)
+    pub fn swap_remove_front_or(&mut self, index: usize) -> TakeOrIndex<'_, T> {
+        TakeOrIndex::take_with(self, index, |items, index| {
+            items.items.swap_remove_front(index)
+        })
     }
 
-    pub fn swap_remove_back_or(&mut self, index: usize) -> OrIndex<'_, T> {
-        self.take_with_at(index, VecDeque::swap_remove_back)
+    pub fn swap_remove_back_or(&mut self, index: usize) -> TakeOrIndex<'_, T> {
+        TakeOrIndex::take_with(self, index, |items, index| {
+            items.items.swap_remove_back(index)
+        })
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {

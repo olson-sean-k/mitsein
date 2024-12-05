@@ -182,12 +182,12 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs: ArrayVec1<_, 4> = iter1::repeat(0i64).saturate();
-//! assert_eq!(xs.push_or_get_last(42), Err((42, &0)));
+//! assert_eq!(xs.push_or(42).get_last(), Err((42, &0)));
 //!
 //! let mut ys = Vec1::from_one_with_capacity(0i64, 4);
 //! let vacancy = ys.vacancy();
 //! ys.saturate(iter1::repeat(1i64));
-//! assert_eq!(ys.insert_or_get(1, 88), Err((88, &1)));
+//! assert_eq!(ys.insert_or(1, 88).get(), Err((88, &1)));
 //!
 //! assert_eq!(xs.as_slice(), &[0, 0, 0, 0]);
 //! assert_eq!(ys.as_slice(), &[0, 1, 1, 1]);
@@ -317,6 +317,27 @@ pub mod sync1;
 pub mod vec1;
 pub mod vec_deque1;
 
+mod sealed {
+    use crate::Cardinality;
+
+    /// # Safety
+    ///
+    /// The implementation of this trait determines whether or not a collection or view is empty. This
+    /// query is used to construct non-empty types, and an inconsistent implementation is unsound. In
+    /// particular, it is unsound for [`MaybeEmpty::is_empty`] implementations to return `false` when
+    /// `Self` is empty.
+    pub unsafe trait MaybeEmpty: Sized {
+        fn cardinality(&self) -> Option<Cardinality<(), ()>>;
+    }
+
+    #[derive(Debug)]
+    pub enum PutItem {}
+
+    #[derive(Debug)]
+    pub enum PutWith {}
+}
+use crate::sealed::*;
+
 pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
 
@@ -338,8 +359,10 @@ pub mod prelude {
 }
 
 use core::fmt::{self, Debug, Formatter};
+use core::marker::PhantomData;
 use core::mem;
 use core::num::NonZeroUsize;
+use core::ops::IndexMut;
 #[cfg(feature = "serde")]
 use {
     ::serde::{Deserialize, Serialize},
@@ -359,16 +382,6 @@ impl NonZeroExt<usize> for NonZeroUsize {
     fn clamped(n: usize) -> Self {
         NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
     }
-}
-
-/// # Safety
-///
-/// The implementation of this trait determines whether or not a collection or view is empty. This
-/// query is used to construct non-empty types, and an inconsistent implementation is unsound. In
-/// particular, it is unsound for [`MaybeEmpty::is_empty`] implementations to return `false` when
-/// `Self` is empty.
-unsafe trait MaybeEmpty: Sized {
-    fn cardinality(&self) -> Option<Cardinality<(), ()>>;
 }
 
 trait MaybeEmptyExt: MaybeEmpty {
@@ -427,21 +440,17 @@ pub trait Vacancy {
 }
 
 pub trait OrSaturated<T> {
-    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)>;
+    fn push_or(&mut self, item: T) -> PutOrLast<'_, Self, T, (), PutItem>;
 
-    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
+    fn push_with_or<F>(&mut self, f: F) -> PutOrLast<'_, Self, F, (), PutWith>
     where
         F: FnOnce() -> T;
 
-    fn push_or_replace_last(&mut self, item: T) -> Result<(), T>;
+    fn insert_or(&mut self, index: usize, item: T) -> PutOrLast<'_, Self, T, usize, PutItem>;
 
-    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)>;
-
-    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
+    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOrLast<'_, Self, F, usize, PutWith>
     where
         F: FnOnce() -> T;
-
-    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T>;
 }
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -470,16 +479,15 @@ impl<T> NonEmpty<T>
 where
     T: ?Sized,
 {
-    fn take_with<U>(&mut self, many: fn(&mut T, ()) -> U) -> TakeOrOnly<'_, T, U, ()> {
-        self.take_with_at((), many)
-    }
-
-    fn take_with_at<U, N>(
-        &mut self,
-        index: N,
-        many: fn(&mut T, N) -> U,
-    ) -> TakeOrOnly<'_, T, U, N> {
-        TakeOrOnly::take_with(self, index, many)
+    fn cardinality(&self) -> Cardinality<(), ()>
+    where
+        T: MaybeEmpty,
+    {
+        match self.items.cardinality() {
+            // SAFETY: `self.items` must be non-empty.
+            None => unsafe { safety::unreachable_maybe_unchecked() },
+            Some(cardinality) => cardinality,
+        }
     }
 }
 
@@ -538,6 +546,100 @@ where
     }
 }
 
+//#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+#[derive(Debug)]
+#[must_use]
+pub struct PutOrLast<'a, T, U, N = (), B = PutItem>
+where
+    T: ?Sized,
+{
+    items: &'a mut T,
+    index: N,
+    item: U,
+    vacancy: fn(&mut T, N, U),
+    phantom: PhantomData<fn() -> B>,
+}
+
+impl<'a, T, U, N, B> PutOrLast<'a, T, U, N, B>
+where
+    T: ?Sized,
+{
+    fn put_with(items: &'a mut T, index: N, item: U, vacancy: fn(&mut T, N, U)) -> Self {
+        PutOrLast {
+            items,
+            index,
+            item,
+            vacancy,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, T, U, N, B> PutOrLast<'a, T, U, N, B>
+where
+    T: ?Sized,
+{
+    fn vacancy_or_else<E, F>(self, saturated: F) -> Result<(), E>
+    where
+        T: Vacancy,
+        F: FnOnce(&'a mut T, N, U) -> E,
+    {
+        let PutOrLast {
+            items,
+            index,
+            item,
+            vacancy,
+            ..
+        } = self;
+        match items.vacancy() {
+            0 => Err(saturated(items, index, item)),
+            _ => Ok((vacancy)(items, index, item)),
+        }
+    }
+}
+
+impl<'a, T, U, N> PutOrLast<'a, T, U, N, PutItem>
+where
+    T: IndexMut<N, Output = U> + Vacancy,
+{
+    pub fn get(self) -> Result<(), (U, &'a U)> {
+        self.vacancy_or_else(move |items, index, item| (item, &items[index]))
+    }
+
+    pub fn replace(self, replacement: U) -> Result<(), (U, U)> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<(), (U, U)>
+    where
+        F: FnOnce() -> U,
+    {
+        self.vacancy_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
+    }
+}
+
+impl<'a, T, U, V, N> PutOrLast<'a, T, U, N, PutWith>
+where
+    T: IndexMut<N, Output = V> + Vacancy,
+    U: FnOnce() -> V,
+{
+    pub fn get(self) -> Result<(), &'a V> {
+        self.vacancy_or_else(move |items, index, _| &items[index])
+    }
+
+    pub fn replace(self, replacement: V) -> Result<(), V> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<(), V>
+    where
+        F: FnOnce() -> V,
+    {
+        self.vacancy_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
+    }
+}
+
+//#[cfg(any(feature = "arrayvec", feature = "alloc"))]
 #[must_use]
 pub struct TakeOrOnly<'a, T, U, N = ()>
 where
@@ -545,48 +647,72 @@ where
 {
     items: &'a mut NonEmpty<T>,
     index: N,
-    many: fn(&mut T, N) -> U,
+    many: fn(&mut NonEmpty<T>, N) -> U,
 }
 
 impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
 where
     T: ?Sized,
 {
-    fn take_with(items: &'a mut NonEmpty<T>, index: N, many: fn(&mut T, N) -> U) -> Self {
+    fn take_with(items: &'a mut NonEmpty<T>, index: N, many: fn(&mut NonEmpty<T>, N) -> U) -> Self {
         TakeOrOnly { items, index, many }
     }
+}
 
-    fn many_or_else<E, O>(self, one: O) -> Result<U, E>
+impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
+where
+    T: MaybeEmpty + ?Sized,
+{
+    fn many_or_else<E, F>(self, one: F) -> Result<U, E>
     where
-        T: MaybeEmpty,
-        O: FnOnce(&'a mut T) -> E,
+        F: FnOnce(&'a mut NonEmpty<T>, N) -> E,
     {
         let TakeOrOnly { items, index, many } = self;
-        match items.items.cardinality() {
-            // SAFETY: `self.items` must be non-empty.
-            None => unsafe { safety::unreachable_maybe_unchecked() },
-            Some(Cardinality::One(_)) => Err(one(&mut items.items)),
-            Some(Cardinality::Many(_)) => Ok((many)(&mut items.items, index)),
+        match items.cardinality() {
+            Cardinality::One(_) => Err(one(items, index)),
+            Cardinality::Many(_) => Ok((many)(items, index)),
         }
+    }
+
+    pub fn none(self) -> Option<U> {
+        self.many_or_else(|_, _| ()).ok()
     }
 }
 
 impl<'a, T, U, N> TakeOrOnly<'a, T, Option<U>, N>
 where
-    T: ?Sized,
+    T: MaybeEmpty + ?Sized,
 {
-    fn try_many_or_else<E, O>(self, one: O) -> Option<Result<U, E>>
+    fn try_many_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
     where
-        T: MaybeEmpty,
-        O: FnOnce(&'a mut T) -> Option<E>,
+        F: FnOnce(&'a mut NonEmpty<T>, N) -> Option<E>,
     {
         let TakeOrOnly { items, index, many } = self;
-        match items.items.cardinality() {
-            // SAFETY: `self.items` must be non-empty.
-            None => unsafe { safety::unreachable_maybe_unchecked() },
-            Some(Cardinality::One(_)) => one(&mut items.items).map(Err),
-            Some(Cardinality::Many(_)) => (many)(&mut items.items, index).map(Ok),
+        match items.cardinality() {
+            Cardinality::One(_) => one(items, index).map(Err),
+            Cardinality::Many(_) => (many)(items, index).map(Ok),
         }
+    }
+}
+
+impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
+where
+    NonEmpty<T>: IndexMut<N, Output = U>,
+    T: MaybeEmpty + ?Sized,
+{
+    pub fn get(self) -> Result<U, &'a U> {
+        self.many_or_else(|items, index| &items[index])
+    }
+
+    pub fn replace(self, replacement: U) -> Result<U, U> {
+        self.replace_with(move || replacement)
+    }
+
+    pub fn replace_with<F>(self, f: F) -> Result<U, U>
+    where
+        F: FnOnce() -> U,
+    {
+        self.many_or_else(move |items, index| mem::replace(&mut items[index], f()))
     }
 }
 
@@ -594,11 +720,13 @@ impl<'a, T, U, N> Debug for TakeOrOnly<'a, T, U, N>
 where
     NonEmpty<T>: Debug,
     T: ?Sized,
+    N: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("OrOnly")
+            .debug_struct("TakeOrOnly")
             .field("items", &self.items)
+            .field("index", &self.index)
             .field("many", &self.many)
             .finish()
     }
@@ -655,27 +783,6 @@ impl<T> Cardinality<T, T> {
             Cardinality::One(one) => Cardinality::One(f(one)),
             Cardinality::Many(many) => Cardinality::Many(f(many)),
         }
-    }
-}
-
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-fn vacancy_with_or_else<'a, T, U, O, E, F, V, S>(
-    items: &'a mut T,
-    f: F,
-    vacant: V,
-    saturated: S,
-) -> Result<O, E>
-where
-    T: Vacancy,
-    F: FnOnce() -> U,
-    V: FnOnce(F, &'a mut T) -> O,
-    S: FnOnce(F, &'a mut T) -> E,
-{
-    if items.vacancy() > 0 {
-        Ok(vacant(f, items))
-    }
-    else {
-        Err(saturated(f, items))
     }
 }
 

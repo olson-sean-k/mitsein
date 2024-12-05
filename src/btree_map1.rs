@@ -425,7 +425,7 @@ impl<K, V> BTreeMap1<K, V> {
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
-    fn cardinality(&mut self) -> Cardinality<'_, K, V> {
+    fn items(&mut self) -> Cardinality<'_, K, V> {
         // `BTreeMap::len` is reliable even in the face of a non-conformant `Ord` implementation.
         // The `BTreeMap1` implementation relies on this to maintain its non-empty invariant
         // without bounds on `UnsafeOrd`.
@@ -442,7 +442,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
         F: FnOnce(&'a mut BTreeMap<K, V>) -> T,
     {
-        match self.cardinality() {
+        match self.items() {
             // SAFETY: `self` must be non-empty.
             Cardinality::One(one) => Err(OnlyEntry::from_occupied_entry(unsafe {
                 one.first_entry().unwrap_maybe_unchecked()
@@ -461,7 +461,7 @@ impl<K, V> BTreeMap1<K, V> {
         Q: Ord + ?Sized,
         F: FnOnce(&'a mut BTreeMap<K, V>) -> Option<T>,
     {
-        let result = match self.cardinality() {
+        let result = match self.items() {
             // SAFETY: `self` must be non-empty.
             Cardinality::One(one) => Err(one.contains_key(query).then(|| {
                 OnlyEntry::from_occupied_entry(unsafe {
@@ -502,7 +502,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        match self.cardinality() {
+        match self.items() {
             Cardinality::One(one) => Entry::from_entry_only(one.entry(key)),
             Cardinality::Many(many) => Entry::from_entry_many(many.entry(key)),
         }
