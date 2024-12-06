@@ -476,16 +476,20 @@ where
 
 impl<T> NonEmpty<T>
 where
-    T: ?Sized,
+    T: MaybeEmpty + ?Sized,
 {
-    fn cardinality(&self) -> Cardinality<(), ()>
-    where
-        T: MaybeEmpty,
-    {
+    fn cardinality(&self) -> Cardinality<(), ()> {
         match self.items.cardinality() {
             // SAFETY: `self.items` must be non-empty.
             None => unsafe { safety::unreachable_maybe_unchecked() },
             Some(cardinality) => cardinality,
+        }
+    }
+
+    fn items(&mut self) -> Cardinality<&mut T, &mut T> {
+        match self.cardinality() {
+            Cardinality::One(_) => Cardinality::One(&mut self.items),
+            Cardinality::Many(_) => Cardinality::Many(&mut self.items),
         }
     }
 }
