@@ -120,9 +120,7 @@ where
     }
 }
 
-pub type TakeOrIndex<'a, T, U, Q> = crate::TakeOrOnly<'a, BTreeSet<T>, U, &'a Q>;
-
-impl<'a, T, Q> TakeOrIndex<'a, T, bool, Q>
+impl<'a, T, Q> TakeOrOnly<'a, T, bool, &'a Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -132,7 +130,7 @@ where
     }
 }
 
-impl<'a, T, Q> TakeOrIndex<'a, T, Option<T>, Q>
+impl<'a, T, Q> TakeOrOnly<'a, T, Option<T>, &'a Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -274,22 +272,22 @@ impl<T> BTreeSet1<T> {
         self.last()
     }
 
-    pub fn remove_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOrIndex<'a, T, bool, Q>
+    pub fn remove_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOrOnly<'a, T, bool, &'a Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOrIndex::take_with(self, query, |items, query| {
+        TakeOrOnly::take_with(self, query, |items, query| {
             items.items.take(query).is_some()
         })
     }
 
-    pub fn take_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOrIndex<'a, T, Option<T>, Q>
+    pub fn take_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOrOnly<'a, T, Option<T>, &'a Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOrIndex::take_with(self, query, |items, query| items.items.take(query))
+        TakeOrOnly::take_with(self, query, |items, query| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>

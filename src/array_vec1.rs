@@ -308,10 +308,7 @@ where
     }
 }
 
-pub type PutOrIndex<'a, T, U, B, const N: usize> =
-    crate::PutOrLast<'a, ArrayVec1<T, N>, U, usize, B>;
-
-impl<'a, T, const N: usize> PutOrIndex<'a, T, T, PutItem, N>
+impl<'a, T, const N: usize> PutOrLast<'a, T, T, usize, PutItem, N>
 where
     [T; N]: Array1,
 {
@@ -331,7 +328,7 @@ where
     }
 }
 
-impl<'a, T, U, const N: usize> PutOrIndex<'a, T, U, PutWith, N>
+impl<'a, T, U, const N: usize> PutOrLast<'a, T, U, usize, PutWith, N>
 where
     [T; N]: Array1,
     U: FnOnce() -> T,
@@ -374,9 +371,7 @@ where
     }
 }
 
-pub type TakeOrIndex<'a, T, const N: usize> = crate::TakeOrOnly<'a, ArrayVec<T, N>, T, usize>;
-
-impl<'a, T, const N: usize> TakeOrIndex<'a, T, N>
+impl<'a, T, const N: usize> TakeOrOnly<'a, T, usize, N>
 where
     [T; N]: Array1,
 {
@@ -484,12 +479,12 @@ where
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> TakeOrIndex<'_, T, N> {
-        TakeOrIndex::take_with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_or(&mut self, index: usize) -> TakeOrOnly<'_, T, usize, N> {
+        TakeOrOnly::take_with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> TakeOrIndex<'_, T, N> {
-        TakeOrIndex::take_with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_or(&mut self, index: usize) -> TakeOrOnly<'_, T, usize, N> {
+        TakeOrOnly::take_with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub const fn len(&self) -> NonZeroUsize {
@@ -726,13 +721,13 @@ where
         PutOrLast::put_with(self, (), f, |items, (), f| items.push(f()))
     }
 
-    fn insert_or(&mut self, index: usize, item: T) -> PutOrIndex<'_, T, T, PutItem, N> {
+    fn insert_or(&mut self, index: usize, item: T) -> PutOrLast<'_, T, T, usize, PutItem, N> {
         PutOrLast::put_with(self, index, item, |items, index, item| {
             items.insert(index, item)
         })
     }
 
-    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOrIndex<'_, T, F, PutWith, N>
+    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOrLast<'_, T, F, usize, PutWith, N>
     where
         F: FnOnce() -> T,
     {
