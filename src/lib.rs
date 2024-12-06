@@ -353,7 +353,7 @@ pub mod prelude {
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
-        crate::btree_map1::OrOnlyExt as _,
+        crate::btree_map1::OrOnlyEntryExt as _,
         crate::vec1::{vec1, CowSlice1Ext as _, Vec1},
     };
 }
