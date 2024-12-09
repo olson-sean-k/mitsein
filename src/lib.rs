@@ -486,7 +486,7 @@ where
         }
     }
 
-    fn items(&mut self) -> Cardinality<&mut T, &mut T> {
+    fn as_cardinality_items_mut(&mut self) -> Cardinality<&mut T, &mut T> {
         match self.cardinality() {
             Cardinality::One(_) => Cardinality::One(&mut self.items),
             Cardinality::Many(_) => Cardinality::Many(&mut self.items),

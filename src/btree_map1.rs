@@ -478,7 +478,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        match self.items() {
+        match self.as_cardinality_items_mut() {
             Cardinality::One(items) => Entry::from_entry_only(items.entry(key)),
             // SAFETY: The `items` method returns the correct non-empty cardinality based on the
             //         `MaybeEmpty` implementation.
@@ -612,7 +612,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        self.items()
+        self.as_cardinality_items_mut()
             // SAFETY: `self` must be non-empty.
             .map(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() })
             .map_one(OnlyEntry::from_occupied_entry)
@@ -640,7 +640,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        self.items()
+        self.as_cardinality_items_mut()
             // SAFETY: `self` must be non-empty.
             .map(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() })
             .map_one(OnlyEntry::from_occupied_entry)
