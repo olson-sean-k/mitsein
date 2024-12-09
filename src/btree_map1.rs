@@ -133,7 +133,7 @@ impl<'a, K, V> OnlyEntry<'a, K, V>
 where
     K: Ord,
 {
-    pub(crate) fn from_occupied_entry(entry: btree_map::OccupiedEntry<'a, K, V>) -> Self {
+    fn from_occupied_entry(entry: btree_map::OccupiedEntry<'a, K, V>) -> Self {
         OnlyEntry { entry }
     }
 
@@ -171,14 +171,14 @@ where
         }
     }
 
-    pub fn remove_key_value_or_get_only(self) -> KeyValueOrOnlyEntry<'a, K, V> {
+    pub fn remove_entry_or_get_only(self) -> OrOnlyEntry<'a, (K, V), K, V> {
         match self {
             OccupiedEntry::Many(many) => Ok(many.remove_entry()),
             OccupiedEntry::One(only) => Err(only),
         }
     }
 
-    pub fn remove_or_get_only(self) -> ValueOrOnlyEntry<'a, K, V> {
+    pub fn remove_or_get_only(self) -> OrOnlyEntry<'a, V, K, V> {
         match self {
             OccupiedEntry::Many(many) => Ok(many.remove()),
             OccupiedEntry::One(only) => Err(only),
@@ -245,7 +245,11 @@ impl<'a, K, V> Entry<'a, K, V>
 where
     K: Ord,
 {
-    fn from_entry_many(entry: btree_map::Entry<'a, K, V>) -> Self {
+    /// # Safety
+    ///
+    /// The `BTreeMap1` from which `entry` has been obtained must have a non-empty cardinality of
+    /// many (must have **more than one** item).
+    unsafe fn from_entry_many(entry: btree_map::Entry<'a, K, V>) -> Self {
         match entry {
             btree_map::Entry::Vacant(vacant) => Entry::Vacant(vacant),
             btree_map::Entry::Occupied(occupied) => Entry::Occupied(occupied.into()),
@@ -325,10 +329,6 @@ where
 
 pub type OrOnlyEntry<'a, T, K, V> = Result<T, OnlyEntry<'a, K, V>>;
 
-pub type ValueOrOnlyEntry<'a, K, V> = OrOnlyEntry<'a, V, K, V>;
-
-pub type KeyValueOrOnlyEntry<'a, K, V> = OrOnlyEntry<'a, (K, V), K, V>;
-
 pub trait OrOnlyEntryExt<'a, K, V>
 where
     K: Ord,
@@ -338,7 +338,7 @@ where
     fn get_mut(&mut self) -> &mut V;
 }
 
-impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for ValueOrOnlyEntry<'a, K, V>
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, V, K, V>
 where
     K: Ord,
 {
@@ -357,7 +357,7 @@ where
     }
 }
 
-impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for KeyValueOrOnlyEntry<'a, K, V>
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, (K, V), K, V>
 where
     K: Ord,
 {
@@ -480,7 +480,9 @@ impl<K, V> BTreeMap1<K, V> {
     {
         match self.items() {
             Cardinality::One(items) => Entry::from_entry_only(items.entry(key)),
-            Cardinality::Many(items) => Entry::from_entry_many(items.entry(key)),
+            // SAFETY: The `items` method returns the correct non-empty cardinality based on the
+            //         `MaybeEmpty` implementation.
+            Cardinality::Many(items) => unsafe { Entry::from_entry_many(items.entry(key)) },
         }
     }
 
@@ -550,6 +552,17 @@ impl<K, V> BTreeMap1<K, V> {
     pub fn remove_or<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
+    ) -> TakeOrOnly<'a, K, V, Option<V>, &'q Q>
+    where
+        K: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        TakeOrOnly::take_with(self, query, |items, query| items.items.remove(query))
+    }
+
+    pub fn remove_entry_or<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
     ) -> TakeOrOnly<'a, K, V, Option<(K, V)>, &'q Q>
     where
         K: Borrow<Q> + Ord,
@@ -566,6 +579,14 @@ impl<K, V> BTreeMap1<K, V> {
         self.items.get(query)
     }
 
+    pub fn get_key_value<Q>(&self, query: &Q) -> Option<(&K, &V)>
+    where
+        K: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        self.items.get_key_value(query)
+    }
+
     pub fn get_mut<Q>(&mut self, query: &Q) -> Option<&mut V>
     where
         K: Borrow<Q> + Ord,
@@ -579,7 +600,7 @@ impl<K, V> BTreeMap1<K, V> {
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
-    pub fn first(&self) -> (&K, &V)
+    pub fn first_key_value(&self) -> (&K, &V)
     where
         K: Ord,
     {
@@ -607,7 +628,7 @@ impl<K, V> BTreeMap1<K, V> {
         OnlyEntry::from_occupied_entry(unsafe { self.items.first_entry().unwrap_maybe_unchecked() })
     }
 
-    pub fn last(&self) -> (&K, &V)
+    pub fn last_key_value(&self) -> (&K, &V)
     where
         K: Ord,
     {
@@ -969,7 +990,7 @@ mod tests {
     #[case::one_rtail(harness::xs1(1))]
     #[case::many_rtail(harness::xs1(2))]
     fn clear_rtail_of_btree_map1_then_btree_map1_eq_tail(#[case] mut xs1: BTreeMap1<u8, char>) {
-        let tail = xs1.last().cloned();
+        let tail = xs1.last_key_value().cloned();
         xs1.rtail().clear();
         assert_eq!(xs1, BTreeMap1::from_one(tail));
     }
@@ -983,7 +1004,7 @@ mod tests {
         #[case] mut xs1: BTreeMap1<u8, char>,
     ) {
         let n = xs1.len().get();
-        let head_and_tail = [(0, VALUE), xs1.last().cloned()];
+        let head_and_tail = [(0, VALUE), xs1.last_key_value().cloned()];
         xs1.tail().rtail().clear();
         assert_eq!(
             xs1,
