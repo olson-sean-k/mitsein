@@ -14,7 +14,7 @@ pub enum PutWith {}
 
 #[derive(Debug)]
 #[must_use]
-pub struct PutOrLast<'a, T, U, N = (), B = PutItem>
+pub struct PutOr<'a, T, U, N = (), B = PutItem>
 where
     T: ?Sized,
 {
@@ -25,12 +25,12 @@ where
     phantom: PhantomData<fn() -> B>,
 }
 
-impl<'a, T, U, N, B> PutOrLast<'a, T, U, N, B>
+impl<'a, T, U, N, B> PutOr<'a, T, U, N, B>
 where
     T: ?Sized,
 {
     pub(crate) fn put_with(items: &'a mut T, index: N, item: U, vacancy: fn(&mut T, N, U)) -> Self {
-        PutOrLast {
+        PutOr {
             items,
             index,
             item,
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<'a, T, U, N, B> PutOrLast<'a, T, U, N, B>
+impl<'a, T, U, N, B> PutOr<'a, T, U, N, B>
 where
     T: ?Sized,
 {
@@ -49,7 +49,7 @@ where
         T: Vacancy,
         F: FnOnce(&'a mut T, N, U) -> E,
     {
-        let PutOrLast {
+        let PutOr {
             items,
             index,
             item,
@@ -67,7 +67,7 @@ where
 }
 
 #[must_use]
-pub struct TakeOrOnly<'a, T, U, N = ()>
+pub struct TakeOr<'a, T, U, N = ()>
 where
     T: ?Sized,
 {
@@ -76,7 +76,7 @@ where
     many: fn(&mut NonEmpty<T>, N) -> U,
 }
 
-impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
+impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
     T: ?Sized,
 {
@@ -85,11 +85,11 @@ where
         index: N,
         many: fn(&mut NonEmpty<T>, N) -> U,
     ) -> Self {
-        TakeOrOnly { items, index, many }
+        TakeOr { items, index, many }
     }
 }
 
-impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
+impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
     T: MaybeEmpty + ?Sized,
 {
@@ -97,7 +97,7 @@ where
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> E,
     {
-        let TakeOrOnly { items, index, many } = self;
+        let TakeOr { items, index, many } = self;
         match items.cardinality() {
             Cardinality::One(_) => Err(one(items, index)),
             Cardinality::Many(_) => Ok((many)(items, index)),
@@ -109,7 +109,7 @@ where
     }
 }
 
-impl<'a, T, U, N> TakeOrOnly<'a, T, Option<U>, N>
+impl<'a, T, U, N> TakeOr<'a, T, Option<U>, N>
 where
     T: MaybeEmpty + ?Sized,
 {
@@ -117,7 +117,7 @@ where
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> Option<E>,
     {
-        let TakeOrOnly { items, index, many } = self;
+        let TakeOr { items, index, many } = self;
         match items.cardinality() {
             Cardinality::One(_) => one(items, index).map(Err),
             Cardinality::Many(_) => (many)(items, index).map(Ok),
@@ -125,7 +125,7 @@ where
     }
 }
 
-impl<'a, T, U, N> Debug for TakeOrOnly<'a, T, U, N>
+impl<'a, T, U, N> Debug for TakeOr<'a, T, U, N>
 where
     NonEmpty<T>: Debug,
     T: ?Sized,
@@ -133,7 +133,7 @@ where
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("TakeOrOnly")
+            .debug_struct("TakeOr")
             .field("items", &self.items)
             .field("index", &self.index)
             .field("many", &self.many)

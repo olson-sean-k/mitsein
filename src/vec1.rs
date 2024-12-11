@@ -138,9 +138,9 @@ where
     }
 }
 
-pub type PutOrLast<'a, T, U, N = (), B = PutItem> = crate::reshape::PutOrLast<'a, Vec1<T>, U, N, B>;
+pub type PutOr<'a, T, U, N = (), B = PutItem> = crate::reshape::PutOr<'a, Vec1<T>, U, N, B>;
 
-impl<'a, T, N> PutOrLast<'a, T, T, N, PutItem> {
+impl<'a, T, N> PutOr<'a, T, T, N, PutItem> {
     pub fn get_last(self) -> Result<(), (T, &'a T)> {
         self.vacancy_or_else(|items, _, item| (item, items.last()))
     }
@@ -157,7 +157,7 @@ impl<'a, T, N> PutOrLast<'a, T, T, N, PutItem> {
     }
 }
 
-impl<'a, T, U, N> PutOrLast<'a, T, U, N, PutWith>
+impl<'a, T, U, N> PutOr<'a, T, U, N, PutWith>
 where
     U: FnOnce() -> T,
 {
@@ -177,7 +177,7 @@ where
     }
 }
 
-impl<'a, T> PutOrLast<'a, T, T, usize, PutItem> {
+impl<'a, T> PutOr<'a, T, T, usize, PutItem> {
     pub fn get(self) -> Result<(), (T, &'a T)> {
         self.vacancy_or_else(move |items, index, item| (item, &items[index]))
     }
@@ -194,7 +194,7 @@ impl<'a, T> PutOrLast<'a, T, T, usize, PutItem> {
     }
 }
 
-impl<'a, T, U> PutOrLast<'a, T, U, usize, PutWith>
+impl<'a, T, U> PutOr<'a, T, U, usize, PutWith>
 where
     U: FnOnce() -> T,
 {
@@ -214,9 +214,9 @@ where
     }
 }
 
-pub type TakeOrOnly<'a, T, N = ()> = crate::reshape::TakeOrOnly<'a, Vec<T>, T, N>;
+pub type TakeOr<'a, T, N = ()> = crate::reshape::TakeOr<'a, Vec<T>, T, N>;
 
-impl<'a, T, N> TakeOrOnly<'a, T, N> {
+impl<'a, T, N> TakeOr<'a, T, N> {
     pub fn get_only(self) -> Result<T, &'a T> {
         self.many_or_else(|items, _| items.first())
     }
@@ -233,7 +233,7 @@ impl<'a, T, N> TakeOrOnly<'a, T, N> {
     }
 }
 
-impl<'a, T> TakeOrOnly<'a, T, usize> {
+impl<'a, T> TakeOr<'a, T, usize> {
     pub fn get(self) -> Result<T, &'a T> {
         self.many_or_else(|items, index| &items[index])
     }
@@ -355,9 +355,9 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop_or(&mut self) -> TakeOrOnly<'_, T> {
+    pub fn pop_or(&mut self) -> TakeOr<'_, T> {
         // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOrOnly::take_with(self, (), |items, ()| unsafe {
+        TakeOr::take_with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -366,12 +366,12 @@ impl<T> Vec1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> TakeOrOnly<'_, T, usize> {
-        TakeOrOnly::take_with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize> {
+        TakeOr::take_with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> TakeOrOnly<'_, T, usize> {
-        TakeOrOnly::take_with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize> {
+        TakeOr::take_with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub fn len(&self) -> NonZeroUsize {
@@ -595,28 +595,28 @@ impl<T> IntoIterator1 for Vec1<T> {
 }
 
 impl<T> OrSaturated<T> for Vec1<T> {
-    fn push_or(&mut self, item: T) -> PutOrLast<'_, T, T> {
-        PutOrLast::put_with(self, (), item, |items, (), item| items.push(item))
+    fn push_or(&mut self, item: T) -> PutOr<'_, T, T> {
+        PutOr::put_with(self, (), item, |items, (), item| items.push(item))
     }
 
-    fn push_with_or<F>(&mut self, f: F) -> PutOrLast<'_, T, F, (), PutWith>
+    fn push_with_or<F>(&mut self, f: F) -> PutOr<'_, T, F, (), PutWith>
     where
         F: FnOnce() -> T,
     {
-        PutOrLast::put_with(self, (), f, |items, (), f| items.push(f()))
+        PutOr::put_with(self, (), f, |items, (), f| items.push(f()))
     }
 
-    fn insert_or(&mut self, index: usize, item: T) -> PutOrLast<'_, T, T, usize> {
-        PutOrLast::put_with(self, index, item, |items, index, item| {
+    fn insert_or(&mut self, index: usize, item: T) -> PutOr<'_, T, T, usize> {
+        PutOr::put_with(self, index, item, |items, index, item| {
             items.insert(index, item)
         })
     }
 
-    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOrLast<'_, T, F, usize, PutWith>
+    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOr<'_, T, F, usize, PutWith>
     where
         F: FnOnce() -> T,
     {
-        PutOrLast::put_with(self, index, f, |items, index, f| items.insert(index, f()))
+        PutOr::put_with(self, index, f, |items, index, f| items.insert(index, f()))
     }
 }
 

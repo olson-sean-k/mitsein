@@ -109,9 +109,9 @@ where
     type Target = Self;
 }
 
-pub type TakeOrOnly<'a, T, U, N = ()> = crate::reshape::TakeOrOnly<'a, BTreeSet<T>, U, N>;
+pub type TakeOr<'a, T, U, N = ()> = crate::reshape::TakeOr<'a, BTreeSet<T>, U, N>;
 
-impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
+impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
     T: Ord,
 {
@@ -120,7 +120,7 @@ where
     }
 }
 
-impl<'a, T, Q> TakeOrOnly<'a, T, bool, &'a Q>
+impl<'a, T, Q> TakeOr<'a, T, bool, &'a Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -130,7 +130,7 @@ where
     }
 }
 
-impl<'a, T, Q> TakeOrOnly<'a, T, Option<T>, &'a Q>
+impl<'a, T, Q> TakeOr<'a, T, Option<T>, &'a Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -216,12 +216,12 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_or(&mut self) -> TakeOrOnly<'_, T, T>
+    pub fn pop_first_or(&mut self) -> TakeOr<'_, T, T>
     where
         T: Ord,
     {
         // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOrOnly::take_with(self, (), |items, _| unsafe {
+        TakeOr::take_with(self, (), |items, _| unsafe {
             items.items.pop_first().unwrap_maybe_unchecked()
         })
     }
@@ -244,12 +244,12 @@ impl<T> BTreeSet1<T> {
         self.first()
     }
 
-    pub fn pop_last_or(&mut self) -> TakeOrOnly<'_, T, T>
+    pub fn pop_last_or(&mut self) -> TakeOr<'_, T, T>
     where
         T: Ord,
     {
         // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOrOnly::take_with(self, (), |items, _| unsafe {
+        TakeOr::take_with(self, (), |items, _| unsafe {
             items.items.pop_last().unwrap_maybe_unchecked()
         })
     }
@@ -272,22 +272,22 @@ impl<T> BTreeSet1<T> {
         self.last()
     }
 
-    pub fn remove_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOrOnly<'a, T, bool, &'a Q>
+    pub fn remove_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOr<'a, T, bool, &'a Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOrOnly::take_with(self, query, |items, query| {
+        TakeOr::take_with(self, query, |items, query| {
             items.items.take(query).is_some()
         })
     }
 
-    pub fn take_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOrOnly<'a, T, Option<T>, &'a Q>
+    pub fn take_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOr<'a, T, Option<T>, &'a Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOrOnly::take_with(self, query, |items, query| items.items.take(query))
+        TakeOr::take_with(self, query, |items, query| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>

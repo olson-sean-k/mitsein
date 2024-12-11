@@ -104,9 +104,9 @@ impl<T> Vacancy for VecDeque<T> {
     }
 }
 
-pub type TakeOrOnly<'a, T, U, N = ()> = crate::reshape::TakeOrOnly<'a, VecDeque<T>, U, N>;
+pub type TakeOr<'a, T, U, N = ()> = crate::reshape::TakeOr<'a, VecDeque<T>, U, N>;
 
-impl<'a, T, N> TakeOrOnly<'a, T, T, N> {
+impl<'a, T, N> TakeOr<'a, T, T, N> {
     pub fn get_only(self) -> Result<T, &'a T> {
         self.many_or_else(|items, _| items.front())
     }
@@ -123,7 +123,7 @@ impl<'a, T, N> TakeOrOnly<'a, T, T, N> {
     }
 }
 
-impl<'a, T> TakeOrOnly<'a, T, Option<T>, usize> {
+impl<'a, T> TakeOr<'a, T, Option<T>, usize> {
     pub fn get(self) -> Option<Result<T, &'a T>> {
         self.try_many_or_else(|items, index| items.get(index))
     }
@@ -237,16 +237,16 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_or(&mut self) -> TakeOrOnly<'_, T, T> {
+    pub fn pop_front_or(&mut self) -> TakeOr<'_, T, T> {
         // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOrOnly::take_with(self, (), |items, ()| unsafe {
+        TakeOr::take_with(self, (), |items, ()| unsafe {
             items.items.pop_front().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn pop_back_or(&mut self) -> TakeOrOnly<'_, T, T> {
+    pub fn pop_back_or(&mut self) -> TakeOr<'_, T, T> {
         // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOrOnly::take_with(self, (), |items, ()| unsafe {
+        TakeOr::take_with(self, (), |items, ()| unsafe {
             items.items.pop_back().unwrap_maybe_unchecked()
         })
     }
@@ -255,18 +255,18 @@ impl<T> VecDeque1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> TakeOrOnly<'_, T, Option<T>, usize> {
-        TakeOrOnly::take_with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, Option<T>, usize> {
+        TakeOr::take_with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_front_or(&mut self, index: usize) -> TakeOrOnly<'_, T, Option<T>, usize> {
-        TakeOrOnly::take_with(self, index, |items, index| {
+    pub fn swap_remove_front_or(&mut self, index: usize) -> TakeOr<'_, T, Option<T>, usize> {
+        TakeOr::take_with(self, index, |items, index| {
             items.items.swap_remove_front(index)
         })
     }
 
-    pub fn swap_remove_back_or(&mut self, index: usize) -> TakeOrOnly<'_, T, Option<T>, usize> {
-        TakeOrOnly::take_with(self, index, |items, index| {
+    pub fn swap_remove_back_or(&mut self, index: usize) -> TakeOr<'_, T, Option<T>, usize> {
+        TakeOr::take_with(self, index, |items, index| {
             items.items.swap_remove_back(index)
         })
     }

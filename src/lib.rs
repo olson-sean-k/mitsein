@@ -368,7 +368,7 @@ use crate::reshape::{PutItem, PutWith};
 use crate::serde::{EmptyError, Serde};
 
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
-pub use reshape::{PutOrLast, TakeOrOnly};
+pub use reshape::{PutOr, TakeOr};
 pub use segment::{Segment, Segmentation, SegmentedBy};
 
 trait NonZeroExt<T> {
@@ -437,15 +437,15 @@ pub trait Vacancy {
 }
 
 pub trait OrSaturated<T> {
-    fn push_or(&mut self, item: T) -> PutOrLast<'_, Self, T, (), PutItem>;
+    fn push_or(&mut self, item: T) -> PutOr<'_, Self, T, (), PutItem>;
 
-    fn push_with_or<F>(&mut self, f: F) -> PutOrLast<'_, Self, F, (), PutWith>
+    fn push_with_or<F>(&mut self, f: F) -> PutOr<'_, Self, F, (), PutWith>
     where
         F: FnOnce() -> T;
 
-    fn insert_or(&mut self, index: usize, item: T) -> PutOrLast<'_, Self, T, usize, PutItem>;
+    fn insert_or(&mut self, index: usize, item: T) -> PutOr<'_, Self, T, usize, PutItem>;
 
-    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOrLast<'_, Self, F, usize, PutWith>
+    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOr<'_, Self, F, usize, PutWith>
     where
         F: FnOnce() -> T;
 }
