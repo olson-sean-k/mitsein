@@ -301,6 +301,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod reshape;
 mod safety;
 mod segment;
 mod serde;
@@ -329,12 +330,6 @@ mod sealed {
     pub unsafe trait MaybeEmpty: Sized {
         fn cardinality(&self) -> Option<Cardinality<(), ()>>;
     }
-
-    #[derive(Debug)]
-    pub enum PutItem {}
-
-    #[derive(Debug)]
-    pub enum PutWith {}
 }
 use crate::sealed::*;
 
@@ -358,8 +353,7 @@ pub mod prelude {
     };
 }
 
-use core::fmt::{self, Debug, Formatter};
-use core::marker::PhantomData;
+use core::fmt::Debug;
 use core::mem;
 use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
@@ -368,9 +362,13 @@ use {
     ::serde_derive::{Deserialize, Serialize},
 };
 
+#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+use crate::reshape::{PutItem, PutWith};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
+#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+pub use reshape::{PutOrLast, TakeOrOnly};
 pub use segment::{Segment, Segmentation, SegmentedBy};
 
 trait NonZeroExt<T> {
@@ -546,133 +544,6 @@ where
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
         //         `NonEmpty<T>` are the same.
         mem::transmute::<&'_ mut T, &'_ mut NonEmpty<T>>(items)
-    }
-}
-
-//#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-#[derive(Debug)]
-#[must_use]
-pub struct PutOrLast<'a, T, U, N = (), B = PutItem>
-where
-    T: ?Sized,
-{
-    items: &'a mut T,
-    index: N,
-    item: U,
-    vacancy: fn(&mut T, N, U),
-    phantom: PhantomData<fn() -> B>,
-}
-
-impl<'a, T, U, N, B> PutOrLast<'a, T, U, N, B>
-where
-    T: ?Sized,
-{
-    fn put_with(items: &'a mut T, index: N, item: U, vacancy: fn(&mut T, N, U)) -> Self {
-        PutOrLast {
-            items,
-            index,
-            item,
-            vacancy,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a, T, U, N, B> PutOrLast<'a, T, U, N, B>
-where
-    T: ?Sized,
-{
-    fn vacancy_or_else<E, F>(self, saturated: F) -> Result<(), E>
-    where
-        T: Vacancy,
-        F: FnOnce(&'a mut T, N, U) -> E,
-    {
-        let PutOrLast {
-            items,
-            index,
-            item,
-            vacancy,
-            ..
-        } = self;
-        match items.vacancy() {
-            0 => Err(saturated(items, index, item)),
-            _ => {
-                (vacancy)(items, index, item);
-                Ok(())
-            },
-        }
-    }
-}
-
-//#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-#[must_use]
-pub struct TakeOrOnly<'a, T, U, N = ()>
-where
-    T: ?Sized,
-{
-    items: &'a mut NonEmpty<T>,
-    index: N,
-    many: fn(&mut NonEmpty<T>, N) -> U,
-}
-
-impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
-where
-    T: ?Sized,
-{
-    fn take_with(items: &'a mut NonEmpty<T>, index: N, many: fn(&mut NonEmpty<T>, N) -> U) -> Self {
-        TakeOrOnly { items, index, many }
-    }
-}
-
-impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
-where
-    T: MaybeEmpty + ?Sized,
-{
-    fn many_or_else<E, F>(self, one: F) -> Result<U, E>
-    where
-        F: FnOnce(&'a mut NonEmpty<T>, N) -> E,
-    {
-        let TakeOrOnly { items, index, many } = self;
-        match items.cardinality() {
-            Cardinality::One(_) => Err(one(items, index)),
-            Cardinality::Many(_) => Ok((many)(items, index)),
-        }
-    }
-
-    pub fn none(self) -> Option<U> {
-        self.many_or_else(|_, _| ()).ok()
-    }
-}
-
-impl<'a, T, U, N> TakeOrOnly<'a, T, Option<U>, N>
-where
-    T: MaybeEmpty + ?Sized,
-{
-    fn try_many_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
-    where
-        F: FnOnce(&'a mut NonEmpty<T>, N) -> Option<E>,
-    {
-        let TakeOrOnly { items, index, many } = self;
-        match items.cardinality() {
-            Cardinality::One(_) => one(items, index).map(Err),
-            Cardinality::Many(_) => (many)(items, index).map(Ok),
-        }
-    }
-}
-
-impl<'a, T, U, N> Debug for TakeOrOnly<'a, T, U, N>
-where
-    NonEmpty<T>: Debug,
-    T: ?Sized,
-    N: Debug,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("TakeOrOnly")
-            .field("items", &self.items)
-            .field("index", &self.index)
-            .field("many", &self.many)
-            .finish()
     }
 }
 

@@ -17,6 +17,7 @@ use std::io::{self, IoSlice, Write};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
+use crate::reshape::{PutItem, PutWith};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
@@ -25,9 +26,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{
-    Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, PutItem, PutWith, Vacancy,
-};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => Vec,
@@ -139,7 +138,7 @@ where
     }
 }
 
-pub type PutOrLast<'a, T, U, N = (), B = PutItem> = crate::PutOrLast<'a, Vec1<T>, U, N, B>;
+pub type PutOrLast<'a, T, U, N = (), B = PutItem> = crate::reshape::PutOrLast<'a, Vec1<T>, U, N, B>;
 
 impl<'a, T, N> PutOrLast<'a, T, T, N, PutItem> {
     pub fn get_last(self) -> Result<(), (T, &'a T)> {
@@ -215,7 +214,7 @@ where
     }
 }
 
-pub type TakeOrOnly<'a, T, N = ()> = crate::TakeOrOnly<'a, Vec<T>, T, N>;
+pub type TakeOrOnly<'a, T, N = ()> = crate::reshape::TakeOrOnly<'a, Vec<T>, T, N>;
 
 impl<'a, T, N> TakeOrOnly<'a, T, N> {
     pub fn get_only(self) -> Result<T, &'a T> {

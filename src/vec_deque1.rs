@@ -104,7 +104,7 @@ impl<T> Vacancy for VecDeque<T> {
     }
 }
 
-pub type TakeOrOnly<'a, T, U, N = ()> = crate::TakeOrOnly<'a, VecDeque<T>, U, N>;
+pub type TakeOrOnly<'a, T, U, N = ()> = crate::reshape::TakeOrOnly<'a, VecDeque<T>, U, N>;
 
 impl<'a, T, N> TakeOrOnly<'a, T, T, N> {
     pub fn get_only(self) -> Result<T, &'a T> {

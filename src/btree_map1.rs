@@ -376,7 +376,7 @@ where
     }
 }
 
-pub type TakeOrOnly<'a, K, V, U, N = ()> = crate::TakeOrOnly<'a, BTreeMap<K, V>, U, N>;
+pub type TakeOrOnly<'a, K, V, U, N = ()> = crate::reshape::TakeOrOnly<'a, BTreeMap<K, V>, U, N>;
 
 impl<'a, K, V, U, N> TakeOrOnly<'a, K, V, U, N>
 where

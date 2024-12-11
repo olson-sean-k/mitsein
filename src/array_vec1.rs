@@ -20,13 +20,12 @@ use crate::array1::Array1;
 use crate::iter1::{
     self, Extend1, ExtendUntil, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1,
 };
+use crate::reshape::{PutItem, PutWith};
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{
-    Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, PutItem, PutWith, Vacancy,
-};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,
@@ -34,7 +33,7 @@ segment::impl_target_forward_type_and_definition!(
     ArrayVecSegment,
 );
 
-impl<'a, T, M, const N: usize> crate::PutOrLast<'a, ArrayVec<T, N>, T, M, PutItem>
+impl<'a, T, M, const N: usize> crate::reshape::PutOrLast<'a, ArrayVec<T, N>, T, M, PutItem>
 where
     [T; N]: Array1,
 {
@@ -67,7 +66,7 @@ where
     }
 }
 
-impl<'a, T, U, M, const N: usize> crate::PutOrLast<'a, ArrayVec<T, N>, U, M, PutWith>
+impl<'a, T, U, M, const N: usize> crate::reshape::PutOrLast<'a, ArrayVec<T, N>, U, M, PutWith>
 where
     [T; N]: Array1,
     U: FnOnce() -> T,
@@ -96,7 +95,7 @@ where
     }
 }
 
-impl<'a, T, const N: usize> crate::PutOrLast<'a, ArrayVec<T, N>, T, usize, PutItem>
+impl<'a, T, const N: usize> crate::reshape::PutOrLast<'a, ArrayVec<T, N>, T, usize, PutItem>
 where
     [T; N]: Array1,
 {
@@ -116,7 +115,7 @@ where
     }
 }
 
-impl<'a, T, U, const N: usize> crate::PutOrLast<'a, ArrayVec<T, N>, U, usize, PutWith>
+impl<'a, T, U, const N: usize> crate::reshape::PutOrLast<'a, ArrayVec<T, N>, U, usize, PutWith>
 where
     [T; N]: Array1,
     U: FnOnce() -> T,
@@ -160,19 +159,23 @@ impl<T, const N: usize> OrSaturated<T> for ArrayVec<T, N>
 where
     [T; N]: Array1,
 {
-    fn push_or(&mut self, item: T) -> crate::PutOrLast<'_, Self, T, ()> {
-        crate::PutOrLast::put_with(self, (), item, |items, (), item| items.push(item))
+    fn push_or(&mut self, item: T) -> crate::reshape::PutOrLast<'_, Self, T, ()> {
+        crate::reshape::PutOrLast::put_with(self, (), item, |items, (), item| items.push(item))
     }
 
-    fn push_with_or<F>(&mut self, f: F) -> crate::PutOrLast<'_, Self, F, (), PutWith>
+    fn push_with_or<F>(&mut self, f: F) -> crate::reshape::PutOrLast<'_, Self, F, (), PutWith>
     where
         F: FnOnce() -> T,
     {
-        crate::PutOrLast::put_with(self, (), f, |items, (), f| items.push(f()))
+        crate::reshape::PutOrLast::put_with(self, (), f, |items, (), f| items.push(f()))
     }
 
-    fn insert_or(&mut self, index: usize, item: T) -> crate::PutOrLast<'_, Self, T, usize> {
-        crate::PutOrLast::put_with(self, index, item, |items, index, item| {
+    fn insert_or(
+        &mut self,
+        index: usize,
+        item: T,
+    ) -> crate::reshape::PutOrLast<'_, Self, T, usize> {
+        crate::reshape::PutOrLast::put_with(self, index, item, |items, index, item| {
             items.insert(index, item)
         })
     }
@@ -181,11 +184,13 @@ where
         &mut self,
         index: usize,
         f: F,
-    ) -> crate::PutOrLast<'_, Self, F, usize, PutWith>
+    ) -> crate::reshape::PutOrLast<'_, Self, F, usize, PutWith>
     where
         F: FnOnce() -> T,
     {
-        crate::PutOrLast::put_with(self, index, f, |items, index, f| items.insert(index, f()))
+        crate::reshape::PutOrLast::put_with(self, index, f, |items, index, f| {
+            items.insert(index, f())
+        })
     }
 }
 
@@ -265,7 +270,8 @@ impl<T, const N: usize> Vacancy for ArrayVec<T, N> {
     }
 }
 
-pub type PutOrLast<'a, T, U, M, B, const N: usize> = crate::PutOrLast<'a, ArrayVec1<T, N>, U, M, B>;
+pub type PutOrLast<'a, T, U, M, B, const N: usize> =
+    crate::reshape::PutOrLast<'a, ArrayVec1<T, N>, U, M, B>;
 
 impl<'a, T, M, const N: usize> PutOrLast<'a, T, T, M, PutItem, N>
 where
@@ -349,7 +355,8 @@ where
     }
 }
 
-pub type TakeOrOnly<'a, T, M, const N: usize> = crate::TakeOrOnly<'a, ArrayVec<T, N>, T, M>;
+pub type TakeOrOnly<'a, T, M, const N: usize> =
+    crate::reshape::TakeOrOnly<'a, ArrayVec<T, N>, T, M>;
 
 impl<'a, T, M, const N: usize> TakeOrOnly<'a, T, M, N>
 where

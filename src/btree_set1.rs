@@ -109,7 +109,7 @@ where
     type Target = Self;
 }
 
-pub type TakeOrOnly<'a, T, U, N = ()> = crate::TakeOrOnly<'a, BTreeSet<T>, U, N>;
+pub type TakeOrOnly<'a, T, U, N = ()> = crate::reshape::TakeOrOnly<'a, BTreeSet<T>, U, N>;
 
 impl<'a, T, U, N> TakeOrOnly<'a, T, U, N>
 where
