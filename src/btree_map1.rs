@@ -12,6 +12,7 @@ use core::ops::RangeBounds;
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
+use crate::reshape;
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
@@ -376,7 +377,7 @@ where
     }
 }
 
-pub type TakeOr<'a, K, V, U, N = ()> = crate::reshape::TakeOr<'a, BTreeMap<K, V>, U, N>;
+pub type TakeOr<'a, K, V, U, N = ()> = reshape::TakeOr<'a, BTreeMap<K, V>, U, N>;
 
 impl<'a, K, V, U, N> TakeOr<'a, K, V, U, N>
 where

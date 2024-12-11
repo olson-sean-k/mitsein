@@ -195,8 +195,7 @@
 //! assert_eq!(vacancy, 3);
 #![doc = "```"]
 //!
-//! See the [`Vacancy`] and [`OrSaturated`] traits and also the [`ExtendUntil`] and
-//! [`FromIteratorUntil`] traits.
+//! See the [`Vacancy`] trait and also the [`ExtendUntil`] and [`FromIteratorUntil`] traits.
 //!
 //! # Integrations and Cargo Features
 //!
@@ -337,6 +336,8 @@ pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
 
     pub use crate::array1::Array1;
+    #[cfg(feature = "arrayvec")]
+    pub use crate::array_vec1::ArrayVecExt as _;
     pub use crate::iter1::{
         Extend1, ExtendUntil, FromIterator1, FromIteratorUntil, IntoIterator1, IteratorExt as _,
         QueryAnd, ThenIterator1,
@@ -344,7 +345,7 @@ pub mod prelude {
     pub use crate::slice1::{slice1, Slice1};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
-    pub use crate::{OrSaturated, Segmentation, Vacancy};
+    pub use crate::{Segmentation, Vacancy};
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
@@ -362,8 +363,6 @@ use {
     ::serde_derive::{Deserialize, Serialize},
 };
 
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-use crate::reshape::{PutItem, PutWith};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
@@ -436,20 +435,6 @@ pub trait Vacancy {
     fn vacancy(&self) -> usize;
 }
 
-pub trait OrSaturated<T> {
-    fn push_or(&mut self, item: T) -> PutOr<'_, Self, T, (), PutItem>;
-
-    fn push_with_or<F>(&mut self, f: F) -> PutOr<'_, Self, F, (), PutWith>
-    where
-        F: FnOnce() -> T;
-
-    fn insert_or(&mut self, index: usize, item: T) -> PutOr<'_, Self, T, usize, PutItem>;
-
-    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOr<'_, Self, F, usize, PutWith>
-    where
-        F: FnOnce() -> T;
-}
-
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(
     feature = "serde",
@@ -472,6 +457,7 @@ where
     items: T,
 }
 
+#[cfg(any(feature = "arrayvec", feature = "alloc"))]
 impl<T> NonEmpty<T>
 where
     T: MaybeEmpty + ?Sized,
@@ -484,6 +470,7 @@ where
         }
     }
 
+    #[cfg(feature = "alloc")]
     fn as_cardinality_items_mut(&mut self) -> Cardinality<&mut T, &mut T> {
         match self.cardinality() {
             Cardinality::One(_) => Cardinality::One(&mut self.items),

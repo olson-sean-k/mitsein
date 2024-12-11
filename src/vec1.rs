@@ -17,7 +17,7 @@ use std::io::{self, IoSlice, Write};
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
-use crate::reshape::{PutItem, PutWith};
+use crate::reshape::{self, PutItem, PutWith};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
@@ -26,7 +26,7 @@ use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty, Vacancy};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => Vec,
@@ -138,7 +138,7 @@ where
     }
 }
 
-pub type PutOr<'a, T, U, N = (), B = PutItem> = crate::reshape::PutOr<'a, Vec1<T>, U, N, B>;
+pub type PutOr<'a, T, U, N = (), B = PutItem> = reshape::PutOr<'a, Vec1<T>, U, N, B>;
 
 impl<'a, T, N> PutOr<'a, T, T, N, PutItem> {
     pub fn get_last(self) -> Result<(), (T, &'a T)> {
@@ -214,7 +214,7 @@ where
     }
 }
 
-pub type TakeOr<'a, T, N = ()> = crate::reshape::TakeOr<'a, Vec<T>, T, N>;
+pub type TakeOr<'a, T, N = ()> = reshape::TakeOr<'a, Vec<T>, T, N>;
 
 impl<'a, T, N> TakeOr<'a, T, N> {
     pub fn get_only(self) -> Result<T, &'a T> {
@@ -355,6 +355,17 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
+    pub fn push_or(&mut self, item: T) -> PutOr<'_, T, T> {
+        PutOr::put_with(self, (), item, |items, (), item| items.push(item))
+    }
+
+    pub fn push_with_or<F>(&mut self, f: F) -> PutOr<'_, T, F, (), PutWith>
+    where
+        F: FnOnce() -> T,
+    {
+        PutOr::put_with(self, (), f, |items, (), f| items.push(f()))
+    }
+
     pub fn pop_or(&mut self) -> TakeOr<'_, T> {
         // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
         TakeOr::take_with(self, (), |items, ()| unsafe {
@@ -364,6 +375,19 @@ impl<T> Vec1<T> {
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
+    }
+
+    pub fn insert_or(&mut self, index: usize, item: T) -> PutOr<'_, T, T, usize> {
+        PutOr::put_with(self, index, item, |items, index, item| {
+            items.insert(index, item)
+        })
+    }
+
+    pub fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOr<'_, T, F, usize, PutWith>
+    where
+        F: FnOnce() -> T,
+    {
+        PutOr::put_with(self, index, f, |items, index, f| items.insert(index, f()))
     }
 
     pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize> {
@@ -591,32 +615,6 @@ impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
-    }
-}
-
-impl<T> OrSaturated<T> for Vec1<T> {
-    fn push_or(&mut self, item: T) -> PutOr<'_, T, T> {
-        PutOr::put_with(self, (), item, |items, (), item| items.push(item))
-    }
-
-    fn push_with_or<F>(&mut self, f: F) -> PutOr<'_, T, F, (), PutWith>
-    where
-        F: FnOnce() -> T,
-    {
-        PutOr::put_with(self, (), f, |items, (), f| items.push(f()))
-    }
-
-    fn insert_or(&mut self, index: usize, item: T) -> PutOr<'_, T, T, usize> {
-        PutOr::put_with(self, index, item, |items, index, item| {
-            items.insert(index, item)
-        })
-    }
-
-    fn insert_with_or<F>(&mut self, index: usize, f: F) -> PutOr<'_, T, F, usize, PutWith>
-    where
-        F: FnOnce() -> T,
-    {
-        PutOr::put_with(self, index, f, |items, index, f| items.insert(index, f()))
     }
 }
 

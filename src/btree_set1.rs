@@ -12,6 +12,7 @@ use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
+use crate::reshape;
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
@@ -109,7 +110,7 @@ where
     type Target = Self;
 }
 
-pub type TakeOr<'a, T, U, N = ()> = crate::reshape::TakeOr<'a, BTreeSet<T>, U, N>;
+pub type TakeOr<'a, T, U, N = ()> = reshape::TakeOr<'a, BTreeSet<T>, U, N>;
 
 impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where

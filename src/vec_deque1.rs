@@ -15,6 +15,7 @@ use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
+use crate::reshape;
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
@@ -104,7 +105,7 @@ impl<T> Vacancy for VecDeque<T> {
     }
 }
 
-pub type TakeOr<'a, T, U, N = ()> = crate::reshape::TakeOr<'a, VecDeque<T>, U, N>;
+pub type TakeOr<'a, T, U, N = ()> = reshape::TakeOr<'a, VecDeque<T>, U, N>;
 
 impl<'a, T, N> TakeOr<'a, T, T, N> {
     pub fn get_only(self) -> Result<T, &'a T> {

@@ -1,5 +1,4 @@
 #![cfg(any(feature = "arrayvec", feature = "alloc"))]
-#![cfg_attr(docsrs, doc(cfg(any(feature = "arrayvec", feature = "alloc"))))]
 
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
@@ -113,6 +112,7 @@ impl<'a, T, U, N> TakeOr<'a, T, Option<U>, N>
 where
     T: MaybeEmpty + ?Sized,
 {
+    #[cfg(feature = "alloc")]
     pub(crate) fn try_many_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> Option<E>,
