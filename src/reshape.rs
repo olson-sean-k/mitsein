@@ -1,4 +1,5 @@
 #![cfg(any(feature = "arrayvec", feature = "alloc"))]
+#![cfg_attr(docsrs, doc(cfg(any(feature = "arrayvec", feature = "alloc"))))]
 
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
