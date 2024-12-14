@@ -166,38 +166,6 @@
 //!
 //! See the [`Segmentation`] trait.
 //!
-//! # Vacancy and Saturation
-//!
-//! This crate provides collection and iterator APIs for interacting with capacity. Collections can
-//! be queried for vacancy and collecting and extending into collections can be limited to
-//! capacity.
-#![doc = ""]
-#![cfg_attr(all(feature = "alloc", feature = "arrayvec"), doc = "```rust")]
-#![cfg_attr(
-    not(all(feature = "alloc", feature = "arrayvec")),
-    doc = "```rust,ignore"
-)]
-//! use mitsein::array_vec1::ArrayVec1;
-//! use mitsein::iter1;
-//! use mitsein::prelude::*;
-//!
-//! let mut xs: ArrayVec1<_, 4> = iter1::repeat(0i64).saturate();
-//! assert_eq!(xs.push_or_get_last(42), Err((42, &0)));
-//!
-//! let mut ys = Vec1::from_one_with_capacity(0i64, 4);
-//! let vacancy = ys.vacancy();
-//! ys.saturate(iter1::repeat(1i64));
-//! assert_eq!(ys.insert_or_get(1, 88), Err((88, &1)));
-//!
-//! assert_eq!(xs.as_slice(), &[0, 0, 0, 0]);
-//! assert_eq!(ys.as_slice(), &[0, 1, 1, 1]);
-//! assert_eq!(ys.vacancy(), 0);
-//! assert_eq!(vacancy, 3);
-#![doc = "```"]
-//!
-//! See the [`Vacancy`] and [`OrSaturated`] traits and also the [`ExtendUntil`] and
-//! [`FromIteratorUntil`] traits.
-//!
 //! # Integrations and Cargo Features
 //!
 //! Mitsein supports `no_std` environments and provides features for integrating as needed with
@@ -322,13 +290,12 @@ pub mod prelude {
 
     pub use crate::array1::Array1;
     pub use crate::iter1::{
-        Extend1, ExtendUntil, FromIterator1, FromIteratorUntil, IntoIterator1, IteratorExt as _,
-        QueryAnd, ThenIterator1,
+        Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
     };
     pub use crate::slice1::{slice1, Slice1};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
-    pub use crate::{OrSaturated, Segmentation, Vacancy};
+    pub use crate::Segmentation;
     #[cfg(feature = "alloc")]
     pub use {
         crate::boxed1::BoxedSlice1Ext as _,
@@ -413,28 +380,6 @@ where
     ///
     /// `items` must be non-empty. See [`MaybeEmpty::is_empty`].
     unsafe fn from_maybe_empty_unchecked(items: T) -> Self;
-}
-
-pub trait Vacancy {
-    fn vacancy(&self) -> usize;
-}
-
-pub trait OrSaturated<T> {
-    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)>;
-
-    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
-    where
-        F: FnOnce() -> T;
-
-    fn push_or_replace_last(&mut self, item: T) -> Result<(), T>;
-
-    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)>;
-
-    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
-    where
-        F: FnOnce() -> T;
-
-    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T>;
 }
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -565,27 +510,6 @@ impl<T> Cardinality<T, T> {
             Cardinality::One(one) => Cardinality::One(f(one)),
             Cardinality::Many(many) => Cardinality::Many(f(many)),
         }
-    }
-}
-
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-fn vacancy_with_or_else<'a, T, U, O, E, F, V, S>(
-    items: &'a mut T,
-    f: F,
-    vacant: V,
-    saturated: S,
-) -> Result<O, E>
-where
-    T: Vacancy,
-    F: FnOnce() -> U,
-    V: FnOnce(F, &'a mut T) -> O,
-    S: FnOnce(F, &'a mut T) -> E,
-{
-    if items.vacancy() > 0 {
-        Ok(vacant(f, items))
-    }
-    else {
-        Err(saturated(f, items))
     }
 }
 

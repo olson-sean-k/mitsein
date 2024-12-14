@@ -17,14 +17,12 @@ use {
 };
 
 use crate::array1::Array1;
-use crate::iter1::{
-    self, Extend1, ExtendUntil, Feed, FromIterator1, FromIteratorUntil, IntoIterator1, Iterator1,
-};
+use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _, SliceExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, OrSaturated, Vacancy};
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 segment::impl_target_forward_type_and_definition!(
     for <T, [const N: usize]> => ArrayVec,
@@ -47,78 +45,6 @@ where
         //         `items` is non-empty, and `extend` either pushes one or more items or panics, so
         //         `self` must be non-empty here.
         unsafe { ArrayVec1::from_array_vec_unchecked(self) }
-    }
-}
-
-impl<T, const N: usize> OrSaturated<T> for ArrayVec<T, N>
-where
-    [T; N]: Array1,
-{
-    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
-        self::push_or_else(self, item, |item, items| {
-            // SAFETY: `push_or_else` executes this only if `items` is saturated and the bound
-            //         `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
-            //         last item.
-            (item, unsafe { items.last().unwrap_maybe_unchecked() })
-        })
-    }
-
-    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
-    where
-        F: FnOnce() -> T,
-    {
-        // SAFETY: `push_with_or_else` executes this only if `items` is saturated and the bound
-        //         `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a last
-        //         item.
-        self::push_with_or_else(self, f, |_, items| unsafe {
-            items.last().unwrap_maybe_unchecked()
-        })
-    }
-
-    fn push_or_replace_last(&mut self, item: T) -> Result<(), T> {
-        self::push_or_else(self, item, |item, items| {
-            // SAFETY: `push_or_else` executes this only if `items` is saturated and the bound
-            //         `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
-            //         last item.
-            mem::replace(unsafe { items.last_mut().unwrap_maybe_unchecked() }, item)
-        })
-    }
-
-    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
-        self::insert_or_else(self, index, item, move |item, items| (item, &items[index]))
-    }
-
-    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
-    where
-        F: FnOnce() -> T,
-    {
-        self::insert_with_or_else(self, index, f, move |_, items| &items[index])
-    }
-
-    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T> {
-        self::insert_or_else(self, index, item, move |item, items| {
-            mem::replace(&mut items[index], item)
-        })
-    }
-}
-
-impl<T, I, const N: usize> ExtendUntil<I> for ArrayVec<T, N>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
-    }
-}
-
-impl<T, I, const N: usize> FromIteratorUntil<I> for ArrayVec<T, N>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturated_and(items: I) -> Feed<Self, I::IntoIter> {
-        let mut remainder = items.into_iter();
-        let items: ArrayVec<_, N> = remainder.by_ref().take(N).collect();
-        Feed(items, remainder)
     }
 }
 
@@ -166,12 +92,6 @@ where
 impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
     type Kind = ArrayVecTarget<Self>;
     type Target = Self;
-}
-
-impl<T, const N: usize> Vacancy for ArrayVec<T, N> {
-    fn vacancy(&self) -> usize {
-        self.capacity() - self.len()
-    }
 }
 
 pub type ArrayVec1<T, const N: usize> = NonEmpty<ArrayVec<T, N>>;
@@ -476,16 +396,6 @@ impl<T, const N: usize> Extend<T> for ArrayVec1<T, N> {
     }
 }
 
-impl<T, I, const N: usize> ExtendUntil<I> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
-    }
-}
-
 impl<T, const N: usize> From<[T; N]> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
@@ -527,20 +437,6 @@ where
     }
 }
 
-impl<T, I, const N: usize> FromIteratorUntil<I> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-    I: IntoIterator1<Item = T>,
-{
-    fn saturated_and(items: I) -> Feed<Self, I::IntoIter> {
-        let mut remainder = items.into_iter1().into_iter();
-        // SAFETY: `items` is non-empty, so `remainder` is also non-empty. `N` is non-zero.
-        let items =
-            unsafe { ArrayVec1::from_array_vec_unchecked(remainder.by_ref().take(N).collect()) };
-        Feed(items, remainder)
-    }
-}
-
 impl<T, const N: usize> IntoIterator for ArrayVec1<T, N> {
     type Item = T;
     type IntoIter = arrayvec::IntoIter<T, N>;
@@ -554,41 +450,6 @@ impl<T, const N: usize> IntoIterator1 for ArrayVec1<T, N> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
-    }
-}
-
-impl<T, const N: usize> OrSaturated<T> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-{
-    fn push_or_get_last(&mut self, item: T) -> Result<(), (T, &T)> {
-        self.items.push_or_get_last(item)
-    }
-
-    fn push_with_or_get_last<F>(&mut self, f: F) -> Result<(), &T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.items.push_with_or_get_last(f)
-    }
-
-    fn push_or_replace_last(&mut self, item: T) -> Result<(), T> {
-        self.items.push_or_replace_last(item)
-    }
-
-    fn insert_or_get(&mut self, index: usize, item: T) -> Result<(), (T, &T)> {
-        self.items.insert_or_get(index, item)
-    }
-
-    fn insert_with_or_get<F>(&mut self, index: usize, f: F) -> Result<(), &T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.items.insert_with_or_get(index, f)
-    }
-
-    fn insert_or_replace(&mut self, index: usize, item: T) -> Result<(), T> {
-        self.items.insert_or_replace(index, item)
     }
 }
 
@@ -662,15 +523,6 @@ where
     }
 }
 
-impl<T, const N: usize> Vacancy for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-{
-    fn vacancy(&self) -> usize {
-        self.capacity().get() - self.len().get()
-    }
-}
-
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<const N: usize> Write for ArrayVec1<u8, N>
@@ -678,8 +530,8 @@ where
     [u8; N]: Array1,
 {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        let len = cmp::min(self.items.vacancy(), buffer.len());
-        let _ = self.items.saturate(buffer.iter().copied());
+        let len = cmp::min(self.items.capacity() - self.items.len(), buffer.len());
+        let _ = self.items.extend(buffer.iter().take(len).copied());
         Ok(len)
     }
 
@@ -855,16 +707,6 @@ where
     }
 }
 
-impl<'a, K, T, I, const N: usize> ExtendUntil<I> for ArrayVecSegment<'a, K>
-where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
-    }
-}
-
 impl<'a, K, T, const N: usize> Ord for ArrayVecSegment<'a, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
@@ -922,73 +764,6 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> Vacancy for ArrayVecSegment<'a, K>
-where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
-{
-    fn vacancy(&self) -> usize {
-        self.items.vacancy()
-    }
-}
-
-fn push_or_else<'a, T, E, S, const N: usize>(
-    items: &'a mut ArrayVec<T, N>,
-    item: T,
-    saturated: S,
-) -> Result<(), E>
-where
-    S: FnOnce(T, &'a mut ArrayVec<T, N>) -> E,
-{
-    self::push_with_or_else(items, move || item, move |f, items| saturated(f(), items))
-}
-
-fn push_with_or_else<'a, T, E, F, S, const N: usize>(
-    items: &'a mut ArrayVec<T, N>,
-    f: F,
-    saturated: S,
-) -> Result<(), E>
-where
-    F: FnOnce() -> T,
-    S: FnOnce(F, &'a mut ArrayVec<T, N>) -> E,
-{
-    crate::vacancy_with_or_else(items, f, |f, items| items.push(f()), saturated)
-}
-
-fn insert_or_else<'a, T, E, S, const N: usize>(
-    items: &'a mut ArrayVec<T, N>,
-    index: usize,
-    item: T,
-    saturated: S,
-) -> Result<(), E>
-where
-    S: FnOnce(T, &'a mut ArrayVec<T, N>) -> E,
-{
-    self::insert_with_or_else(
-        items,
-        index,
-        move || item,
-        move |f, items| saturated(f(), items),
-    )
-}
-
-fn insert_with_or_else<'a, T, E, F, S, const N: usize>(
-    items: &'a mut ArrayVec<T, N>,
-    index: usize,
-    f: F,
-    saturated: S,
-) -> Result<(), E>
-where
-    F: FnOnce() -> T,
-    S: FnOnce(F, &'a mut ArrayVec<T, N>) -> E,
-{
-    crate::vacancy_with_or_else(
-        items,
-        f,
-        move |f, items| items.insert(index, f()),
-        saturated,
-    )
-}
-
 #[cfg(test)]
 pub mod harness {
     use rstest::fixture;
@@ -1006,14 +781,12 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
-    use arrayvec::ArrayVec;
     use rstest::rstest;
     #[cfg(feature = "serde")]
-    use serde_test::Token;
+    use {arrayvec::ArrayVec, serde_test::Token};
 
     use crate::array_vec1::harness::{self, CAPACITY};
     use crate::array_vec1::ArrayVec1;
-    use crate::iter1::{self, Feed, IteratorExt as _};
     use crate::Segmentation;
     #[cfg(feature = "serde")]
     use crate::{
@@ -1060,19 +833,6 @@ mod tests {
                 &head_and_tail[..1]
             }
         );
-    }
-
-    #[rstest]
-    #[case::saturated([0, 1, 2, 3], Feed([0, 1, 2].into(), [3]))]
-    #[case::saturated([0, 1, 2, 3, 4], Feed([0, 1, 2].into(), [3, 4]))]
-    #[case::vacant([0, 1], Feed([0, 1].into_iter().collect(), []))]
-    #[case::vacant([0], Feed([0].into_iter().collect(), []))]
-    fn saturate_array_vec_from_iter_then_feed_eq(
-        #[case] items: impl IntoIterator<Item = u8>,
-        #[case] expected: Feed<ArrayVec<u8, 3>, impl IntoIterator<Item = u8>>,
-    ) {
-        let feed: Feed<ArrayVec<_, 3>, _> = items.into_iter().saturate_and();
-        iter1::harness::assert_feed_eq(feed, expected)
     }
 
     #[cfg(feature = "serde")]

@@ -14,6 +14,11 @@ use core::iter::{
 use core::num::NonZeroUsize;
 use core::option;
 use core::result;
+#[cfg(feature = "itertools")]
+use itertools::{
+    Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
+    MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
+};
 #[cfg(all(feature = "std", feature = "itertools"))]
 use itertools::{Unique, UniqueBy};
 #[cfg(all(feature = "alloc", feature = "itertools"))]
@@ -22,20 +27,10 @@ use {
     core::hash::Hash,
     itertools::{MultiPeek, Powerset, Tee},
 };
-#[cfg(feature = "itertools")]
-use {
-    core::borrow::Borrow,
-    itertools::{
-        Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge,
-        MergeBy, MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
-    },
-};
 
 use crate::safety::OptionExt as _;
 use crate::NonEmpty;
 use crate::NonZeroExt as _;
-#[cfg(any(feature = "alloc", feature = "arrayvec"))]
-use crate::Vacancy;
 #[cfg(feature = "itertools")]
 use crate::{safety, Cardinality};
 
@@ -112,118 +107,6 @@ where
     }
 }
 
-pub trait QueryAnd {
-    type Item;
-    type Remainder: Iterator<Item = Self::Item>;
-
-    fn nth_and(self, n: usize) -> Matched<Self::Item, Self::Remainder>;
-
-    fn find_and<F>(self, f: F) -> Matched<Self::Item, Self::Remainder>
-    where
-        F: FnMut(&Self::Item) -> bool;
-
-    fn find_map_and<T, F>(self, f: F) -> Matched<T, Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> Option<T>;
-
-    fn position_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool;
-
-    fn rposition_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
-    where
-        Self::Remainder: DoubleEndedIterator + ExactSizeIterator,
-        F: FnMut(Self::Item) -> bool;
-
-    fn any_and<F>(self, f: F) -> IsMatch<Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool;
-
-    fn all_and<F>(self, f: F) -> IsMatch<Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool;
-
-    #[cfg(feature = "itertools")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
-    fn contains_and<Q>(self, query: &Q) -> IsMatch<Self::Remainder>
-    where
-        Self::Item: Borrow<Q>,
-        Q: PartialEq;
-}
-
-impl<I> QueryAnd for I
-where
-    I: Iterator,
-{
-    type Item = I::Item;
-    type Remainder = Self;
-
-    fn nth_and(mut self, n: usize) -> Matched<Self::Item, Self::Remainder> {
-        let output = self.nth(n);
-        Feed(output, self)
-    }
-
-    fn find_and<F>(mut self, f: F) -> Matched<Self::Item, Self::Remainder>
-    where
-        F: FnMut(&Self::Item) -> bool,
-    {
-        let output = self.find(f);
-        Feed(output, self)
-    }
-
-    fn find_map_and<T, F>(mut self, f: F) -> Matched<T, Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> Option<T>,
-    {
-        let output = self.find_map(f);
-        Feed(output, self)
-    }
-
-    fn position_and<F>(mut self, f: F) -> Matched<usize, Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool,
-    {
-        let output = self.position(f);
-        Feed(output, self)
-    }
-
-    fn rposition_and<F>(mut self, f: F) -> Matched<usize, Self::Remainder>
-    where
-        Self::Remainder: DoubleEndedIterator + ExactSizeIterator,
-        F: FnMut(Self::Item) -> bool,
-    {
-        let output = self.rposition(f);
-        Feed(output, self)
-    }
-
-    fn any_and<F>(mut self, f: F) -> IsMatch<Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool,
-    {
-        let output = self.any(f);
-        Feed(output, self)
-    }
-
-    fn all_and<F>(mut self, f: F) -> IsMatch<Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool,
-    {
-        let output = self.all(f);
-        Feed(output, self)
-    }
-
-    #[cfg(feature = "itertools")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
-    fn contains_and<Q>(mut self, query: &Q) -> IsMatch<Self::Remainder>
-    where
-        Self::Item: Borrow<Q>,
-        Q: PartialEq,
-    {
-        let output = self.contains(query);
-        Feed(output, self)
-    }
-}
-
 pub trait IteratorExt: Iterator + Sized {
     fn try_into_iter1(self) -> Result<Self> {
         Iterator1::try_from_iter(self)
@@ -235,20 +118,6 @@ pub trait IteratorExt: Iterator + Sized {
     {
         T::try_from_iter(self)
     }
-
-    fn saturate<T>(self) -> T
-    where
-        T: FromIteratorUntil<Self>,
-    {
-        T::saturated(self)
-    }
-
-    fn saturate_and<T>(self) -> Feed<T, Self>
-    where
-        T: FromIteratorUntil<Self>,
-    {
-        T::saturated_and(self)
-    }
 }
 
 impl<I> IteratorExt for I where I: Iterator {}
@@ -259,24 +128,6 @@ where
 {
     #[must_use]
     fn extend_non_empty(self, items: I) -> NonEmpty<Self>;
-}
-
-pub trait ExtendUntil<I>
-where
-    I: IntoIterator,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter;
-}
-
-pub trait FromIteratorUntil<I>: Sized
-where
-    I: IntoIterator,
-{
-    fn saturated(items: I) -> Self {
-        Self::saturated_and(items).into_output()
-    }
-
-    fn saturated_and(items: I) -> Feed<Self, I::IntoIter>;
 }
 
 pub trait FromIterator1<T> {
@@ -297,11 +148,6 @@ pub trait FromIterator1<T> {
 //       error claims that downstream crates can implement `FromIterator` for types in this crate,
 //       which they cannot. If this is fixed and this implementation becomes possible, provide it
 //       and remove the distinction between `collect` and `collect1` in `Iterator1`.
-//
-//       Without this spurious coherence error, this can instead be implemented with an alternative
-//       `FromIterator` trait that, like `FromIteratorUntil`, lifts the input type parameter out of
-//       methods and into the trait. Note that `saturate` functions, which are analogous to
-//       `collect`, need not distinguish between maybe-empty and non-empty types.
 //
 //       See https://github.com/rust-lang/rust/issues/48869
 //
@@ -462,116 +308,6 @@ where
                 Err(empty) => empty.chain(empty_or_into(Some(f()))),
             })
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Feed<T, I>(pub T, pub I);
-
-impl<T, I> Feed<T, I> {
-    pub fn into_output(self) -> T {
-        self.0
-    }
-
-    pub fn into_remainder(self) -> I {
-        self.1
-    }
-
-    pub fn with_output_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(T),
-    {
-        let Feed(output, remainder) = self;
-        f(output);
-        remainder
-    }
-
-    pub fn with_remainder_and_then_output<F>(self, f: F) -> T
-    where
-        F: FnOnce(I),
-    {
-        let Feed(output, remainder) = self;
-        f(remainder);
-        output
-    }
-}
-
-impl<T, I> From<Feed<T, I>> for (T, I) {
-    fn from(feed: Feed<T, I>) -> Self {
-        let Feed(output, remainder) = feed;
-        (output, remainder)
-    }
-}
-
-pub type Matched<T, I> = Feed<Option<T>, I>;
-
-impl<T, I> Matched<T, I> {
-    pub fn matched(self) -> Option<T> {
-        Into::into(self)
-    }
-
-    pub fn some_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(T),
-    {
-        let Feed(output, remainder) = self;
-        if let Some(output) = output {
-            f(output);
-        }
-        remainder
-    }
-
-    pub fn none_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(),
-    {
-        let Feed(output, remainder) = self;
-        if output.is_none() {
-            f();
-        }
-        remainder
-    }
-}
-
-impl<T, I> From<Matched<T, I>> for Option<T> {
-    fn from(feed: Matched<T, I>) -> Self {
-        feed.0
-    }
-}
-
-pub type IsMatch<I> = Feed<bool, I>;
-
-impl<I> IsMatch<I> {
-    pub fn is_match(&self) -> bool {
-        self.0
-    }
-
-    pub fn if_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(),
-    {
-        let Feed(output, remainder) = self;
-        if output {
-            f();
-        }
-        remainder
-    }
-
-    pub fn if_not_and_then_remainder<F>(self, f: F) -> I
-    where
-        F: FnOnce(),
-    {
-        let Feed(output, remainder) = self;
-        if !output {
-            f();
-        }
-        remainder
-    }
-}
-
-impl<I> From<IsMatch<I>> for bool {
-    fn from(feed: IsMatch<I>) -> Self {
-        feed.0
     }
 }
 
@@ -848,20 +584,6 @@ where
     {
         T::from_iter1(self)
     }
-
-    pub fn saturate<T>(self) -> T
-    where
-        T: FromIteratorUntil<Self>,
-    {
-        T::saturated(self)
-    }
-
-    pub fn saturate_and<T>(self) -> Feed<T, I>
-    where
-        T: FromIteratorUntil<Self>,
-    {
-        T::saturated_and(self)
-    }
 }
 
 #[cfg(feature = "itertools")]
@@ -1107,71 +829,6 @@ where
     }
 }
 
-impl<I> QueryAnd for Iterator1<I>
-where
-    I: Iterator,
-{
-    type Item = I::Item;
-    type Remainder = I;
-
-    fn nth_and(self, n: usize) -> Matched<Self::Item, Self::Remainder> {
-        self.items.nth_and(n)
-    }
-
-    fn find_and<F>(self, f: F) -> Matched<Self::Item, Self::Remainder>
-    where
-        F: FnMut(&Self::Item) -> bool,
-    {
-        self.items.find_and(f)
-    }
-
-    fn find_map_and<T, F>(self, f: F) -> Matched<T, Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> Option<T>,
-    {
-        self.items.find_map_and(f)
-    }
-
-    fn position_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool,
-    {
-        self.items.position_and(f)
-    }
-
-    fn rposition_and<F>(self, f: F) -> Matched<usize, Self::Remainder>
-    where
-        Self::Remainder: DoubleEndedIterator + ExactSizeIterator,
-        F: FnMut(Self::Item) -> bool,
-    {
-        self.items.rposition_and(f)
-    }
-
-    fn any_and<F>(self, f: F) -> IsMatch<Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool,
-    {
-        self.items.any_and(f)
-    }
-
-    fn all_and<F>(self, f: F) -> IsMatch<Self::Remainder>
-    where
-        F: FnMut(Self::Item) -> bool,
-    {
-        self.items.all_and(f)
-    }
-
-    #[cfg(feature = "itertools")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
-    fn contains_and<Q>(self, query: &Q) -> IsMatch<Self::Remainder>
-    where
-        Self::Item: Borrow<Q>,
-        Q: PartialEq,
-    {
-        self.items.contains_and(query)
-    }
-}
-
 pub fn one<T>(item: T) -> ExactlyOne<T> {
     // SAFETY: `Some(item)` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(Some(item)) }
@@ -1207,18 +864,6 @@ where
     unsafe { Iterator1::from_iter_unchecked(iter::repeat(item)) }
 }
 
-#[cfg(any(feature = "alloc", feature = "arrayvec"))]
-pub(crate) fn saturate_positional_vacancy<T, I>(destination: &mut T, source: I) -> I::IntoIter
-where
-    T: Extend<I::Item> + Vacancy,
-    I: IntoIterator,
-{
-    let n = destination.vacancy();
-    let mut source = source.into_iter();
-    destination.extend(source.by_ref().take(n));
-    source
-}
-
 fn empty_or_into<T>(items: Option<T>) -> EmptyOrInto<T>
 where
     T: IntoIterator,
@@ -1228,12 +873,11 @@ where
 
 #[cfg(test)]
 pub mod harness {
-    use core::fmt::Debug;
     use core::iter::Peekable;
     use core::ops::RangeInclusive;
     use rstest::fixture;
 
-    use crate::iter1::{Feed, Iterator1, Matched};
+    use crate::iter1::Iterator1;
 
     pub type Xs1 = Iterator1<Peekable<RangeInclusive<u8>>>;
 
@@ -1241,35 +885,13 @@ pub mod harness {
     pub fn xs1(#[default(4)] end: u8) -> Xs1 {
         Iterator1::try_from_iter(0..=end).unwrap_or_else(|_| panic!("range `0..={}` is empty", end))
     }
-
-    #[fixture]
-    pub fn matched_some_non_empty() -> Matched<u8, impl Iterator<Item = u8>> {
-        Feed(Some(0), [1, 2, 3].into_iter())
-    }
-
-    #[fixture]
-    pub fn matched_none_non_empty() -> Matched<u8, impl Iterator<Item = u8>> {
-        Feed(None, [2, 3].into_iter())
-    }
-
-    pub fn assert_feed_eq<T, U>(
-        lhs: Feed<T, impl IntoIterator<Item = U>>,
-        rhs: Feed<T, impl IntoIterator<Item = U>>,
-    ) where
-        T: Debug + PartialEq<T>,
-        U: PartialEq<U>,
-    {
-        assert_eq!(lhs.0, rhs.0);
-        assert!(lhs.1.into_iter().eq(rhs.1.into_iter()));
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
 
-    use crate::iter1::harness::{self, matched_none_non_empty, matched_some_non_empty, xs1, Xs1};
-    use crate::iter1::{Feed, IntoIterator1, IsMatch, Matched, QueryAnd, ThenIterator1};
+    use crate::iter1::{IntoIterator1, ThenIterator1};
     use crate::slice1::{slice1, Slice1};
     #[cfg(feature = "alloc")]
     use crate::vec1::Vec1;
@@ -1312,56 +934,5 @@ mod tests {
             .into_iter()
             .or_non_empty(xs1)
             .eq(expected.iter1().copied()));
-    }
-
-    #[rstest]
-    #[should_panic]
-    fn some_and_then_remainder_with_some_matched_then_call(
-        matched_some_non_empty: Matched<u8, impl Iterator<Item = u8>>,
-    ) {
-        let _remainder = matched_some_non_empty.some_and_then_remainder(|_| panic!());
-    }
-
-    #[rstest]
-    fn some_and_then_remainder_with_none_matched_then_no_call(
-        matched_none_non_empty: Matched<u8, impl Iterator<Item = u8>>,
-    ) {
-        let _remainder = matched_none_non_empty.some_and_then_remainder(|_| panic!());
-    }
-
-    #[rstest]
-    #[case::first(0, Feed(true, [1, 2, 3, 4]))]
-    #[case::last(4, Feed(true, []))]
-    #[case::none(5, Feed(false, []))]
-    fn any_and_with_iter1_then_is_match_eq(
-        xs1: Xs1,
-        #[case] any: u8,
-        #[case] expected: IsMatch<impl IntoIterator<Item = u8>>,
-    ) {
-        harness::assert_feed_eq(xs1.any_and(|x| x == any), expected);
-    }
-
-    #[rstest]
-    #[case::first(0, Feed(false, [2, 3, 4]))]
-    #[case::last(3, Feed(false, [1, 2, 3, 4]))]
-    #[case::none(4, Feed(false, [1, 2, 3, 4]))]
-    fn all_and_with_iter1_then_is_match_eq(
-        xs1: Xs1,
-        #[case] all: u8,
-        #[case] expected: IsMatch<impl IntoIterator<Item = u8>>,
-    ) {
-        harness::assert_feed_eq(xs1.all_and(|x| x == all), expected);
-    }
-
-    #[rstest]
-    #[case::first(0, Feed(Some(0), [1, 2, 3, 4]))]
-    #[case::last(4, Feed(Some(4), []))]
-    #[case::none(5, Feed(None, []))]
-    fn find_and_with_iter1_then_matched_eq(
-        xs1: Xs1,
-        #[case] find: u8,
-        #[case] expected: Matched<u8, impl IntoIterator<Item = u8>>,
-    ) {
-        harness::assert_feed_eq(xs1.find_and(|&x| x == find), expected);
     }
 }

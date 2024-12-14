@@ -14,12 +14,12 @@ use core::ops::{Index, IndexMut, RangeBounds};
 use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
-use crate::iter1::{self, Extend1, ExtendUntil, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
 use crate::slice1::Slice1;
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, Vacancy};
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 segment::impl_target_forward_type_and_definition!(
     for <T> => VecDeque,
@@ -36,15 +36,6 @@ where
         // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
         //         items or panics, so `self` must be non-empty here.
         unsafe { VecDeque1::from_vec_deque_unchecked(self) }
-    }
-}
-
-impl<T, I> ExtendUntil<I> for VecDeque<T>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
     }
 }
 
@@ -92,12 +83,6 @@ where
 impl<T> SegmentedOver for VecDeque<T> {
     type Kind = VecDequeTarget<Self>;
     type Target = Self;
-}
-
-impl<T> Vacancy for VecDeque<T> {
-    fn vacancy(&self) -> usize {
-        self.capacity() - self.len()
-    }
 }
 
 pub type VecDeque1<T> = NonEmpty<VecDeque<T>>;
@@ -390,15 +375,6 @@ impl<T> Extend<T> for VecDeque1<T> {
     }
 }
 
-impl<T, I> ExtendUntil<I> for VecDeque1<T>
-where
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
-    }
-}
-
 impl<T, const N: usize> From<[T; N]> for VecDeque1<T>
 where
     [T; N]: Array1,
@@ -492,12 +468,6 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
 
     fn try_from(items: VecDeque<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
-    }
-}
-
-impl<T> Vacancy for VecDeque1<T> {
-    fn vacancy(&self) -> usize {
-        self.items.vacancy()
     }
 }
 
@@ -698,16 +668,6 @@ where
 //     }
 // }
 
-impl<'a, K, T, I> ExtendUntil<I> for VecDequeSegment<'a, K>
-where
-    K: SegmentedOver<Target = VecDeque<T>>,
-    I: IntoIterator<Item = T>,
-{
-    fn saturate(&mut self, items: I) -> I::IntoIter {
-        iter1::saturate_positional_vacancy(self, items)
-    }
-}
-
 impl<'a, K, T> Ord for VecDequeSegment<'a, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
@@ -762,15 +722,6 @@ where
     fn segment(&mut self, range: R) -> VecDequeSegment<'_, K> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
-    }
-}
-
-impl<'a, K, T> Vacancy for VecDequeSegment<'a, K>
-where
-    K: SegmentedOver<Target = VecDeque<T>>,
-{
-    fn vacancy(&self) -> usize {
-        self.items.vacancy()
     }
 }
 
