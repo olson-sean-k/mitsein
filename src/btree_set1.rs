@@ -116,8 +116,8 @@ impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
     T: Ord,
 {
-    pub fn get_only(self) -> Result<U, &'a T> {
-        self.many_or_else(|items, _| items.first())
+    pub fn only(self) -> Result<U, &'a T> {
+        self.take_or_else(|items, _| items.first())
     }
 }
 
@@ -127,7 +127,7 @@ where
     Q: Ord + ?Sized,
 {
     pub fn get(self) -> Result<bool, Option<&'a T>> {
-        self.many_or_else(|items, query| items.get(query))
+        self.take_or_else(|items, query| items.get(query))
     }
 }
 
@@ -137,7 +137,7 @@ where
     Q: Ord + ?Sized,
 {
     pub fn get(self) -> Option<Result<T, &'a T>> {
-        self.try_many_or_else(|items, query| items.get(query))
+        self.try_take_or_else(|items, query| items.get(query))
     }
 }
 
@@ -221,8 +221,8 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOr::take_with(self, (), |items, _| unsafe {
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
             items.items.pop_first().unwrap_maybe_unchecked()
         })
     }
@@ -249,8 +249,8 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOr::take_with(self, (), |items, _| unsafe {
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
             items.items.pop_last().unwrap_maybe_unchecked()
         })
     }
@@ -278,7 +278,7 @@ impl<T> BTreeSet1<T> {
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOr::take_with(self, query, |items, query| {
+        TakeOr::with(self, query, |items, query| {
             items.items.take(query).is_some()
         })
     }
@@ -288,7 +288,7 @@ impl<T> BTreeSet1<T> {
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOr::take_with(self, query, |items, query| items.items.take(query))
+        TakeOr::with(self, query, |items, query| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>

@@ -59,9 +59,7 @@ where
         // SAFETY: `vacancy_or_else` executes this closure only if `items` is saturated and the
         //         bound `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
         //         last item.
-        self.vacancy_or_else(|items, _, item| {
-            (item, unsafe { items.last().unwrap_maybe_unchecked() })
-        })
+        self.put_or_else(|items, _, item| (item, unsafe { items.last().unwrap_maybe_unchecked() }))
     }
 
     pub fn replace_last(self, replacement: T) -> Result<(), (T, T)> {
@@ -75,7 +73,7 @@ where
         // SAFETY: `vacancy_or_else` executes this closure only if `items` is saturated and the
         //         bound `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
         //         last item.
-        self.vacancy_or_else(move |items, _, item| {
+        self.put_or_else(move |items, _, item| {
             (
                 item,
                 mem::replace(unsafe { items.last_mut().unwrap_maybe_unchecked() }, f()),
@@ -93,7 +91,7 @@ where
         // SAFETY: `vacancy_or_else` executes this closure only if `items` is saturated and the
         //         bound `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
         //         last item.
-        self.vacancy_or_else(|items, _, _| unsafe { items.last().unwrap_maybe_unchecked() })
+        self.put_or_else(|items, _, _| unsafe { items.last().unwrap_maybe_unchecked() })
     }
 
     pub fn replace_last(self, replacement: T) -> Result<(), T> {
@@ -107,7 +105,7 @@ where
         // SAFETY: `vacancy_or_else` executes this closure only if `items` is saturated and the
         //         bound `[T; N]: Array1` guarantees that capacity is non-zero, so there must be a
         //         last item.
-        self.vacancy_or_else(move |items, _, _| {
+        self.put_or_else(move |items, _, _| {
             mem::replace(unsafe { items.last_mut().unwrap_maybe_unchecked() }, f())
         })
     }
@@ -115,7 +113,7 @@ where
 
 impl<'a, T, const N: usize> reshape::PutOr<'a, ArrayVec<T, N>, T, usize, PutItem> {
     pub fn get(self) -> Result<(), (T, &'a T)> {
-        self.vacancy_or_else(move |items, index, item| (item, &items[index]))
+        self.put_or_else(move |items, index, item| (item, &items[index]))
     }
 
     pub fn replace(self, replacement: T) -> Result<(), (T, T)> {
@@ -126,7 +124,7 @@ impl<'a, T, const N: usize> reshape::PutOr<'a, ArrayVec<T, N>, T, usize, PutItem
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
+        self.put_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
     }
 }
 
@@ -135,7 +133,7 @@ where
     U: FnOnce() -> T,
 {
     pub fn get(self) -> Result<(), &'a T> {
-        self.vacancy_or_else(move |items, index, _| &items[index])
+        self.put_or_else(move |items, index, _| &items[index])
     }
 
     pub fn replace(self, replacement: T) -> Result<(), T> {
@@ -146,24 +144,24 @@ where
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
+        self.put_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
     }
 }
 
 impl<T, const N: usize> ArrayVecExt<T, N> for ArrayVec<T, N> {
     fn push_or(&mut self, item: T) -> reshape::PutOr<'_, Self, T, ()> {
-        reshape::PutOr::put_with(self, (), item, |items, (), item| items.push(item))
+        reshape::PutOr::with(self, (), item, |items, (), item| items.push(item))
     }
 
     fn push_with_or<F>(&mut self, f: F) -> reshape::PutOr<'_, Self, F, (), PutWith>
     where
         F: FnOnce() -> T,
     {
-        reshape::PutOr::put_with(self, (), f, |items, (), f| items.push(f()))
+        reshape::PutOr::with(self, (), f, |items, (), f| items.push(f()))
     }
 
     fn insert_or(&mut self, index: usize, item: T) -> reshape::PutOr<'_, Self, T, usize> {
-        reshape::PutOr::put_with(self, index, item, |items, index, item| {
+        reshape::PutOr::with(self, index, item, |items, index, item| {
             items.insert(index, item)
         })
     }
@@ -176,7 +174,7 @@ impl<T, const N: usize> ArrayVecExt<T, N> for ArrayVec<T, N> {
     where
         F: FnOnce() -> T,
     {
-        reshape::PutOr::put_with(self, index, f, |items, index, f| items.insert(index, f()))
+        reshape::PutOr::with(self, index, f, |items, index, f| items.insert(index, f()))
     }
 }
 
@@ -281,7 +279,7 @@ where
     [T; N]: Array1,
 {
     pub fn get_last(self) -> Result<(), (T, &'a T)> {
-        self.vacancy_or_else(|items, _, item| (item, items.last()))
+        self.put_or_else(|items, _, item| (item, items.last()))
     }
 
     pub fn replace_last(self, replacement: T) -> Result<(), (T, T)> {
@@ -292,7 +290,7 @@ where
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, _, item| (item, mem::replace(items.last_mut(), f())))
+        self.put_or_else(move |items, _, item| (item, mem::replace(items.last_mut(), f())))
     }
 }
 
@@ -302,7 +300,7 @@ where
     U: FnOnce() -> T,
 {
     pub fn get_last(self) -> Result<(), &'a T> {
-        self.vacancy_or_else(|items, _, _| items.last())
+        self.put_or_else(|items, _, _| items.last())
     }
 
     pub fn replace_last(self, replacement: T) -> Result<(), T> {
@@ -313,7 +311,7 @@ where
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, _, _| mem::replace(items.last_mut(), f()))
+        self.put_or_else(move |items, _, _| mem::replace(items.last_mut(), f()))
     }
 }
 
@@ -322,7 +320,7 @@ where
     [T; N]: Array1,
 {
     pub fn get(self) -> Result<(), (T, &'a T)> {
-        self.vacancy_or_else(move |items, index, item| (item, &items[index]))
+        self.put_or_else(move |items, index, item| (item, &items[index]))
     }
 
     pub fn replace(self, replacement: T) -> Result<(), (T, T)> {
@@ -333,7 +331,7 @@ where
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
+        self.put_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
     }
 }
 
@@ -343,7 +341,7 @@ where
     U: FnOnce() -> T,
 {
     pub fn get(self) -> Result<(), &'a T> {
-        self.vacancy_or_else(move |items, index, _| &items[index])
+        self.put_or_else(move |items, index, _| &items[index])
     }
 
     pub fn replace(self, replacement: T) -> Result<(), T> {
@@ -354,7 +352,7 @@ where
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
+        self.put_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
     }
 }
 
@@ -364,19 +362,19 @@ impl<'a, T, M, const N: usize> TakeOr<'a, T, M, N>
 where
     [T; N]: Array1,
 {
-    pub fn get_only(self) -> Result<T, &'a T> {
-        self.many_or_else(|items, _| items.first())
+    pub fn only(self) -> Result<T, &'a T> {
+        self.take_or_else(|items, _| items.first())
     }
 
     pub fn replace_only(self, replacement: T) -> Result<T, T> {
-        self.replace_only_with(move || replacement)
+        self.else_replace_only(move || replacement)
     }
 
-    pub fn replace_only_with<F>(self, f: F) -> Result<T, T>
+    pub fn else_replace_only<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
-        self.many_or_else(move |items, _| mem::replace(items.first_mut(), f()))
+        self.take_or_else(move |items, _| mem::replace(items.first_mut(), f()))
     }
 }
 
@@ -385,18 +383,18 @@ where
     [T; N]: Array1,
 {
     pub fn get(self) -> Result<T, &'a T> {
-        self.many_or_else(|items, index| &items[index])
+        self.take_or_else(|items, index| &items[index])
     }
 
     pub fn replace(self, replacement: T) -> Result<T, T> {
-        self.replace_with(move || replacement)
+        self.else_replace(move || replacement)
     }
 
-    pub fn replace_with<F>(self, f: F) -> Result<T, T>
+    pub fn else_replace<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
-        self.many_or_else(move |items, index| mem::replace(&mut items[index], f()))
+        self.take_or_else(move |items, index| mem::replace(&mut items[index], f()))
     }
 }
 
@@ -478,19 +476,19 @@ where
     }
 
     pub fn push_or(&mut self, item: T) -> PutOr<'_, T, T, (), PutItem, N> {
-        PutOr::put_with(self, (), item, |items, (), item| items.push(item))
+        PutOr::with(self, (), item, |items, (), item| items.push(item))
     }
 
     pub fn push_with_or<F>(&mut self, f: F) -> PutOr<'_, T, F, (), PutWith, N>
     where
         F: FnOnce() -> T,
     {
-        PutOr::put_with(self, (), f, |items, (), f| items.push(f()))
+        PutOr::with(self, (), f, |items, (), f| items.push(f()))
     }
 
     pub fn pop_or(&mut self) -> TakeOr<'_, T, (), N> {
-        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOr::take_with(self, (), |items, _| unsafe {
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -500,7 +498,7 @@ where
     }
 
     pub fn insert_or(&mut self, index: usize, item: T) -> PutOr<'_, T, T, usize, PutItem, N> {
-        PutOr::put_with(self, index, item, |items, index, item| {
+        PutOr::with(self, index, item, |items, index, item| {
             items.insert(index, item)
         })
     }
@@ -509,15 +507,15 @@ where
     where
         F: FnOnce() -> T,
     {
-        PutOr::put_with(self, index, f, |items, index, f| items.insert(index, f()))
+        PutOr::with(self, index, f, |items, index, f| items.insert(index, f()))
     }
 
     pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize, N> {
-        TakeOr::take_with(self, index, |items, index| items.items.remove(index))
+        TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
     pub fn swap_remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize, N> {
-        TakeOr::take_with(self, index, |items, index| items.items.swap_remove(index))
+        TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub const fn len(&self) -> NonZeroUsize {

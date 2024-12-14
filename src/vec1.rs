@@ -142,7 +142,7 @@ pub type PutOr<'a, T, U, N = (), B = PutItem> = reshape::PutOr<'a, Vec1<T>, U, N
 
 impl<'a, T, N> PutOr<'a, T, T, N, PutItem> {
     pub fn get_last(self) -> Result<(), (T, &'a T)> {
-        self.vacancy_or_else(|items, _, item| (item, items.last()))
+        self.put_or_else(|items, _, item| (item, items.last()))
     }
 
     pub fn replace_last(self, replacement: T) -> Result<(), (T, T)> {
@@ -153,7 +153,7 @@ impl<'a, T, N> PutOr<'a, T, T, N, PutItem> {
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, _, item| (item, mem::replace(items.last_mut(), f())))
+        self.put_or_else(move |items, _, item| (item, mem::replace(items.last_mut(), f())))
     }
 }
 
@@ -162,7 +162,7 @@ where
     U: FnOnce() -> T,
 {
     pub fn get_last(self) -> Result<(), &'a T> {
-        self.vacancy_or_else(|items, _, _| items.last())
+        self.put_or_else(|items, _, _| items.last())
     }
 
     pub fn replace_last(self, replacement: T) -> Result<(), T> {
@@ -173,13 +173,13 @@ where
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, _, _| mem::replace(items.last_mut(), f()))
+        self.put_or_else(move |items, _, _| mem::replace(items.last_mut(), f()))
     }
 }
 
 impl<'a, T> PutOr<'a, T, T, usize, PutItem> {
     pub fn get(self) -> Result<(), (T, &'a T)> {
-        self.vacancy_or_else(move |items, index, item| (item, &items[index]))
+        self.put_or_else(move |items, index, item| (item, &items[index]))
     }
 
     pub fn replace(self, replacement: T) -> Result<(), (T, T)> {
@@ -190,7 +190,7 @@ impl<'a, T> PutOr<'a, T, T, usize, PutItem> {
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
+        self.put_or_else(move |items, index, item| (item, mem::replace(&mut items[index], f())))
     }
 }
 
@@ -199,7 +199,7 @@ where
     U: FnOnce() -> T,
 {
     pub fn get(self) -> Result<(), &'a T> {
-        self.vacancy_or_else(move |items, index, _| &items[index])
+        self.put_or_else(move |items, index, _| &items[index])
     }
 
     pub fn replace(self, replacement: T) -> Result<(), T> {
@@ -210,43 +210,43 @@ where
     where
         F: FnOnce() -> T,
     {
-        self.vacancy_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
+        self.put_or_else(move |items, index, _| mem::replace(&mut items[index], f()))
     }
 }
 
 pub type TakeOr<'a, T, N = ()> = reshape::TakeOr<'a, Vec<T>, T, N>;
 
 impl<'a, T, N> TakeOr<'a, T, N> {
-    pub fn get_only(self) -> Result<T, &'a T> {
-        self.many_or_else(|items, _| items.first())
+    pub fn only(self) -> Result<T, &'a T> {
+        self.take_or_else(|items, _| items.first())
     }
 
     pub fn replace_only(self, replacement: T) -> Result<T, T> {
-        self.replace_only_with(move || replacement)
+        self.else_replace_only(move || replacement)
     }
 
-    pub fn replace_only_with<F>(self, f: F) -> Result<T, T>
+    pub fn else_replace_only<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
-        self.many_or_else(move |items, _| mem::replace(items.first_mut(), f()))
+        self.take_or_else(move |items, _| mem::replace(items.first_mut(), f()))
     }
 }
 
 impl<'a, T> TakeOr<'a, T, usize> {
     pub fn get(self) -> Result<T, &'a T> {
-        self.many_or_else(|items, index| &items[index])
+        self.take_or_else(|items, index| &items[index])
     }
 
     pub fn replace(self, replacement: T) -> Result<T, T> {
-        self.replace_with(move || replacement)
+        self.else_replace(move || replacement)
     }
 
-    pub fn replace_with<F>(self, f: F) -> Result<T, T>
+    pub fn else_replace<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
-        self.many_or_else(move |items, index| mem::replace(&mut items[index], f()))
+        self.take_or_else(move |items, index| mem::replace(&mut items[index], f()))
     }
 }
 
@@ -356,19 +356,19 @@ impl<T> Vec1<T> {
     }
 
     pub fn push_or(&mut self, item: T) -> PutOr<'_, T, T> {
-        PutOr::put_with(self, (), item, |items, (), item| items.push(item))
+        PutOr::with(self, (), item, |items, (), item| items.push(item))
     }
 
     pub fn push_with_or<F>(&mut self, f: F) -> PutOr<'_, T, F, (), PutWith>
     where
         F: FnOnce() -> T,
     {
-        PutOr::put_with(self, (), f, |items, (), f| items.push(f()))
+        PutOr::with(self, (), f, |items, (), f| items.push(f()))
     }
 
     pub fn pop_or(&mut self) -> TakeOr<'_, T> {
-        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOr::take_with(self, (), |items, ()| unsafe {
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -378,7 +378,7 @@ impl<T> Vec1<T> {
     }
 
     pub fn insert_or(&mut self, index: usize, item: T) -> PutOr<'_, T, T, usize> {
-        PutOr::put_with(self, index, item, |items, index, item| {
+        PutOr::with(self, index, item, |items, index, item| {
             items.insert(index, item)
         })
     }
@@ -387,15 +387,15 @@ impl<T> Vec1<T> {
     where
         F: FnOnce() -> T,
     {
-        PutOr::put_with(self, index, f, |items, index, f| items.insert(index, f()))
+        PutOr::with(self, index, f, |items, index, f| items.insert(index, f()))
     }
 
     pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize> {
-        TakeOr::take_with(self, index, |items, index| items.items.remove(index))
+        TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
     pub fn swap_remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize> {
-        TakeOr::take_with(self, index, |items, index| items.items.swap_remove(index))
+        TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub fn len(&self) -> NonZeroUsize {
@@ -1236,11 +1236,11 @@ mod tests {
     fn pop_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
         let first = *xs1.first();
         let mut tail = xs1.as_slice()[1..].to_vec();
-        while let Ok(item) = xs1.pop_or().get_only() {
+        while let Ok(item) = xs1.pop_or().only() {
             assert_eq!(tail.pop().unwrap(), item);
         }
         for _ in 0..3 {
-            assert_eq!(xs1.pop_or().get_only(), Err(&first));
+            assert_eq!(xs1.pop_or().only(), Err(&first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
     }

@@ -383,8 +383,8 @@ impl<'a, K, V, U, N> TakeOr<'a, K, V, U, N>
 where
     K: Ord,
 {
-    pub fn get_only(self) -> Result<U, OnlyEntry<'a, K, V>> {
-        self.many_or_else(|items, _| items.first_entry_as_only())
+    pub fn only(self) -> Result<U, OnlyEntry<'a, K, V>> {
+        self.take_or_else(|items, _| items.first_entry_as_only())
     }
 }
 
@@ -394,7 +394,7 @@ where
     Q: Ord + ?Sized,
 {
     pub fn get(self) -> Option<Result<U, OnlyEntry<'a, K, V>>> {
-        self.try_many_or_else(|items, query| {
+        self.try_take_or_else(|items, query| {
             items
                 .items
                 .contains_key(query)
@@ -498,8 +498,8 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOr::take_with(self, (), |items, _| unsafe {
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
             items.items.pop_first().unwrap_maybe_unchecked()
         })
     }
@@ -526,8 +526,8 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY: `take_with` executes this closure only if `self` contains more than one item.
-        TakeOr::take_with(self, (), |items, _| unsafe {
+        // SAFETY: `with` executes this closure only if `self` contains more than one item.
+        TakeOr::with(self, (), |items, _| unsafe {
             items.items.pop_last().unwrap_maybe_unchecked()
         })
     }
@@ -555,7 +555,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOr::take_with(self, query, |items, query| items.items.remove(query))
+        TakeOr::with(self, query, |items, query| items.items.remove(query))
     }
 
     pub fn remove_entry_or<'a, 'q, Q>(
@@ -566,7 +566,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOr::take_with(self, query, |items, query| items.items.remove_entry(query))
+        TakeOr::with(self, query, |items, query| items.items.remove_entry(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&V>

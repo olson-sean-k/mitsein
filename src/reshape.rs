@@ -29,7 +29,7 @@ impl<'a, T, U, N, B> PutOr<'a, T, U, N, B>
 where
     T: ?Sized,
 {
-    pub(crate) fn put_with(items: &'a mut T, index: N, item: U, vacancy: fn(&mut T, N, U)) -> Self {
+    pub(crate) fn with(items: &'a mut T, index: N, item: U, vacancy: fn(&mut T, N, U)) -> Self {
         PutOr {
             items,
             index,
@@ -44,7 +44,7 @@ impl<'a, T, U, N, B> PutOr<'a, T, U, N, B>
 where
     T: ?Sized,
 {
-    pub(crate) fn vacancy_or_else<E, F>(self, saturated: F) -> Result<(), E>
+    pub(crate) fn put_or_else<E, F>(self, saturated: F) -> Result<(), E>
     where
         T: Vacancy,
         F: FnOnce(&'a mut T, N, U) -> E,
@@ -80,7 +80,7 @@ impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
     T: ?Sized,
 {
-    pub(crate) fn take_with(
+    pub(crate) fn with(
         items: &'a mut NonEmpty<T>,
         index: N,
         many: fn(&mut NonEmpty<T>, N) -> U,
@@ -93,7 +93,7 @@ impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
     T: MaybeEmpty + ?Sized,
 {
-    pub(crate) fn many_or_else<E, F>(self, one: F) -> Result<U, E>
+    pub(crate) fn take_or_else<E, F>(self, one: F) -> Result<U, E>
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> E,
     {
@@ -105,7 +105,7 @@ where
     }
 
     pub fn none(self) -> Option<U> {
-        self.many_or_else(|_, _| ()).ok()
+        self.take_or_else(|_, _| ()).ok()
     }
 }
 
@@ -114,7 +114,7 @@ where
     T: MaybeEmpty + ?Sized,
 {
     #[cfg(feature = "alloc")]
-    pub(crate) fn try_many_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
+    pub(crate) fn try_take_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> Option<E>,
     {
