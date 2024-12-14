@@ -6,19 +6,13 @@ use core::fmt::{self, Debug, Formatter};
 use crate::{Cardinality, MaybeEmpty, NonEmpty};
 
 #[must_use]
-pub struct TakeOr<'a, T, U, N = ()>
-where
-    T: ?Sized,
-{
+pub struct TakeOr<'a, T, U, N = ()> {
     items: &'a mut NonEmpty<T>,
     index: N,
     many: fn(&mut NonEmpty<T>, N) -> U,
 }
 
-impl<'a, T, U, N> TakeOr<'a, T, U, N>
-where
-    T: ?Sized,
-{
+impl<'a, T, U, N> TakeOr<'a, T, U, N> {
     pub(crate) fn with(
         items: &'a mut NonEmpty<T>,
         index: N,
@@ -30,7 +24,7 @@ where
 
 impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
-    T: MaybeEmpty + ?Sized,
+    T: MaybeEmpty,
 {
     pub(crate) fn take_or_else<E, F>(self, one: F) -> Result<U, E>
     where
@@ -50,7 +44,7 @@ where
 
 impl<'a, T, U, N> TakeOr<'a, T, Option<U>, N>
 where
-    T: MaybeEmpty + ?Sized,
+    T: MaybeEmpty,
 {
     #[cfg(feature = "alloc")]
     pub(crate) fn try_take_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
@@ -68,7 +62,6 @@ where
 impl<'a, T, U, N> Debug for TakeOr<'a, T, U, N>
 where
     NonEmpty<T>: Debug,
-    T: ?Sized,
     N: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
