@@ -123,7 +123,11 @@ where
     }
 }
 
-pub type TakeOr<'a, T, N = ()> = take::TakeOr<'a, Vec<T>, T, N>;
+type TakeOr<'a, T, N = ()> = take::TakeOr<'a, Vec<T>, T, N>;
+
+pub type PopOr<'a, T> = TakeOr<'a, T, ()>;
+
+pub type RemoveOr<'a, T> = TakeOr<'a, T, usize>;
 
 impl<'a, T, N> TakeOr<'a, T, N> {
     pub fn only(self) -> Result<T, &'a T> {
@@ -264,7 +268,7 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop_or(&mut self) -> TakeOr<'_, T> {
+    pub fn pop_or(&mut self) -> PopOr<'_, T> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeOr::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
@@ -275,11 +279,11 @@ impl<T> Vec1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize> {
+    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, T> {
         TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize> {
+    pub fn swap_remove_or(&mut self, index: usize) -> RemoveOr<'_, T> {
         TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
