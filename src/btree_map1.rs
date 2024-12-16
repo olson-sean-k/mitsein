@@ -6,6 +6,7 @@
 use alloc::collections::btree_map::{self, BTreeMap, VacantEntry};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
+use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::RangeBounds;
 
@@ -386,6 +387,17 @@ where
     pub fn only(self) -> Result<U, OnlyEntry<'a, K, V>> {
         self.take_or_else(|items, _| items.first_entry_as_only())
     }
+
+    pub fn replace_only(self, value: V) -> Result<U, V> {
+        self.else_replace_only(move || value)
+    }
+
+    pub fn else_replace_only<F>(self, f: F) -> Result<U, V>
+    where
+        F: FnOnce() -> V,
+    {
+        self.take_or_else(move |items, _| mem::replace(items.first_entry().get_mut(), f()))
+    }
 }
 
 impl<'a, K, V, U, Q> TakeOr<'a, K, V, Option<U>, &'a Q>
@@ -399,6 +411,21 @@ where
                 .items
                 .contains_key(query)
                 .then(|| items.first_entry_as_only())
+        })
+    }
+
+    pub fn replace(self, value: V) -> Option<Result<U, V>> {
+        self.else_replace(move || value)
+    }
+
+    pub fn else_replace<F>(self, f: F) -> Option<Result<U, V>>
+    where
+        F: FnOnce() -> V,
+    {
+        self.try_take_or_else(|items, query| {
+            items
+                .get_mut(query)
+                .map(move |item| mem::replace(item, f()))
         })
     }
 }
