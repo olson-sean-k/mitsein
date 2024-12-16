@@ -291,7 +291,7 @@ mod sealed {
     ///
     /// The implementation of this trait determines whether or not a collection or view is empty.
     /// This query is used to construct non-empty types, and an inconsistent implementation is
-    /// unsound. In particular, it is unsound for [`MaybeEmpty::is_empty`] implementations to
+    /// unsound. In particular, it is unsound for [`MaybeEmpty::cardinality`] implementations to
     /// return `Some` when `Self` is empty.
     pub unsafe trait MaybeEmpty: Sized {
         fn cardinality(&self) -> Option<Cardinality<(), ()>>;
