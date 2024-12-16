@@ -90,7 +90,11 @@ impl<T> SegmentedOver for VecDeque<T> {
     type Target = Self;
 }
 
-pub type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, VecDeque<T>, U, N>;
+type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, VecDeque<T>, U, N>;
+
+pub type PopOr<'a, T> = TakeOr<'a, T, T, ()>;
+
+pub type RemoveOr<'a, T> = TakeOr<'a, T, Option<T>, usize>;
 
 impl<'a, T, N> TakeOr<'a, T, T, N> {
     pub fn only(self) -> Result<T, &'a T> {
@@ -223,14 +227,14 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_or(&mut self) -> TakeOr<'_, T, T> {
+    pub fn pop_front_or(&mut self) -> PopOr<'_, T> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeOr::with(self, (), |items, ()| unsafe {
             items.items.pop_front().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn pop_back_or(&mut self) -> TakeOr<'_, T, T> {
+    pub fn pop_back_or(&mut self) -> PopOr<'_, T> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeOr::with(self, (), |items, ()| unsafe {
             items.items.pop_back().unwrap_maybe_unchecked()
@@ -241,17 +245,17 @@ impl<T> VecDeque1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, Option<T>, usize> {
+    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, T> {
         TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_front_or(&mut self, index: usize) -> TakeOr<'_, T, Option<T>, usize> {
+    pub fn swap_remove_front_or(&mut self, index: usize) -> RemoveOr<'_, T> {
         TakeOr::with(self, index, |items, index| {
             items.items.swap_remove_front(index)
         })
     }
 
-    pub fn swap_remove_back_or(&mut self, index: usize) -> TakeOr<'_, T, Option<T>, usize> {
+    pub fn swap_remove_back_or(&mut self, index: usize) -> RemoveOr<'_, T> {
         TakeOr::with(self, index, |items, index| {
             items.items.swap_remove_back(index)
         })

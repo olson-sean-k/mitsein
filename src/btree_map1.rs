@@ -378,7 +378,13 @@ where
     }
 }
 
-pub type TakeOr<'a, K, V, U, N = ()> = take::TakeOr<'a, BTreeMap<K, V>, U, N>;
+type TakeOr<'a, K, V, U, N = ()> = take::TakeOr<'a, BTreeMap<K, V>, U, N>;
+
+pub type PopOr<'a, K, V> = TakeOr<'a, K, V, (K, V)>;
+
+pub type RemoveOr<'a, 'q, K, V, Q> = TakeOr<'a, K, V, Option<V>, &'q Q>;
+
+pub type RemoveEntryOr<'a, 'q, K, V, Q> = TakeOr<'a, K, V, Option<(K, V)>, &'q Q>;
 
 impl<'a, K, V, U, N> TakeOr<'a, K, V, U, N>
 where
@@ -400,7 +406,7 @@ where
     }
 }
 
-impl<'a, K, V, U, Q> TakeOr<'a, K, V, Option<U>, &'a Q>
+impl<'a, 'q, K, V, U, Q> TakeOr<'a, K, V, Option<U>, &'q Q>
 where
     K: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -521,7 +527,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.items.insert(key, value)
     }
 
-    pub fn pop_first_or(&mut self) -> TakeOr<'_, K, V, (K, V)>
+    pub fn pop_first_or(&mut self) -> PopOr<'_, K, V>
     where
         K: Ord,
     {
@@ -549,7 +555,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.first_entry_as_only()
     }
 
-    pub fn pop_last_or(&mut self) -> TakeOr<'_, K, V, (K, V)>
+    pub fn pop_last_or(&mut self) -> PopOr<'_, K, V>
     where
         K: Ord,
     {
@@ -577,7 +583,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.first_entry_as_only()
     }
 
-    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeOr<'a, K, V, Option<V>, &'q Q>
+    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveOr<'a, 'q, K, V, Q>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -585,10 +591,7 @@ impl<K, V> BTreeMap1<K, V> {
         TakeOr::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn remove_entry_or<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> TakeOr<'a, K, V, Option<(K, V)>, &'q Q>
+    pub fn remove_entry_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveEntryOr<'a, 'q, K, V, Q>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,

@@ -110,7 +110,13 @@ where
     type Target = Self;
 }
 
-pub type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, BTreeSet<T>, U, N>;
+type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, BTreeSet<T>, U, N>;
+
+pub type PopOr<'a, T> = TakeOr<'a, T, T>;
+
+pub type DropRemoveOr<'a, 'q, T, Q> = TakeOr<'a, T, bool, &'q Q>;
+
+pub type TakeRemoveOr<'a, 'q, T, Q> = TakeOr<'a, T, Option<T>, &'q Q>;
 
 impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
@@ -121,7 +127,7 @@ where
     }
 }
 
-impl<'a, T, Q> TakeOr<'a, T, bool, &'a Q>
+impl<'a, 'q, T, Q> TakeOr<'a, T, bool, &'q Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -131,7 +137,7 @@ where
     }
 }
 
-impl<'a, T, Q> TakeOr<'a, T, Option<T>, &'a Q>
+impl<'a, 'q, T, Q> TakeOr<'a, T, Option<T>, &'q Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -217,7 +223,7 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_or(&mut self) -> TakeOr<'_, T, T>
+    pub fn pop_first_or(&mut self) -> PopOr<'_, T>
     where
         T: Ord,
     {
@@ -245,7 +251,7 @@ impl<T> BTreeSet1<T> {
         self.first()
     }
 
-    pub fn pop_last_or(&mut self) -> TakeOr<'_, T, T>
+    pub fn pop_last_or(&mut self) -> PopOr<'_, T>
     where
         T: Ord,
     {
@@ -273,17 +279,15 @@ impl<T> BTreeSet1<T> {
         self.last()
     }
 
-    pub fn remove_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOr<'a, T, bool, &'a Q>
+    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, T, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| {
-            items.items.take(query).is_some()
-        })
+        TakeOr::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn take_or<'a, Q>(&'a mut self, query: &'a Q) -> TakeOr<'a, T, Option<T>, &'a Q>
+    pub fn take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, 'q, T, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,

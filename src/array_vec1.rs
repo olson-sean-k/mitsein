@@ -99,7 +99,11 @@ impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
     type Target = Self;
 }
 
-pub type TakeOr<'a, T, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, T, M>;
+type TakeOr<'a, T, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, T, M>;
+
+pub type PopOr<'a, T, const N: usize> = TakeOr<'a, T, (), N>;
+
+pub type RemoveOr<'a, T, const N: usize> = TakeOr<'a, T, usize, N>;
 
 impl<'a, T, M, const N: usize> TakeOr<'a, T, M, N>
 where
@@ -218,7 +222,7 @@ where
         self.items.push(item)
     }
 
-    pub fn pop_or(&mut self) -> TakeOr<'_, T, (), N> {
+    pub fn pop_or(&mut self) -> PopOr<'_, T, N> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeOr::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
@@ -229,11 +233,11 @@ where
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize, N> {
+    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, T, N> {
         TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> TakeOr<'_, T, usize, N> {
+    pub fn swap_remove_or(&mut self, index: usize) -> RemoveOr<'_, T, N> {
         TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
