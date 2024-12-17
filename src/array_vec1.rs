@@ -514,7 +514,7 @@ where
 {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
         let len = cmp::min(self.items.capacity() - self.items.len(), buffer.len());
-        let _ = self.items.extend(buffer.iter().take(len).copied());
+        self.items.extend(buffer.iter().take(len).copied());
         Ok(len)
     }
 
