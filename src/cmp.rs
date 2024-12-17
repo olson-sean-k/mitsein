@@ -83,8 +83,8 @@ mod core {
 
     unsafe impl<T> UnsafeOrd for *const T where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for *mut T where T: UnsafeOrd {}
-    unsafe impl<'a, T> UnsafeOrd for &'a T where T: UnsafeOrd {}
-    unsafe impl<'a, T> UnsafeOrd for &'a mut T where T: UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for &'_ T where T: UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for &'_ mut T where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for [T] where T: UnsafeOrd {}
     unsafe impl<T, const N: usize> UnsafeOrd for [T; N] where T: UnsafeOrd {}
 

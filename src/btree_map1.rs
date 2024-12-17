@@ -406,7 +406,7 @@ where
     }
 }
 
-impl<'a, 'q, K, V, U, Q> TakeOr<'a, K, V, Option<U>, &'q Q>
+impl<'a, K, V, U, Q> TakeOr<'a, K, V, Option<U>, &'_ Q>
 where
     K: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -828,7 +828,7 @@ impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
     }
 }
 
-impl<'a, P, K, V> BTreeMapSegment<'a, P>
+impl<P, K, V> BTreeMapSegment<'_, P>
 where
     P: SegmentedOver<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
@@ -906,7 +906,7 @@ where
     }
 }
 
-impl<'a, P, K, V> Segmentation for BTreeMapSegment<'a, P>
+impl<P, K, V> Segmentation for BTreeMapSegment<'_, P>
 where
     P: SegmentedOver<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
@@ -938,7 +938,7 @@ where
     }
 }
 
-impl<'a, P, K, V, R> segment::SegmentedBy<R> for BTreeMapSegment<'a, P>
+impl<P, K, V, R> segment::SegmentedBy<R> for BTreeMapSegment<'_, P>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
     P: segment::SegmentedBy<R> + SegmentedOver<Target = BTreeMap<K, V>>,

@@ -455,7 +455,7 @@ impl Write for VecDeque1<u8> {
     }
 }
 
-impl<'a, K, T> VecDequeSegment<'a, K>
+impl<K, T> VecDequeSegment<'_, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
 {
@@ -580,14 +580,14 @@ where
     }
 }
 
-impl<'a, K, T> Eq for VecDequeSegment<'a, K>
+impl<K, T> Eq for VecDequeSegment<'_, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
     T: Eq,
 {
 }
 
-impl<'a, K, T> Extend<T> for VecDequeSegment<'a, K>
+impl<K, T> Extend<T> for VecDequeSegment<'_, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
 {
@@ -612,7 +612,7 @@ where
 //       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
 //       `T`)! This appears to be a limitation rather than a true conflict.
 //
-// impl<'a, 'i, K, T> Extend<&'i T> for VecDequeSegment<'a, K>
+// impl<'i, K, T> Extend<&'i T> for VecDequeSegment<'_, K>
 // where
 //     K: Segmentation<Target = VecDeque<T>>,
 //     T: 'i + Copy,
@@ -625,7 +625,7 @@ where
 //     }
 // }
 
-impl<'a, K, T> Ord for VecDequeSegment<'a, K>
+impl<K, T> Ord for VecDequeSegment<'_, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
     T: Ord,
@@ -635,7 +635,7 @@ where
     }
 }
 
-impl<'a, K, T> PartialEq<Self> for VecDequeSegment<'a, K>
+impl<K, T> PartialEq<Self> for VecDequeSegment<'_, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
     T: PartialEq<T>,
@@ -645,7 +645,7 @@ where
     }
 }
 
-impl<'a, K, T> PartialOrd<Self> for VecDequeSegment<'a, K>
+impl<K, T> PartialOrd<Self> for VecDequeSegment<'_, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
     T: PartialOrd<T>,
@@ -655,7 +655,7 @@ where
     }
 }
 
-impl<'a, K, T> Segmentation for VecDequeSegment<'a, K>
+impl<K, T> Segmentation for VecDequeSegment<'_, K>
 where
     K: SegmentedOver<Target = VecDeque<T>>,
 {
@@ -670,7 +670,7 @@ where
     }
 }
 
-impl<'a, K, T, R> segment::SegmentedBy<R> for VecDequeSegment<'a, K>
+impl<K, T, R> segment::SegmentedBy<R> for VecDequeSegment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
     K: segment::SegmentedBy<R> + SegmentedOver<Target = VecDeque<T>>,

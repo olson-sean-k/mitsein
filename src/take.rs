@@ -59,7 +59,7 @@ where
     }
 }
 
-impl<'a, T, U, N> Debug for TakeOr<'a, T, U, N>
+impl<T, U, N> Debug for TakeOr<'_, T, U, N>
 where
     NonEmpty<T>: Debug,
     N: Debug,

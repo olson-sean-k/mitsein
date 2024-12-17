@@ -523,7 +523,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -608,7 +608,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> AsMut<[T]> for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> AsMut<[T]> for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -617,7 +617,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> AsRef<[T]> for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> AsRef<[T]> for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -626,7 +626,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> Borrow<[T]> for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> Borrow<[T]> for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -635,7 +635,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> BorrowMut<[T]> for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> BorrowMut<[T]> for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -644,7 +644,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> Deref for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> Deref for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -655,7 +655,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> DerefMut for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> DerefMut for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -664,14 +664,14 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> Eq for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> Eq for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: Eq,
 {
 }
 
-impl<'a, K, T, const N: usize> Extend<T> for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> Extend<T> for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -690,7 +690,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> Ord for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> Ord for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: Ord,
@@ -700,7 +700,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> PartialEq<Self> for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> PartialEq<Self> for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: PartialEq<T>,
@@ -710,7 +710,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> PartialOrd<Self> for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> PartialOrd<Self> for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: PartialOrd<T>,
@@ -720,7 +720,7 @@ where
     }
 }
 
-impl<'a, K, T, const N: usize> Segmentation for ArrayVecSegment<'a, K>
+impl<K, T, const N: usize> Segmentation for ArrayVecSegment<'_, K>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -735,7 +735,7 @@ where
     }
 }
 
-impl<'a, K, T, R, const N: usize> segment::SegmentedBy<R> for ArrayVecSegment<'a, K>
+impl<K, T, R, const N: usize> segment::SegmentedBy<R> for ArrayVecSegment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
     K: segment::SegmentedBy<R> + SegmentedOver<Target = ArrayVec<T, N>>,

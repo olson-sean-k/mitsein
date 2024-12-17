@@ -68,7 +68,7 @@ where
     pub(crate) range: <K::Target as Ranged>::Range,
 }
 
-impl<'a, K> Debug for Segment<'a, K>
+impl<K> Debug for Segment<'_, K>
 where
     K: SegmentedOver + ?Sized,
     K::Target: Debug,
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl<'a, K> SegmentedOver for Segment<'a, K>
+impl<K> SegmentedOver for Segment<'_, K>
 where
     K: SegmentedOver,
 {
@@ -94,14 +94,14 @@ where
 // TODO: The forwarding type constructors implemented by this macro ought not be necessary, but at
 //       time of writing the following `impl`s are considered duplicate definitions (E0592):
 //
-//       impl<'a, K, T> Segment<'a, K>
+//       impl<K, T> Segment<'_, K>
 //       where
 //           K: Segmentation<Target = Vec<T>>,
 //       {
 //           fn noop(&self) {}
 //       }
 //
-//       impl<'a, K, T> Segment<'a, K>
+//       impl<K, T> Segment<'_, K>
 //       where
 //           K: Segmentation<Target = VecDeque<T>>,
 //       {

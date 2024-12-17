@@ -127,7 +127,7 @@ where
     }
 }
 
-impl<'a, 'q, T, Q> TakeOr<'a, T, bool, &'q Q>
+impl<'a, T, Q> TakeOr<'a, T, bool, &'_ Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -137,7 +137,7 @@ where
     }
 }
 
-impl<'a, 'q, T, Q> TakeOr<'a, T, Option<T>, &'q Q>
+impl<'a, T, Q> TakeOr<'a, T, Option<T>, &'_ Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -575,7 +575,7 @@ impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
     }
 }
 
-impl<'a, K, T> BTreeSetSegment<'a, K>
+impl<K, T> BTreeSetSegment<'_, K>
 where
     K: SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
@@ -654,7 +654,7 @@ where
     }
 }
 
-impl<'a, K, T> Segmentation for BTreeSetSegment<'a, K>
+impl<K, T> Segmentation for BTreeSetSegment<'_, K>
 where
     K: SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
@@ -686,7 +686,7 @@ where
     }
 }
 
-impl<'a, K, T, R> segment::SegmentedBy<R> for BTreeSetSegment<'a, K>
+impl<K, T, R> segment::SegmentedBy<R> for BTreeSetSegment<'_, K>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
     K: segment::SegmentedBy<R> + SegmentedOver<Target = BTreeSet<T>>,

@@ -575,33 +575,33 @@ pub struct DrainSegment<'a, T> {
     after: PositionalRange,
 }
 
-impl<'a, T> AsRef<[T]> for DrainSegment<'a, T> {
+impl<T> AsRef<[T]> for DrainSegment<'_, T> {
     fn as_ref(&self) -> &[T] {
         self.drain.as_ref()
     }
 }
 
-impl<'a, T> DoubleEndedIterator for DrainSegment<'a, T> {
+impl<T> DoubleEndedIterator for DrainSegment<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.drain.next_back()
     }
 }
 
-impl<'a, T> Drop for DrainSegment<'a, T> {
+impl<T> Drop for DrainSegment<'_, T> {
     fn drop(&mut self) {
         *self.range = self.after;
     }
 }
 
-impl<'a, T> ExactSizeIterator for DrainSegment<'a, T> {
+impl<T> ExactSizeIterator for DrainSegment<'_, T> {
     fn len(&self) -> usize {
         self.drain.len()
     }
 }
 
-impl<'a, T> FusedIterator for DrainSegment<'a, T> {}
+impl<T> FusedIterator for DrainSegment<'_, T> {}
 
-impl<'a, T> Iterator for DrainSegment<'a, T> {
+impl<T> Iterator for DrainSegment<'_, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -615,14 +615,14 @@ pub struct SwapDrainSegment<'a, T> {
     swapped: Option<T>,
 }
 
-impl<'a, T> DoubleEndedIterator for SwapDrainSegment<'a, T> {
+impl<T> DoubleEndedIterator for SwapDrainSegment<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let next = self.drain.next();
         next.or_else(|| self.swapped.take())
     }
 }
 
-impl<'a, T> ExactSizeIterator for SwapDrainSegment<'a, T> {
+impl<T> ExactSizeIterator for SwapDrainSegment<'_, T> {
     fn len(&self) -> usize {
         self.drain
             .len()
@@ -631,9 +631,9 @@ impl<'a, T> ExactSizeIterator for SwapDrainSegment<'a, T> {
     }
 }
 
-impl<'a, T> FusedIterator for SwapDrainSegment<'a, T> {}
+impl<T> FusedIterator for SwapDrainSegment<'_, T> {}
 
-impl<'a, T> Iterator for SwapDrainSegment<'a, T> {
+impl<T> Iterator for SwapDrainSegment<'_, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -642,7 +642,7 @@ impl<'a, T> Iterator for SwapDrainSegment<'a, T> {
     }
 }
 
-impl<'a, T> VecSegment<'a, Vec<T>> {
+impl<T> VecSegment<'_, Vec<T>> {
     pub fn drain<R>(&mut self, range: R) -> DrainSegment<'_, T>
     where
         PositionalRange: Project<R, Output = PositionalRange>,
@@ -662,7 +662,7 @@ impl<'a, T> VecSegment<'a, Vec<T>> {
     }
 }
 
-impl<'a, T> VecSegment<'a, Vec1<T>> {
+impl<T> VecSegment<'_, Vec1<T>> {
     // This implementation, like `DrainSegment`, assumes that no items before the start of the
     // drain range are ever forgotten in the target `Vec`. The `Vec` documentation does not specify
     // this, but the implementation behaves this way and it is very reasonable behavior that is
@@ -717,7 +717,7 @@ impl<'a, T> VecSegment<'a, Vec1<T>> {
     }
 }
 
-impl<'a, K, T> VecSegment<'a, K>
+impl<K, T> VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -841,7 +841,7 @@ where
     }
 }
 
-impl<'a, K, T> AsMut<[T]> for VecSegment<'a, K>
+impl<K, T> AsMut<[T]> for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -850,7 +850,7 @@ where
     }
 }
 
-impl<'a, K, T> AsRef<[T]> for VecSegment<'a, K>
+impl<K, T> AsRef<[T]> for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -859,7 +859,7 @@ where
     }
 }
 
-impl<'a, K, T> Borrow<[T]> for VecSegment<'a, K>
+impl<K, T> Borrow<[T]> for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -868,7 +868,7 @@ where
     }
 }
 
-impl<'a, K, T> BorrowMut<[T]> for VecSegment<'a, K>
+impl<K, T> BorrowMut<[T]> for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -877,7 +877,7 @@ where
     }
 }
 
-impl<'a, K, T> Deref for VecSegment<'a, K>
+impl<K, T> Deref for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -888,7 +888,7 @@ where
     }
 }
 
-impl<'a, K, T> DerefMut for VecSegment<'a, K>
+impl<K, T> DerefMut for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -897,14 +897,14 @@ where
     }
 }
 
-impl<'a, K, T> Eq for VecSegment<'a, K>
+impl<K, T> Eq for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
     T: Eq,
 {
 }
 
-impl<'a, K, T> Extend<T> for VecSegment<'a, K>
+impl<K, T> Extend<T> for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -929,7 +929,7 @@ where
 //       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
 //       `T`)! This appears to be a limitation rather than a true conflict.
 //
-// impl<'a, 'i, K, T> Extend<&'i T> for VecSegment<'a, K>
+// impl<'i, K, T> Extend<&'i T> for VecSegment<'_, K>
 // where
 //     K: Segmentation<Target = Vec<T>>,
 //     T: 'i + Copy,
@@ -942,7 +942,7 @@ where
 //     }
 // }
 
-impl<'a, K, T> Ord for VecSegment<'a, K>
+impl<K, T> Ord for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
     T: Ord,
@@ -963,7 +963,7 @@ where
     }
 }
 
-impl<'a, K, T> PartialOrd<Self> for VecSegment<'a, K>
+impl<K, T> PartialOrd<Self> for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
     T: PartialOrd<T>,
@@ -973,7 +973,7 @@ where
     }
 }
 
-impl<'a, K, T> Segmentation for VecSegment<'a, K>
+impl<K, T> Segmentation for VecSegment<'_, K>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -988,7 +988,7 @@ where
     }
 }
 
-impl<'a, K, T, R> segment::SegmentedBy<R> for VecSegment<'a, K>
+impl<K, T, R> segment::SegmentedBy<R> for VecSegment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
     K: segment::SegmentedBy<R> + SegmentedOver<Target = Vec<T>>,
