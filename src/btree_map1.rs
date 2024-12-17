@@ -306,9 +306,6 @@ where
     where
         V: Default,
     {
-        // LINT: This is a false positive. `Entry::or_insert_with` implements `Entry::or_default`
-        //       here.
-        #[expect(clippy::unwrap_or_default)]
         self.or_insert_with(V::default)
     }
 
