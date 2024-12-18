@@ -330,7 +330,7 @@ use {
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
-pub use segment::{Segment, Segmentation, SegmentedBy};
+pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeOr;
 
