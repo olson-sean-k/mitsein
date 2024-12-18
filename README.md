@@ -112,7 +112,7 @@ xs.tail().clear();
 assert_eq!(xs.as_slice(), &[0i32]);
 
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
-xs.tail().rtail().drain(..);
+xs.tail().rtail().swap_drain(..);
 assert_eq!(xs.as_slice(), &[0i32, 4]);
 
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);

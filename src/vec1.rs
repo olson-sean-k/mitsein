@@ -21,18 +21,12 @@ use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{
     self, Intersect, IntersectionExt as _, PositionalRange, Project, ProjectionExt as _,
 };
-use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
+use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
-
-segment::impl_target_forward_type_and_definition!(
-    for <T> => Vec,
-    VecTarget,
-    VecSegment,
-);
 
 impl<T, I> Extend1<I> for Vec<T>
 where
@@ -69,27 +63,27 @@ impl<T> Ranged for Vec<T> {
 }
 
 impl<T> Segmentation for Vec<T> {
-    fn tail(&mut self) -> VecSegment<'_, Self> {
-        self.segment(Ranged::tail(self))
+    fn tail(&mut self) -> Segment<'_, Self, T> {
+        Segmentation::segment(self, Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> VecSegment<'_, Self> {
-        self.segment(Ranged::rtail(self))
+    fn rtail(&mut self) -> Segment<'_, Self, T> {
+        Segmentation::segment(self, Ranged::rtail(self))
     }
 }
 
-impl<T, R> segment::SegmentedBy<R> for Vec<T>
+impl<T, R> SegmentedBy<R> for Vec<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> VecSegment<'_, Self> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, T> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
 
 impl<T> SegmentedOver for Vec<T> {
-    type Kind = VecTarget<Self>;
     type Target = Self;
+    type Kind = Self;
 }
 
 pub type CowSlice1<'a, T> = Cow<'a, Slice1<T>>;
@@ -499,27 +493,27 @@ impl<T> IntoIterator1 for Vec1<T> {
 }
 
 impl<T> Segmentation for Vec1<T> {
-    fn tail(&mut self) -> VecSegment<'_, Self> {
-        self.segment(Ranged::tail(&self.items))
+    fn tail(&mut self) -> Segment<'_, Self, T> {
+        Segmentation::segment(self, Ranged::tail(&self.items))
     }
 
-    fn rtail(&mut self) -> VecSegment<'_, Self> {
-        self.segment(Ranged::rtail(&self.items))
+    fn rtail(&mut self) -> Segment<'_, Self, T> {
+        Segmentation::segment(self, Ranged::rtail(&self.items))
     }
 }
 
-impl<T, R> segment::SegmentedBy<R> for Vec1<T>
+impl<T, R> SegmentedBy<R> for Vec1<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> VecSegment<'_, Self> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, T> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }
 
 impl<T> SegmentedOver for Vec1<T> {
-    type Kind = VecTarget<Self>;
     type Target = Vec<T>;
+    type Kind = Self;
 }
 
 impl<'a, T> TryFrom<&'a [T]> for Vec1<T>
@@ -642,7 +636,9 @@ impl<T> Iterator for SwapDrainSegment<'_, T> {
     }
 }
 
-impl<T> VecSegment<'_, Vec<T>> {
+pub type Segment<'a, K, T> = segment::Segment<'a, K, Vec<T>>;
+
+impl<T> Segment<'_, Vec<T>, T> {
     pub fn drain<R>(&mut self, range: R) -> DrainSegment<'_, T>
     where
         PositionalRange: Project<R, Output = PositionalRange>,
@@ -662,12 +658,12 @@ impl<T> VecSegment<'_, Vec<T>> {
     }
 }
 
-impl<T> VecSegment<'_, Vec1<T>> {
+impl<T> Segment<'_, Vec1<T>, T> {
     // This implementation, like `DrainSegment`, assumes that no items before the start of the
     // drain range are ever forgotten in the target `Vec`. The `Vec` documentation does not specify
     // this, but the implementation behaves this way and it is very reasonable behavior that is
     // very unlikely to change. This API is unsound if this assumption does not hold.
-    pub fn drain<R>(&mut self, range: R) -> SwapDrainSegment<'_, T>
+    pub fn swap_drain<R>(&mut self, range: R) -> SwapDrainSegment<'_, T>
     where
         PositionalRange: Project<R, Output = PositionalRange>,
         R: RangeBounds<usize>,
@@ -717,7 +713,7 @@ impl<T> VecSegment<'_, Vec1<T>> {
     }
 }
 
-impl<K, T> VecSegment<'_, K>
+impl<K, T> Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -841,7 +837,7 @@ where
     }
 }
 
-impl<K, T> AsMut<[T]> for VecSegment<'_, K>
+impl<K, T> AsMut<[T]> for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -850,7 +846,7 @@ where
     }
 }
 
-impl<K, T> AsRef<[T]> for VecSegment<'_, K>
+impl<K, T> AsRef<[T]> for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -859,7 +855,7 @@ where
     }
 }
 
-impl<K, T> Borrow<[T]> for VecSegment<'_, K>
+impl<K, T> Borrow<[T]> for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -868,7 +864,7 @@ where
     }
 }
 
-impl<K, T> BorrowMut<[T]> for VecSegment<'_, K>
+impl<K, T> BorrowMut<[T]> for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -877,7 +873,7 @@ where
     }
 }
 
-impl<K, T> Deref for VecSegment<'_, K>
+impl<K, T> Deref for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -888,7 +884,7 @@ where
     }
 }
 
-impl<K, T> DerefMut for VecSegment<'_, K>
+impl<K, T> DerefMut for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -897,14 +893,14 @@ where
     }
 }
 
-impl<K, T> Eq for VecSegment<'_, K>
+impl<K, T> Eq for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
     T: Eq,
 {
 }
 
-impl<K, T> Extend<T> for VecSegment<'_, K>
+impl<K, T> Extend<T> for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
@@ -929,9 +925,9 @@ where
 //       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
 //       `T`)! This appears to be a limitation rather than a true conflict.
 //
-// impl<'i, K, T> Extend<&'i T> for VecSegment<'_, K>
+// impl<'i, K, T> Extend<&'i T> for Segment<'_, K, T>
 // where
-//     K: Segmentation<Target = Vec<T>>,
+//     K: SegmentedOver<Target = Vec<T>>,
 //     T: 'i + Copy,
 // {
 //     fn extend<I>(&mut self, items: I)
@@ -942,7 +938,7 @@ where
 //     }
 // }
 
-impl<K, T> Ord for VecSegment<'_, K>
+impl<K, T> Ord for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
     T: Ord,
@@ -952,18 +948,18 @@ where
     }
 }
 
-impl<'a, KT, KU, T, U> PartialEq<VecSegment<'a, KU>> for VecSegment<'a, KT>
+impl<'a, KT, KU, T, U> PartialEq<Segment<'a, KU, U>> for Segment<'a, KT, T>
 where
     KT: SegmentedOver<Target = Vec<T>>,
     KU: SegmentedOver<Target = Vec<U>>,
     T: PartialEq<U>,
 {
-    fn eq(&self, other: &VecSegment<'a, KU>) -> bool {
+    fn eq(&self, other: &Segment<'a, KU, U>) -> bool {
         self.as_slice().eq(other.as_slice())
     }
 }
 
-impl<K, T> PartialOrd<Self> for VecSegment<'_, K>
+impl<K, T> PartialOrd<Self> for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
     T: PartialOrd<T>,
@@ -973,28 +969,28 @@ where
     }
 }
 
-impl<K, T> Segmentation for VecSegment<'_, K>
+impl<K, T> Segmentation for Segment<'_, K, T>
 where
     K: SegmentedOver<Target = Vec<T>>,
 {
-    fn tail(&mut self) -> VecSegment<'_, K> {
+    fn tail(&mut self) -> Segment<'_, K, T> {
         let range = self.project(&(1..));
         Segment::intersect(self.items, &range)
     }
 
-    fn rtail(&mut self) -> VecSegment<'_, K> {
+    fn rtail(&mut self) -> Segment<'_, K, T> {
         let range = self.project(&(..self.len().saturating_sub(1)));
         Segment::intersect(self.items, &range)
     }
 }
 
-impl<K, T, R> segment::SegmentedBy<R> for VecSegment<'_, K>
+impl<K, T, R> SegmentedBy<R> for Segment<'_, K, T>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: segment::SegmentedBy<R> + SegmentedOver<Target = Vec<T>>,
+    K: SegmentedBy<R> + SegmentedOver<Target = Vec<T>>,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> VecSegment<'_, K> {
+    fn segment(&mut self, range: R) -> Segment<'_, K, T> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
     }
@@ -1188,7 +1184,7 @@ mod tests {
     #[case::one_rtail(harness::xs1(1), ..1, .., slice1![1])]
     #[case::many_rtail(harness::xs1(2), ..2, .., slice1![2])]
     #[case::many_rtail(harness::xs1(2), ..2, 1.., slice1![0, 2])]
-    fn drain_vec1_segment_then_vec1_eq<S, D>(
+    fn swap_drain_vec1_segment_then_vec1_eq<S, D>(
         #[case] mut xs1: Vec1<u8>,
         #[case] segment: S,
         #[case] drain: D,
@@ -1198,7 +1194,7 @@ mod tests {
         S: RangeBounds<usize>,
         D: RangeBounds<usize>,
     {
-        xs1.segment(segment).drain(drain);
+        xs1.segment(segment).swap_drain(drain);
         assert_eq!(xs1.as_slice1(), expected);
     }
 
@@ -1211,7 +1207,7 @@ mod tests {
     #[case::one_rtail(harness::xs1(1), ..1, .., slice1![1])]
     #[case::many_rtail(harness::xs1(2), ..2, .., slice1![2])]
     #[case::many_rtail(harness::xs1(2), ..2, 1.., slice1![0])]
-    fn leak_drain_of_vec1_segment_then_vec1_eq<S, D>(
+    fn leak_swap_drain_of_vec1_segment_then_vec1_eq<S, D>(
         #[case] mut xs1: Vec1<u8>,
         #[case] segment: S,
         #[case] drain: D,
@@ -1222,7 +1218,7 @@ mod tests {
         D: RangeBounds<usize>,
     {
         let mut segment = xs1.segment(segment);
-        mem::forget(segment.drain(drain));
+        mem::forget(segment.swap_drain(drain));
         assert_eq!(xs1.as_slice1(), expected);
     }
 

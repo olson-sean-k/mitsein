@@ -15,15 +15,9 @@ use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
-use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
+use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
-
-segment::impl_target_forward_type_and_definition!(
-    for <K, V> where K: Clone + Ord => BTreeMap,
-    BTreeMapTarget,
-    BTreeMapSegment,
-);
 
 impl<K, V, I> Extend1<I> for BTreeMap<K, V>
 where
@@ -86,28 +80,28 @@ impl<K, V> Segmentation for BTreeMap<K, V>
 where
     K: Clone + Ord,
 {
-    fn tail(&mut self) -> BTreeMapSegment<'_, Self> {
+    fn tail(&mut self) -> Segment<'_, Self, K, V> {
         match Ranged::tail(self).try_into_range_inclusive() {
-            Some(range) => self.segment(range),
+            Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(self),
         }
     }
 
-    fn rtail(&mut self) -> BTreeMapSegment<'_, Self> {
+    fn rtail(&mut self) -> Segment<'_, Self, K, V> {
         match Ranged::rtail(self).try_into_range_inclusive() {
-            Some(range) => self.segment(range),
+            Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(self),
         }
     }
 }
 
-impl<K, V, R> segment::SegmentedBy<R> for BTreeMap<K, V>
+impl<K, V, R> SegmentedBy<R> for BTreeMap<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
     K: Clone + Ord,
     R: RangeBounds<K>,
 {
-    fn segment(&mut self, range: R) -> BTreeMapSegment<'_, Self> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, K, V> {
         Segment::intersect(self, &range::ordered_range_bounds(range))
     }
 }
@@ -116,8 +110,8 @@ impl<K, V> SegmentedOver for BTreeMap<K, V>
 where
     K: Clone + Ord,
 {
-    type Kind = BTreeMapTarget<Self>;
     type Target = Self;
+    type Kind = Self;
 }
 
 pub type ManyEntry<'a, K, V> = btree_map::OccupiedEntry<'a, K, V>;
@@ -783,28 +777,28 @@ impl<K, V> Segmentation for BTreeMap1<K, V>
 where
     K: Clone + UnsafeOrd,
 {
-    fn tail(&mut self) -> BTreeMapSegment<'_, Self> {
+    fn tail(&mut self) -> Segment<'_, Self, K, V> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
-            Some(range) => self.segment(range),
+            Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(&mut self.items),
         }
     }
 
-    fn rtail(&mut self) -> BTreeMapSegment<'_, Self> {
+    fn rtail(&mut self) -> Segment<'_, Self, K, V> {
         match Ranged::rtail(&self.items).try_into_range_inclusive() {
-            Some(range) => self.segment(range),
+            Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(&mut self.items),
         }
     }
 }
 
-impl<K, V, R> segment::SegmentedBy<R> for BTreeMap1<K, V>
+impl<K, V, R> SegmentedBy<R> for BTreeMap1<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
     K: Clone + UnsafeOrd,
     R: RangeBounds<K>,
 {
-    fn segment(&mut self, range: R) -> BTreeMapSegment<'_, Self> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, K, V> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_bounds(range))
     }
 }
@@ -813,8 +807,8 @@ impl<K, V> SegmentedOver for BTreeMap1<K, V>
 where
     K: Clone + UnsafeOrd,
 {
-    type Kind = BTreeMapTarget<Self>;
     type Target = BTreeMap<K, V>;
+    type Kind = Self;
 }
 
 impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
@@ -825,7 +819,9 @@ impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
     }
 }
 
-impl<P, K, V> BTreeMapSegment<'_, P>
+pub type Segment<'a, P, K, V> = segment::Segment<'a, P, BTreeMap<K, V>>;
+
+impl<P, K, V> Segment<'_, P, K, V>
 where
     P: SegmentedOver<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
@@ -903,12 +899,12 @@ where
     }
 }
 
-impl<P, K, V> Segmentation for BTreeMapSegment<'_, P>
+impl<P, K, V> Segmentation for Segment<'_, P, K, V>
 where
     P: SegmentedOver<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
 {
-    fn tail(&mut self) -> BTreeMapSegment<'_, P> {
+    fn tail(&mut self) -> Segment<'_, P, K, V> {
         match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeMap::range(self.items, range.clone()).nth(1) {
                 Some((start, _)) => Segment::unchecked(
@@ -921,7 +917,7 @@ where
         }
     }
 
-    fn rtail(&mut self) -> BTreeMapSegment<'_, P> {
+    fn rtail(&mut self) -> Segment<'_, P, K, V> {
         match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeMap::range(self.items, range.clone()).rev().nth(1) {
                 Some((end, _)) => Segment::unchecked(
@@ -935,14 +931,14 @@ where
     }
 }
 
-impl<P, K, V, R> segment::SegmentedBy<R> for BTreeMapSegment<'_, P>
+impl<P, K, V, R> SegmentedBy<R> for Segment<'_, P, K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    P: segment::SegmentedBy<R> + SegmentedOver<Target = BTreeMap<K, V>>,
+    P: SegmentedBy<R> + SegmentedOver<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
     R: RangeBounds<K>,
 {
-    fn segment(&mut self, range: R) -> BTreeMapSegment<'_, P> {
+    fn segment(&mut self, range: R) -> Segment<'_, P, K, V> {
         Segment::intersect(self.items, &range::ordered_range_bounds(range))
     }
 }

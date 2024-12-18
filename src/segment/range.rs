@@ -11,9 +11,10 @@ use crate::segment::{Indexer, Ranged, Segment, SegmentedOver};
 
 pub type RangeFor<K> = <<K as SegmentedOver>::Target as Ranged>::Range;
 
-impl<'a, K> Segment<'a, K>
+impl<'a, K, T> Segment<'a, K, T>
 where
-    K: SegmentedOver + ?Sized,
+    K: SegmentedOver<Target = T> + ?Sized,
+    T: Ranged,
 {
     pub(crate) fn unchecked(items: &'a mut K::Target, range: RangeFor<K>) -> Self {
         Segment { items, range }

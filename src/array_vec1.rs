@@ -20,16 +20,10 @@ use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
-use crate::segment::{self, Ranged, Segment, Segmentation, SegmentedOver};
+use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
-
-segment::impl_target_forward_type_and_definition!(
-    for <T, [const N: usize]> => ArrayVec,
-    ArrayVecTarget,
-    ArrayVecSegment,
-);
 
 impl<T, I, const N: usize> Extend1<I> for ArrayVec<T, N>
 where
@@ -76,27 +70,27 @@ impl<T, const N: usize> Ranged for ArrayVec<T, N> {
 }
 
 impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
-    fn tail(&mut self) -> ArrayVecSegment<'_, Self> {
-        self.segment(Ranged::tail(self))
+    fn tail(&mut self) -> Segment<'_, Self, T, N> {
+        Segmentation::segment(self, Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> ArrayVecSegment<'_, Self> {
-        self.segment(Ranged::rtail(self))
+    fn rtail(&mut self) -> Segment<'_, Self, T, N> {
+        Segmentation::segment(self, Ranged::rtail(self))
     }
 }
 
-impl<T, R, const N: usize> segment::SegmentedBy<R> for ArrayVec<T, N>
+impl<T, R, const N: usize> SegmentedBy<R> for ArrayVec<T, N>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> ArrayVecSegment<'_, Self> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, T, N> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
 
 impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
-    type Kind = ArrayVecTarget<Self>;
     type Target = Self;
+    type Kind = Self;
 }
 
 type TakeOr<'a, T, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, T, M>;
@@ -440,21 +434,21 @@ impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
-    fn tail(&mut self) -> ArrayVecSegment<'_, Self> {
-        self.segment(Ranged::tail(&self.items))
+    fn tail(&mut self) -> Segment<'_, Self, T, N> {
+        Segmentation::segment(self, Ranged::tail(&self.items))
     }
 
-    fn rtail(&mut self) -> ArrayVecSegment<'_, Self> {
-        self.segment(Ranged::rtail(&self.items))
+    fn rtail(&mut self) -> Segment<'_, Self, T, N> {
+        Segmentation::segment(self, Ranged::rtail(&self.items))
     }
 }
 
-impl<T, R, const N: usize> segment::SegmentedBy<R> for ArrayVec1<T, N>
+impl<T, R, const N: usize> SegmentedBy<R> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> ArrayVecSegment<'_, Self> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, T, N> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }
@@ -463,8 +457,8 @@ impl<T, const N: usize> SegmentedOver for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
-    type Kind = ArrayVecTarget<Self>;
     type Target = ArrayVec<T, N>;
+    type Kind = Self;
 }
 
 impl<'a, T, const N: usize> TryFrom<&'a [T]> for ArrayVec1<T, N>
@@ -523,7 +517,9 @@ where
     }
 }
 
-impl<K, T, const N: usize> ArrayVecSegment<'_, K>
+pub type Segment<'a, K, T, const N: usize> = segment::Segment<'a, K, ArrayVec<T, N>>;
+
+impl<K, T, const N: usize> Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -608,7 +604,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> AsMut<[T]> for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> AsMut<[T]> for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -617,7 +613,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> AsRef<[T]> for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> AsRef<[T]> for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -626,7 +622,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> Borrow<[T]> for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> Borrow<[T]> for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -635,7 +631,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> BorrowMut<[T]> for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> BorrowMut<[T]> for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -644,7 +640,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> Deref for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> Deref for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -655,7 +651,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> DerefMut for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> DerefMut for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -664,14 +660,14 @@ where
     }
 }
 
-impl<K, T, const N: usize> Eq for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> Eq for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: Eq,
 {
 }
 
-impl<K, T, const N: usize> Extend<T> for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> Extend<T> for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
@@ -690,7 +686,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> Ord for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> Ord for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: Ord,
@@ -700,7 +696,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> PartialEq<Self> for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> PartialEq<Self> for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: PartialEq<T>,
@@ -710,7 +706,7 @@ where
     }
 }
 
-impl<K, T, const N: usize> PartialOrd<Self> for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> PartialOrd<Self> for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
     T: PartialOrd<T>,
@@ -720,28 +716,28 @@ where
     }
 }
 
-impl<K, T, const N: usize> Segmentation for ArrayVecSegment<'_, K>
+impl<K, T, const N: usize> Segmentation for Segment<'_, K, T, N>
 where
     K: SegmentedOver<Target = ArrayVec<T, N>>,
 {
-    fn tail(&mut self) -> ArrayVecSegment<'_, K> {
+    fn tail(&mut self) -> Segment<'_, K, T, N> {
         let range = self.project(&(1..));
         Segment::intersect(self.items, &range)
     }
 
-    fn rtail(&mut self) -> ArrayVecSegment<'_, K> {
+    fn rtail(&mut self) -> Segment<'_, K, T, N> {
         let range = self.project(&(..self.len().saturating_sub(1)));
         Segment::intersect(self.items, &range)
     }
 }
 
-impl<K, T, R, const N: usize> segment::SegmentedBy<R> for ArrayVecSegment<'_, K>
+impl<K, T, R, const N: usize> SegmentedBy<R> for Segment<'_, K, T, N>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: segment::SegmentedBy<R> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: SegmentedBy<R> + SegmentedOver<Target = ArrayVec<T, N>>,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> ArrayVecSegment<'_, K> {
+    fn segment(&mut self, range: R) -> Segment<'_, K, T, N> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
     }
