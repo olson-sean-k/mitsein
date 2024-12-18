@@ -3,6 +3,9 @@
 //         non-empty invariant. In particular, range types, intersection, and projection must be
 //         correct.
 
+#![cfg(any(feature = "arrayvec", feature = "alloc"))]
+#![cfg_attr(docsrs, doc(cfg(any(feature = "arrayvec", feature = "alloc"))))]
+
 pub mod range;
 
 use core::fmt::{self, Debug, Formatter};

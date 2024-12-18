@@ -309,6 +309,7 @@ pub mod prelude {
     pub use crate::slice1::{slice1, Slice1};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
+    #[cfg(any(feature = "arrayvec", feature = "alloc"))]
     pub use crate::Segmentation;
     #[cfg(feature = "alloc")]
     pub use {
@@ -330,6 +331,7 @@ use {
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
+#[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeOr;
