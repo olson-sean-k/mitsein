@@ -356,18 +356,16 @@ where
         }
     }
 
-    /// Applies an arbitrary combinator to the inner [`Iterator`].
+    /// Maps the inner [`Iterator`] with the given function without checking that the output is
+    /// non-empty.
     ///
     /// # Safety
     ///
-    /// The combinator function `f` must not reduce the cardinality of the iterator to zero. For
-    /// example, it is unsound to call this function with [`Iterator::skip`] for an arbitrary or
-    /// unchecked number of skipped items, because this could skip all items and produce an empty
-    /// iterator.
-    ///
-    /// [`Iterator::skip`]: core::iter::Iterator::skip
+    /// The iterator returned by the function `f` must yield at least one item (must never be
+    /// empty). For example, calling this function with a closure `|_| core::iter::empty::<I>()` is
+    /// undefined behavior.
     #[inline(always)]
-    unsafe fn with_non_empty<J, F>(self, f: F) -> Iterator1<J>
+    unsafe fn and_then_unchecked<J, F>(self, f: F) -> Iterator1<J>
     where
         J: Iterator,
         F: FnOnce(I) -> J,
@@ -484,7 +482,7 @@ where
         I: Iterator<Item = &'a T>,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::copied) }
+        unsafe { self.and_then_unchecked(I::copied) }
     }
 
     pub fn cloned<'a, T>(self) -> Iterator1<Cloned<I>>
@@ -493,12 +491,12 @@ where
         I: Iterator<Item = &'a T>,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::cloned) }
+        unsafe { self.and_then_unchecked(I::cloned) }
     }
 
     pub fn enumerate(self) -> Iterator1<Enumerate<I>> {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::enumerate) }
+        unsafe { self.and_then_unchecked(I::enumerate) }
     }
 
     pub fn map<T, F>(self, f: F) -> Iterator1<Map<I, F>>
@@ -506,7 +504,7 @@ where
         F: FnMut(I::Item) -> T,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.map(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.map(f)) }
     }
 
     pub fn map_first_and_then<J, H, T>(mut self, head: H, tail: T) -> HeadAndTail<J>
@@ -541,7 +539,7 @@ where
         I: Clone,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::cycle) }
+        unsafe { self.and_then_unchecked(I::cycle) }
     }
 
     pub fn chain<T>(self, chained: T) -> Iterator1<Chain<I, T::IntoIter>>
@@ -549,12 +547,12 @@ where
         T: IntoIterator<Item = I::Item>,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.chain(chained)) }
+        unsafe { self.and_then_unchecked(move |items| items.chain(chained)) }
     }
 
     pub fn step_by(self, step: usize) -> Iterator1<StepBy<I>> {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.step_by(step)) }
+        unsafe { self.and_then_unchecked(move |items| items.step_by(step)) }
     }
 
     pub fn inspect<F>(self, f: F) -> Iterator1<Inspect<I, F>>
@@ -562,12 +560,12 @@ where
         F: FnMut(&I::Item),
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.inspect(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.inspect(f)) }
     }
 
     pub fn peekable(self) -> Iterator1<Peekable<I>> {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::peekable) }
+        unsafe { self.and_then_unchecked(I::peekable) }
     }
 
     pub fn rev(self) -> Iterator1<Rev<I>>
@@ -575,7 +573,7 @@ where
         I: DoubleEndedIterator,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::rev) }
+        unsafe { self.and_then_unchecked(I::rev) }
     }
 
     pub fn collect1<T>(self) -> T
@@ -609,7 +607,7 @@ where
         I::Item: Into<T>,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::map_into) }
+        unsafe { self.and_then_unchecked(I::map_into) }
     }
 
     pub fn map_ok<F, T, U, E>(self, f: F) -> Iterator1<MapOk<I, F>>
@@ -618,7 +616,7 @@ where
         F: FnMut(T) -> U,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.map_ok(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.map_ok(f)) }
     }
 
     pub fn update<F>(self, f: F) -> Iterator1<Update<I, F>>
@@ -626,7 +624,7 @@ where
         F: FnMut(&mut I::Item),
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.update(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.update(f)) }
     }
 
     pub fn dedup(self) -> Iterator1<Dedup<I>>
@@ -634,7 +632,7 @@ where
         I::Item: PartialOrd,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::dedup) }
+        unsafe { self.and_then_unchecked(I::dedup) }
     }
 
     pub fn dedup_with_count(self) -> Iterator1<DedupWithCount<I>>
@@ -642,7 +640,7 @@ where
         I::Item: PartialOrd,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::dedup_with_count) }
+        unsafe { self.and_then_unchecked(I::dedup_with_count) }
     }
 
     pub fn dedup_by<F>(self, f: F) -> Iterator1<DedupBy<I, F>>
@@ -650,7 +648,7 @@ where
         F: FnMut(&I::Item, &I::Item) -> bool,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.dedup_by(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.dedup_by(f)) }
     }
 
     pub fn dedup_by_with_count<F>(self, f: F) -> Iterator1<DedupByWithCount<I, F>>
@@ -658,12 +656,12 @@ where
         F: FnMut(&I::Item, &I::Item) -> bool,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.dedup_by_with_count(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.dedup_by_with_count(f)) }
     }
 
     pub fn with_position(self) -> Iterator1<WithPosition<I>> {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::with_position) }
+        unsafe { self.and_then_unchecked(I::with_position) }
     }
 
     pub fn first_and_then_pad_with<F>(self, min: usize, f: F) -> HeadAndTail<PadUsing<I, F>>
@@ -679,7 +677,7 @@ where
         T: IntoIterator<Item = I::Item>,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.merge(merged)) }
+        unsafe { self.and_then_unchecked(move |items| items.merge(merged)) }
     }
 
     pub fn merge_by<T, F>(self, merged: T, f: F) -> Iterator1<MergeBy<I, T::IntoIter, F>>
@@ -688,7 +686,7 @@ where
         F: FnMut(&I::Item, &I::Item) -> bool,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.merge_by(merged, f)) }
+        unsafe { self.and_then_unchecked(move |items| items.merge_by(merged, f)) }
     }
 
     pub fn zip_longest<T>(self, zipped: T) -> Iterator1<ZipLongest<I, T::IntoIter>>
@@ -696,7 +694,7 @@ where
         T: IntoIterator,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.zip_longest(zipped)) }
+        unsafe { self.and_then_unchecked(move |items| items.zip_longest(zipped)) }
     }
 
     #[cfg(feature = "alloc")]
@@ -719,7 +717,7 @@ where
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn multipeek(self) -> Iterator1<MultiPeek<I>> {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::multipeek) }
+        unsafe { self.and_then_unchecked(I::multipeek) }
     }
 
     #[cfg(feature = "alloc")]
@@ -729,7 +727,7 @@ where
         I::Item: Ord,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::sorted) }
+        unsafe { self.and_then_unchecked(I::sorted) }
     }
 
     #[cfg(feature = "alloc")]
@@ -739,7 +737,7 @@ where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.sorted_by(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.sorted_by(f)) }
     }
 
     #[cfg(feature = "alloc")]
@@ -750,7 +748,7 @@ where
         F: FnMut(&I::Item) -> K,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.sorted_by_key(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.sorted_by_key(f)) }
     }
 
     #[cfg(feature = "alloc")]
@@ -761,7 +759,7 @@ where
         F: FnMut(&I::Item) -> K,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.sorted_by_cached_key(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.sorted_by_cached_key(f)) }
     }
 
     #[cfg(feature = "alloc")]
@@ -771,7 +769,7 @@ where
         I::Item: Clone,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::powerset) }
+        unsafe { self.and_then_unchecked(I::powerset) }
     }
 
     #[cfg(feature = "std")]
@@ -781,7 +779,7 @@ where
         I::Item: Clone + Eq + Hash,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(I::unique) }
+        unsafe { self.and_then_unchecked(I::unique) }
     }
 
     #[cfg(feature = "std")]
@@ -792,7 +790,7 @@ where
         F: FnMut(&I::Item) -> K,
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
-        unsafe { self.with_non_empty(move |items| items.unique_by(f)) }
+        unsafe { self.and_then_unchecked(move |items| items.unique_by(f)) }
     }
 }
 
