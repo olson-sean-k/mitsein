@@ -445,10 +445,10 @@ impl<'a, T> NonEmpty<T>
 where
     T: 'a + ?Sized,
 {
-    // TODO: At time of writing, `const` functions are not supported in traits. Because `const`
-    //       construction of `Slice1` has some utility (unlike `Vec1`, for example), this inherent
-    //       function is used instead of `FromMaybeEmpty::from_maybe_empty_unchecked`. Remove this
-    //       in favor of that function when possible.
+    // TODO: At time of writing, `const` functions are not supported in traits. This inherent
+    //       function is used in `const` contexts where
+    //       `FromMaybeEmpty::from_maybe_empty_unchecked` cannot be used yet. Remove this in favor
+    //       of that function when possible.
     const unsafe fn from_maybe_empty_ref_unchecked(items: &'a T) -> &'a Self
     where
         &'a T: MaybeEmpty,
@@ -456,6 +456,19 @@ where
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
         //         `NonEmpty<T>` are the same.
         mem::transmute::<&'_ T, &'_ NonEmpty<T>>(items)
+    }
+
+    // TODO: At time of writing, `const` functions are not supported in traits. This inherent
+    //       function is used in `const` contexts where
+    //       `FromMaybeEmpty::from_maybe_empty_unchecked` cannot be used yet. Remove this in favor
+    //       of that function when possible.
+    const unsafe fn from_maybe_empty_ref_mut_unchecked(items: &'a mut T) -> &'a mut Self
+    where
+        &'a mut T: MaybeEmpty,
+    {
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
+        //         `NonEmpty<T>` are the same.
+        mem::transmute::<&'_ mut T, &'_ mut NonEmpty<T>>(items)
     }
 }
 

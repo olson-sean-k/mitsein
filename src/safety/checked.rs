@@ -63,3 +63,10 @@ pub const unsafe fn non_zero_from_usize_maybe_unchecked(n: usize) -> NonZeroUsiz
 pub const unsafe fn unreachable_maybe_unchecked() -> ! {
     unreachable!()
 }
+
+/// # Safety
+///
+/// `option` must be `Some`.
+pub const unsafe fn unwrap_option_maybe_unchecked<T>(option: Option<T>) -> T {
+    option.unwrap()
+}

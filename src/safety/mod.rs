@@ -26,7 +26,9 @@ use core::slice::SliceIndex;
 // LINT: Some of these functions are unused depending on which features are enabled. The set of
 //       features may be complicated, so this module prefers `allow` over `cfg_attr` and `expect`.
 #[allow(unused_imports)]
-pub use maybe::{non_zero_from_usize_maybe_unchecked, unreachable_maybe_unchecked};
+pub use maybe::{
+    non_zero_from_usize_maybe_unchecked, unreachable_maybe_unchecked, unwrap_option_maybe_unchecked,
+};
 
 #[cfg(feature = "arrayvec")]
 pub trait ArrayVecExt<T> {
