@@ -8,7 +8,7 @@ use core::slice::{self, Chunks, ChunksMut, RChunks, RChunksMut};
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
-use crate::safety::{self, OptionExt as _};
+use crate::safety;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
@@ -41,7 +41,6 @@ impl<T> Slice1<T> {
     /// `items` must be non-empty. For example, it is unsound to call this function with an empty
     /// slice literal `&[]`.
     pub const unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
-        // TODO: See `from_maybe_empty_ref_unchecked`.
         NonEmpty::from_maybe_empty_ref_unchecked(items)
     }
 
@@ -49,8 +48,8 @@ impl<T> Slice1<T> {
     ///
     /// `items` must be non-empty. For example, it is unsound to call this function with an empty
     /// slice literal `&mut []`.
-    pub unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+    pub const unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
+        NonEmpty::from_maybe_empty_ref_mut_unchecked(items)
     }
 
     pub fn try_from_slice(items: &[T]) -> Result<&Self, &[T]> {
@@ -91,34 +90,34 @@ impl<T> Slice1<T> {
         }
     }
 
-    pub fn split_first(&self) -> (&T, &[T]) {
+    pub const fn split_first(&self) -> (&T, &[T]) {
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.split_first().unwrap_maybe_unchecked() }
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_first()) }
     }
 
-    pub fn split_first_mut(&mut self) -> (&mut T, &mut [T]) {
+    pub const fn split_first_mut(&mut self) -> (&mut T, &mut [T]) {
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.split_first_mut().unwrap_maybe_unchecked() }
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_first_mut()) }
     }
 
-    pub fn first(&self) -> &T {
+    pub const fn first(&self) -> &T {
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.first().unwrap_maybe_unchecked() }
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.first()) }
     }
 
-    pub fn first_mut(&mut self) -> &mut T {
+    pub const fn first_mut(&mut self) -> &mut T {
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.first_mut().unwrap_maybe_unchecked() }
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.first_mut()) }
     }
 
-    pub fn last(&self) -> &T {
+    pub const fn last(&self) -> &T {
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.last().unwrap_maybe_unchecked() }
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.last()) }
     }
 
-    pub fn last_mut(&mut self) -> &mut T {
+    pub const fn last_mut(&mut self) -> &mut T {
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.last_mut().unwrap_maybe_unchecked() }
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.last_mut()) }
     }
 
     pub fn chunks(&self, n: usize) -> Iterator1<Chunks<'_, T>> {
@@ -160,7 +159,7 @@ impl<T> Slice1<T> {
         &self.items
     }
 
-    pub fn as_mut_slice(&mut self) -> &'_ mut [T] {
+    pub const fn as_mut_slice(&mut self) -> &'_ mut [T] {
         &mut self.items
     }
 }
