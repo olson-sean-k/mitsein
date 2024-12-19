@@ -1,6 +1,7 @@
 //! A non-empty [slice][`prim@slice`].
 
 use core::fmt::{self, Debug, Formatter};
+use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::{self, Chunks, ChunksMut, RChunks, RChunksMut};
@@ -35,13 +36,18 @@ unsafe impl<T> MaybeEmpty for &'_ mut [T] {
 
 pub type Slice1<T> = NonEmpty<[T]>;
 
+// TODO: At time of writing, `const` functions are not supported in traits, so
+//       `FromMaybeEmpty::from_maybe_empty_unchecked` cannot be used to construct a `Slice1` yet.
+//       Use that function instead of `mem::transmute` when possible.
 impl<T> Slice1<T> {
     /// # Safety
     ///
     /// `items` must be non-empty. For example, it is unsound to call this function with an empty
     /// slice literal `&[]`.
     pub const unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
-        NonEmpty::from_maybe_empty_ref_unchecked(items)
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `[T]` and
+        //         `Slice1<T>` are the same.
+        mem::transmute::<&'_ [T], &'_ Slice1<T>>(items)
     }
 
     /// # Safety
@@ -49,7 +55,9 @@ impl<T> Slice1<T> {
     /// `items` must be non-empty. For example, it is unsound to call this function with an empty
     /// slice literal `&mut []`.
     pub const unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
-        NonEmpty::from_maybe_empty_ref_mut_unchecked(items)
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `[T]` and
+        //         `Slice1<T>` are the same.
+        mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items)
     }
 
     pub fn try_from_slice(items: &[T]) -> Result<&Self, &[T]> {
