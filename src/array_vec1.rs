@@ -151,8 +151,11 @@ where
     /// immediate output of [`ArrayVec::new()`][`ArrayVec::new`].
     ///
     /// [`ArrayVec::new`]: arrayvec::ArrayVec::new
-    pub unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+    pub const unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
+        // TODO: At time of writing, `const` functions are not supported in traits, so
+        //       `FromMaybeEmpty::from_maybe_empty_unchecked` cannot be used here yet. Remove this
+        //       in favor of that function when possible.
+        ArrayVec1 { items }
     }
 
     pub fn from_one(item: T) -> Self {
