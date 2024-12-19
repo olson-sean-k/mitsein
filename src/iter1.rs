@@ -390,7 +390,7 @@ where
         NonZeroUsize::clamped(self.items.len())
     }
 
-    pub fn as_iter(&self) -> &I {
+    pub const fn as_iter(&self) -> &I {
         &self.items
     }
 
