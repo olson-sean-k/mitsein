@@ -321,25 +321,6 @@ pub struct Iterator1<I> {
     items: I,
 }
 
-impl<I> Iterator1<I> {
-    /// # Safety
-    ///
-    /// `items` must yield one or more items from its [`IntoIterator`] implementation. For example,
-    /// it is unsound to call this function with [`None::<I>`][`Option::None`] or any other empty
-    /// [`IntoIterator`].
-    ///
-    /// [`IntoIterator`]: core::iter::IntoIterator
-    /// [`Option::None`]: core::option::Option::None
-    pub unsafe fn from_iter_unchecked<T>(items: T) -> Self
-    where
-        T: IntoIterator<IntoIter = I>,
-    {
-        Iterator1 {
-            items: items.into_iter(),
-        }
-    }
-}
-
 impl<I> Iterator1<I>
 where
     I: Iterator,
@@ -356,16 +337,42 @@ where
         }
     }
 
+    /// # Safety
+    ///
+    /// `items` must yield one or more items from its [`IntoIterator`] implementation. For example,
+    /// it is undefined behavior to call this function with [`None::<I>`][`Option::None`] or any
+    /// other empty [`IntoIterator`].
+    ///
+    /// [`IntoIterator`]: core::iter::IntoIterator
+    /// [`Option::None`]: core::option::Option::None
+    pub unsafe fn from_iter_unchecked<T>(items: T) -> Self
+    where
+        T: IntoIterator<IntoIter = I>,
+    {
+        Iterator1 {
+            items: items.into_iter(),
+        }
+    }
+
+    pub fn and_then_try<J, F>(self, f: F) -> Result<J>
+    where
+        J: Iterator,
+        F: FnOnce(I) -> J,
+    {
+        Iterator1::try_from_iter(f(self.items))
+    }
+
     /// Maps the inner [`Iterator`] with the given function without checking that the output is
     /// non-empty.
     ///
     /// # Safety
     ///
-    /// The iterator returned by the function `f` must yield at least one item (must never be
-    /// empty). For example, calling this function with a closure `|_| core::iter::empty::<I>()` is
-    /// undefined behavior.
-    #[inline(always)]
-    unsafe fn and_then_unchecked<J, F>(self, f: F) -> Iterator1<J>
+    /// The iterator returned by the function `f` must yield one or more items (must never be
+    /// empty). For example, calling this function with a closure
+    /// [`|_| iter::empty::<I>()`][iter::empty] is undefined behavior.
+    ///
+    /// [`iter::empty`]: core::iter::empty
+    pub unsafe fn and_then_unchecked<J, F>(self, f: F) -> Iterator1<J>
     where
         J: Iterator,
         F: FnOnce(I) -> J,
