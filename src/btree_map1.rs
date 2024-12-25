@@ -19,12 +19,14 @@ use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-impl<K, V, I> Extend1<I> for BTreeMap<K, V>
+impl<K, V> Extend1<(K, V)> for BTreeMap<K, V>
 where
     K: Ord,
-    I: IntoIterator1<Item = (K, V)>,
 {
-    fn extend_non_empty(mut self, items: I) -> BTreeMap1<K, V> {
+    fn extend_non_empty<I>(mut self, items: I) -> BTreeMap1<K, V>
+    where
+        I: IntoIterator1<Item = (K, V)>,
+    {
         self.extend(items);
         // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
         //         items or panics, so `self` must be non-empty here.

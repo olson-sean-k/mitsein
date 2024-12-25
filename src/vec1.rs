@@ -28,11 +28,11 @@ use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-impl<T, I> Extend1<I> for Vec<T>
-where
-    I: IntoIterator1<Item = T>,
-{
-    fn extend_non_empty(mut self, items: I) -> Vec1<T> {
+impl<T> Extend1<T> for Vec<T> {
+    fn extend_non_empty<I>(mut self, items: I) -> Vec1<T>
+    where
+        I: IntoIterator1<Item = T>,
+    {
         self.extend(items);
         // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
         //         items or panics, so `self` must be non-empty here.

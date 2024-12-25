@@ -122,12 +122,11 @@ pub trait IteratorExt: Iterator + Sized {
 
 impl<I> IteratorExt for I where I: Iterator {}
 
-pub trait Extend1<I>
-where
-    I: IntoIterator1,
-{
+pub trait Extend1<T> {
     #[must_use]
-    fn extend_non_empty(self, items: I) -> NonEmpty<Self>;
+    fn extend_non_empty<I>(self, items: I) -> NonEmpty<Self>
+    where
+        I: IntoIterator1<Item = T>;
 }
 
 pub trait FromIterator1<T> {

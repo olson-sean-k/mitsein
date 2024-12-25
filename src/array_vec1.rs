@@ -25,16 +25,18 @@ use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-impl<T, I, const N: usize> Extend1<I> for ArrayVec<T, N>
+impl<T, const N: usize> Extend1<T> for ArrayVec<T, N>
 where
-    I: IntoIterator1<Item = T>,
     // This bound isn't necessary for memory safety here, because an `ArrayVec` with no capacity
     // panics when any item is inserted, so `extend_non_empty` panics. However, this bound is
     // logically appropriate and prevents the definition of a function that always panics and has a
     // nonsense output type.
     [T; N]: Array1,
 {
-    fn extend_non_empty(mut self, items: I) -> ArrayVec1<T, N> {
+    fn extend_non_empty<I>(mut self, items: I) -> ArrayVec1<T, N>
+    where
+        I: IntoIterator1<Item = T>,
+    {
         self.extend(items);
         // SAFETY: The bound `[T; N]: Array1` guarantees that capacity is non-zero, input iterator
         //         `items` is non-empty, and `extend` either pushes one or more items or panics, so

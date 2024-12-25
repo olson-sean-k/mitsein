@@ -22,11 +22,11 @@ use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-impl<T, I> Extend1<I> for VecDeque<T>
-where
-    I: IntoIterator1<Item = T>,
-{
-    fn extend_non_empty(mut self, items: I) -> VecDeque1<T> {
+impl<T> Extend1<T> for VecDeque<T> {
+    fn extend_non_empty<I>(mut self, items: I) -> VecDeque1<T>
+    where
+        I: IntoIterator1<Item = T>,
+    {
         self.extend(items);
         // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
         //         items or panics, so `self` must be non-empty here.
