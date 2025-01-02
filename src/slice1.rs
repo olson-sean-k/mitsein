@@ -26,11 +26,7 @@ unsafe impl<T> MaybeEmpty for &'_ [T] {
 
 unsafe impl<T> MaybeEmpty for &'_ mut [T] {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
-        match self.len() {
-            0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
-        }
+        (&**self).cardinality()
     }
 }
 

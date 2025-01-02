@@ -280,6 +280,8 @@ pub mod btree_set1;
 pub mod cmp;
 pub mod iter1;
 pub mod slice1;
+pub mod str1;
+pub mod string1;
 pub mod sync1;
 pub mod vec1;
 pub mod vec_deque1;
@@ -307,14 +309,18 @@ pub mod prelude {
         Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
     };
     pub use crate::slice1::{slice1, Slice1};
+    pub use crate::str1::Str1;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
-    pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
+    pub use crate::sync1::{
+        ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
+    };
     #[cfg(any(feature = "arrayvec", feature = "alloc"))]
     pub use crate::Segmentation;
     #[cfg(feature = "alloc")]
     pub use {
-        crate::boxed1::BoxedSlice1Ext as _,
+        crate::boxed1::{BoxedSlice1Ext as _, BoxedStr1Ext as _},
         crate::btree_map1::OrOnlyEntryExt as _,
+        crate::string1::String1,
         crate::vec1::{vec1, CowSlice1Ext as _, Vec1},
     };
 }
@@ -335,6 +341,21 @@ use crate::serde::{EmptyError, Serde};
 pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeOr;
+
+trait IteratorExt: Iterator {
+    fn cardinality(self) -> Option<Cardinality<(), ()>>
+    where
+        Self: Sized,
+    {
+        match self.take(2).count() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
+    }
+}
+
+impl<I> IteratorExt for I where I: Iterator {}
 
 trait NonZeroExt<T> {
     fn clamped(n: T) -> Self;
