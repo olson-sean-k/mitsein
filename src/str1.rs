@@ -12,13 +12,22 @@ use {alloc::borrow::ToOwned, alloc::string::String};
 use crate::iter1::Iterator1;
 use crate::safety;
 use crate::slice1::Slice1;
-use crate::{Cardinality, FromMaybeEmpty, IteratorExt as _, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedStr1, crate::string1::String1};
 
 unsafe impl MaybeEmpty for &'_ str {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
-        self.chars().cardinality()
+        // Unlike other containers, the items (bytes) in UTF-8 encoded strings are incongruent with
+        // the items manipulated by insertions and removals: code points (`char`s). Cardinality is
+        // based on code points formed from the UTF-8 rather than the count of bytes. This can
+        // present some edge cases, such as a non-zero number of invalid UTF-8 bytes that cannot be
+        // interpreted as code points.
+        match self.chars().take(2).count() {
+            0 => None,
+            1 => Some(Cardinality::One(())),
+            _ => Some(Cardinality::Many(())),
+        }
     }
 }
 

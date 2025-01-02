@@ -351,21 +351,6 @@ pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeOr;
 
-trait IteratorExt: Iterator {
-    fn cardinality(self) -> Option<Cardinality<(), ()>>
-    where
-        Self: Sized,
-    {
-        match self.take(2).count() {
-            0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
-        }
-    }
-}
-
-impl<I> IteratorExt for I where I: Iterator {}
-
 trait NonZeroExt<T> {
     fn clamped(n: T) -> Self;
 }
