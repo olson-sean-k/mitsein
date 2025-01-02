@@ -351,16 +351,6 @@ pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeOr;
 
-trait NonZeroExt<T> {
-    fn clamped(n: T) -> Self;
-}
-
-impl NonZeroExt<usize> for NonZeroUsize {
-    fn clamped(n: usize) -> Self {
-        NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
-    }
-}
-
 trait MaybeEmptyExt: MaybeEmpty {
     fn map_non_empty<T, F>(self, f: F) -> Result<T, Self>
     where
@@ -391,6 +381,16 @@ where
 
     fn is_empty(&self) -> bool {
         self.cardinality().is_none()
+    }
+}
+
+trait NonZeroExt<T> {
+    fn clamped(n: T) -> Self;
+}
+
+impl NonZeroExt<usize> for NonZeroUsize {
+    fn clamped(n: usize) -> Self {
+        NonZeroUsize::new(n).unwrap_or(NonZeroUsize::MIN)
     }
 }
 
