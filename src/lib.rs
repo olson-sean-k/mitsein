@@ -42,6 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
+//! - [`String1`][`string1`]
 //! - [`Vec1`][`mod@vec1`]
 //! - [`VecDeque1`][`vec_deque1`]
 //!
@@ -62,8 +63,9 @@
 //! ## Slices
 //!
 //! Like collections, non-empty slices are represented with the [`NonEmpty`] type constructor and
-//! the [`Slice1`] type definition. These types are unsized and so are accessed via references just
-//! like standard slices. The [`prelude`] module re-exports [`Slice1`] and the [`slice1!`] macro.
+//! the [`Slice1`] and [`Str1`] type definitions. These types are unsized and so are accessed via
+//! references just like standard slices. The [`prelude`] module re-exports [`Slice1`] and the
+//! [`slice1!`] macro.
 //!
 //! ```rust
 //! use mitsein::prelude::*;
@@ -194,6 +196,7 @@
 //! [`itertools`]: ::itertools
 //! [`serde`]: ::serde
 //! [`Slice1`]: crate::slice1::Slice1
+//! [`Str1`]: crate::str1::Str1
 //! [`Vec`]: alloc::vec::Vec
 //! [`Vec1`]: crate::vec1::Vec1
 

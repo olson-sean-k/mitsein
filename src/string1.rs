@@ -1,4 +1,6 @@
 //! A non-empty [`String`][`string`].
+//!
+//! [`string`]: alloc::string
 
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
