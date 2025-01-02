@@ -91,8 +91,11 @@
 //! features](#integrations-and-cargo-features) are enabled):
 //!
 //! - [`ArcSlice1`]
+//! - [`ArcStr1`]
 //! - [`BoxedSlice1`]
+//! - [`BoxedStr1`]
 //! - [`CowSlice1`]
+//! - [`CowStr1`]
 //!
 //! Each of these type definitions has an accompanying extension trait for operations and
 //! conversions that take advantage of the non-empty guarantee. For example, [`ArcSlice1Ext`]
@@ -186,11 +189,14 @@
 //!
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1`]: crate::sync1::ArcSlice1
+//! [`ArcStr1`]: crate::sync1::ArcStr1
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`Array1`]: crate::array1::Array1
 //! [`ArrayVec`]: arrayvec::ArrayVec
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
+//! [`BoxedStr1`]: crate::boxed1::BoxedStr1
 //! [`CowSlice1`]: crate::vec1::CowSlice1
+//! [`CowStr1`]: crate::string1::CowStr1
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
 //! [`itertools`]: ::itertools
