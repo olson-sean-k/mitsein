@@ -42,6 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
+//! - [`String1`][`string1`]
 //! - [`Vec1`][`mod@vec1`]
 //! - [`VecDeque1`][`vec_deque1`]
 //!
@@ -62,8 +63,9 @@
 //! ## Slices
 //!
 //! Like collections, non-empty slices are represented with the [`NonEmpty`] type constructor and
-//! the [`Slice1`] type definition. These types are unsized and so are accessed via references just
-//! like standard slices. The [`prelude`] module re-exports [`Slice1`] and the [`slice1!`] macro.
+//! the [`Slice1`] and [`Str1`] type definitions. These types are unsized and so are accessed via
+//! references just like standard slices. The [`prelude`] module re-exports [`Slice1`] and the
+//! [`slice1!`] macro.
 //!
 //! ```rust
 //! use mitsein::prelude::*;
@@ -89,8 +91,11 @@
 //! features](#integrations-and-cargo-features) are enabled):
 //!
 //! - [`ArcSlice1`]
+//! - [`ArcStr1`]
 //! - [`BoxedSlice1`]
+//! - [`BoxedStr1`]
 //! - [`CowSlice1`]
+//! - [`CowStr1`]
 //!
 //! Each of these type definitions has an accompanying extension trait for operations and
 //! conversions that take advantage of the non-empty guarantee. For example, [`ArcSlice1Ext`]
@@ -184,16 +189,20 @@
 //!
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1`]: crate::sync1::ArcSlice1
+//! [`ArcStr1`]: crate::sync1::ArcStr1
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`Array1`]: crate::array1::Array1
 //! [`ArrayVec`]: arrayvec::ArrayVec
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
+//! [`BoxedStr1`]: crate::boxed1::BoxedStr1
 //! [`CowSlice1`]: crate::vec1::CowSlice1
+//! [`CowStr1`]: crate::string1::CowStr1
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
 //! [`itertools`]: ::itertools
 //! [`serde`]: ::serde
 //! [`Slice1`]: crate::slice1::Slice1
+//! [`Str1`]: crate::str1::Str1
 //! [`Vec`]: alloc::vec::Vec
 //! [`Vec1`]: crate::vec1::Vec1
 
@@ -280,6 +289,8 @@ pub mod btree_set1;
 pub mod cmp;
 pub mod iter1;
 pub mod slice1;
+pub mod str1;
+pub mod string1;
 pub mod sync1;
 pub mod vec1;
 pub mod vec_deque1;
@@ -307,14 +318,18 @@ pub mod prelude {
         Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
     };
     pub use crate::slice1::{slice1, Slice1};
+    pub use crate::str1::Str1;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
-    pub use crate::sync1::{ArcSlice1Ext as _, WeakSlice1Ext as _};
+    pub use crate::sync1::{
+        ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
+    };
     #[cfg(any(feature = "arrayvec", feature = "alloc"))]
     pub use crate::Segmentation;
     #[cfg(feature = "alloc")]
     pub use {
-        crate::boxed1::BoxedSlice1Ext as _,
+        crate::boxed1::{BoxedSlice1Ext as _, BoxedStr1Ext as _},
         crate::btree_map1::OrOnlyEntryExt as _,
+        crate::string1::String1,
         crate::vec1::{vec1, CowSlice1Ext as _, Vec1},
     };
 }

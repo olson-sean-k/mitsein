@@ -123,7 +123,7 @@ assert_eq!(xs.as_slice(), &[0i32, 1]);
 ```
 
 **Mitsein provides comprehensive coverage of ordered collections and container
-APIs in `core` and `alloc`.** This notably includes `slice`, `BTreeMap`,
+APIs in `core` and `alloc`.** This notably includes `slice`, `str`, `BTreeMap`,
 `BTreeSet`, `Box`, and `Arc`. The [`nonempty`] and [`vec1`] crates lack support
 for primitive types like `slice` and collections other than `Vec`.
 

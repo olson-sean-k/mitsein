@@ -12,6 +12,7 @@ use crate::array1::Array1;
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
+use crate::str1::Str1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::vec1::Vec1;
@@ -180,5 +181,40 @@ impl<T> TryFrom<Serde<Box<[T]>>> for BoxedSlice1<T> {
 
     fn try_from(serde: Serde<Box<[T]>>) -> Result<Self, Self::Error> {
         BoxedSlice1::try_from_boxed_slice(serde.items).map_err(|_| EmptyError)
+    }
+}
+
+pub type BoxedStr1 = Box<Str1>;
+
+pub trait BoxedStr1Ext {
+    /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is unsound to call this function with
+    /// [`Box::<str>::from("")`][`Box::from`].
+    ///
+    /// [`Box::from`]: alloc::boxed::Box::from
+    unsafe fn from_boxed_str_unchecked(items: Box<str>) -> Self;
+
+    fn into_boxed_str(self) -> Box<str>;
+}
+
+impl BoxedStr1Ext for BoxedStr1 {
+    unsafe fn from_boxed_str_unchecked(items: Box<str>) -> Self {
+        let items = Box::into_raw(items);
+        // SAFETY: Client code is responsible for asserting that the input string is non-empty (and
+        //         so this function is unsafe). This transmutation is safe, because `str` and
+        //         `Str1` have the same representation (`Str1` is `repr(transparent)`). Moreover,
+        //         the allocator only requires that the memory location and layout are the same
+        //         when deallocating, so dropping the transmuted `Box` is sound.
+        Box::from_raw(items as *mut Str1)
+    }
+
+    fn into_boxed_str(self) -> Box<str> {
+        let items = Box::into_raw(self);
+        // SAFETY: This transmutation is safe, because `str` and `Str1` have the same
+        //         representation (`Str1` is `repr(transparent)`). Moreover, the allocator only
+        //         requires that the memory location and layout are the same when deallocating, so
+        //         dropping the transmuted `Box` is sound.
+        unsafe { Box::from_raw(items as *mut str) }
     }
 }
