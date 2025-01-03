@@ -36,14 +36,24 @@ alloc = [
     "serde/alloc",
 ]
 arrayvec = ["dep:arrayvec"]
+indexmap = [
+    "dep:indexmap",
+    "alloc",
+]
 itertools = ["dep:itertools"]
+rayon = [
+    "dep:rayon",
+    "indexmap/rayon",
+]
 serde = [
     "dep:serde",
     "dep:serde_derive",
     "arrayvec/serde",
+    "indexmap/serde",
 ]
 std = [
     "alloc",
+    "indexmap/std",
     "itertools/use_std",
     "serde/std",
 ]
@@ -55,8 +65,18 @@ version = "^0.7.0"
 default-features = false
 optional = true
 
+[dependencies.indexmap]
+version = "^2.7.0"
+default-features = false
+optional = true
+
 [dependencies.itertools]
 version = "^0.13.0"
+default-features = false
+optional = true
+
+[dependencies.rayon]
+version = "^1.10.0"
 default-features = false
 optional = true
 

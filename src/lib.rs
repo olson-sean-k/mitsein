@@ -42,6 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
+//! - [`IndexSet1`][`index_set1`]
 //! - [`String1`][`string1`]
 //! - [`Vec1`][`mod@vec1`]
 //! - [`VecDeque1`][`vec_deque1`]
@@ -182,25 +183,29 @@
 //! | Feature     | Default | Primary Dependency | Description                                               |
 //! |-------------|---------|--------------------|-----------------------------------------------------------|
 //! | `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like [`Vec1`].       |
-//! | `arrayvec`  | No      | `arrayvec`         | Non-empty implementation of [`ArrayVec`].                 |
-//! | `itertools` | No      | `itertools`        | Combinators from [`itertools`] for [`Iterator1`].         |
-//! | `serde`     | No      | `serde`            | De/serialization of non-empty collections with [`serde`]. |
-//! | `std`       | Yes     | `std`              | Integrations with [`std::io`].                            |
+//! | `arrayvec`  | No      | [`arrayvec`]       | Non-empty implementations of [`arrayvec`] types.          |
+//! | `indexmap`  | No      | [`indexmap`]       | Non-empty implementations of [`indexmap`] types.          |
+//! | `itertools` | No      | [`itertools`]      | Combinators from [`itertools`] for `Iterator1`.           |
+//! | `rayon`     | No      | [`rayon`]          | Parallel iterators and operations for non-empty types.    |
+//! | `serde`     | No      | [`serde`]          | De/serialization of non-empty collections with [`serde`]. |
+//! | `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 //!
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1`]: crate::sync1::ArcSlice1
 //! [`ArcStr1`]: crate::sync1::ArcStr1
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`Array1`]: crate::array1::Array1
-//! [`ArrayVec`]: arrayvec::ArrayVec
+//! [`arrayvec`]: https://crates.io/crates/arrayvec
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
 //! [`BoxedStr1`]: crate::boxed1::BoxedStr1
 //! [`CowSlice1`]: crate::vec1::CowSlice1
 //! [`CowStr1`]: crate::string1::CowStr1
+//! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
-//! [`itertools`]: ::itertools
-//! [`serde`]: ::serde
+//! [`itertools`]: https://crates.io/crates/itertools
+//! [`rayon`]: https://crates.io/crates/rayon
+//! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`Str1`]: crate::str1::Str1
 //! [`Vec`]: alloc::vec::Vec
@@ -210,6 +215,25 @@
 //       documentation examples without explicitly applying `doc` attributes. These attributes harm
 //       the legibility of non-rendered documentation. Migrate this to a cleaner mechanism when
 //       possible.
+
+// TODO: Introduce traits that close the input type parameters of collections and forward them to
+//       output type parameters and provide a by-reference conversion. For example, for `BTreeMap`
+//       and `BTreeMap1`:
+//
+//       pub trait ClosedBTreeMap {
+//          type Key;
+//          type Value;
+//
+//          fn as_btree_map(&self) -> &BTreeMap<Self::Key, Self::Value>;
+//       }
+//
+//       Such traits can simplify input type parameters for proxy and segment types. Again in
+//       `BTreeMap1`:
+//
+//       pub type Segment<'a, K> = segment::Segment<'a, K, BTreeMap<KeyFor<K>, ValueFor<K>>>;
+//
+//       This reduces the input type parameters for `Segment` to only the collection type `K`,
+//       where `K` is `ClosedBTreeMap`.
 
 // SAFETY: This crate implements non-empty collections, slices, and iterators. This non-empty
 //         invariant is critical to memory safety and soundness, because these implementations use
@@ -287,6 +311,7 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
+pub mod index_set1;
 pub mod iter1;
 pub mod slice1;
 pub mod str1;
@@ -317,6 +342,8 @@ pub mod prelude {
     pub use crate::iter1::{
         Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
     };
+    #[cfg(feature = "rayon")]
+    pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
     pub use crate::slice1::{slice1, Slice1};
     pub use crate::str1::Str1;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]

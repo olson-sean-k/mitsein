@@ -38,8 +38,8 @@ pub type Slice1<T> = NonEmpty<[T]>;
 impl<T> Slice1<T> {
     /// # Safety
     ///
-    /// `items` must be non-empty. For example, it is unsound to call this function with an empty
-    /// slice literal `&[]`.
+    /// `items` must be non-empty. For example, it is undefined behavior to call this function with
+    /// an empty slice literal `&[]`.
     pub const unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `[T]` and
         //         `Slice1<T>` are the same.
@@ -48,8 +48,8 @@ impl<T> Slice1<T> {
 
     /// # Safety
     ///
-    /// `items` must be non-empty. For example, it is unsound to call this function with an empty
-    /// slice literal `&mut []`.
+    /// `items` must be non-empty. For example, it is undefined behavior to call this function with
+    /// an empty slice literal `&mut []`.
     pub const unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `[T]` and
         //         `Slice1<T>` are the same.
