@@ -21,6 +21,8 @@ use itertools::{
 };
 #[cfg(all(feature = "std", feature = "itertools"))]
 use itertools::{Unique, UniqueBy};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 #[cfg(all(feature = "alloc", feature = "itertools"))]
 use {
     alloc::vec,
@@ -28,6 +30,8 @@ use {
     itertools::{MultiPeek, Powerset, Tee},
 };
 
+#[cfg(feature = "rayon")]
+use crate::parallel::Parallel;
 use crate::safety::OptionExt as _;
 use crate::NonEmpty;
 use crate::NonZeroExt as _;
@@ -320,22 +324,7 @@ pub struct Iterator1<I> {
     items: I,
 }
 
-impl<I> Iterator1<I>
-where
-    I: Iterator,
-{
-    pub fn try_from_iter<T>(items: T) -> Result<I>
-    where
-        T: IntoIterator<IntoIter = I>,
-    {
-        let mut items = items.into_iter().peekable();
-        match items.peek() {
-            // SAFETY: `items` is non-empty.
-            Some(_) => Ok(unsafe { Iterator1::from_iter_unchecked(items) }),
-            _ => Err(items),
-        }
-    }
-
+impl<I> Iterator1<I> {
     /// # Safety
     ///
     /// `items` must yield one or more items from its [`IntoIterator`] implementation. For example,
@@ -379,6 +368,27 @@ where
         Iterator1::from_iter_unchecked(f(self.items))
     }
 
+    pub const fn as_iter(&self) -> &I {
+        &self.items
+    }
+}
+
+impl<I> Iterator1<I>
+where
+    I: Iterator,
+{
+    pub fn try_from_iter<T>(items: T) -> Result<I>
+    where
+        T: IntoIterator<IntoIter = I>,
+    {
+        let mut items = items.into_iter().peekable();
+        match items.peek() {
+            // SAFETY: `items` is non-empty.
+            Some(_) => Ok(unsafe { Iterator1::from_iter_unchecked(items) }),
+            _ => Err(items),
+        }
+    }
+
     pub fn size_hint(&self) -> (NonZeroUsize, Option<NonZeroUsize>) {
         let (lower, upper) = self.items.size_hint();
         (
@@ -392,10 +402,6 @@ where
         I: ExactSizeIterator,
     {
         NonZeroUsize::clamped(self.items.len())
-    }
-
-    pub const fn as_iter(&self) -> &I {
-        &self.items
     }
 
     pub fn count(self) -> NonZeroUsize {
@@ -800,6 +806,20 @@ where
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<I> Iterator1<I>
+where
+    I: Iterator + ParallelBridge + Send,
+    I::Item: Send,
+{
+    pub fn par_bridge(self) -> ParallelIterator1<rayon::iter::IterBridge<I>> {
+        // SAFETY: The input iterator is non-empty and the conversion into a parallel iterator
+        //         cannot reduce the cardinality of the iterator to zero.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_bridge()) }
+    }
+}
+
 #[cfg(all(feature = "alloc", feature = "itertools"))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", feature = "itertools"))))]
 impl<I> Iterator1<MultiPeek<I>>
@@ -830,6 +850,73 @@ where
 
     fn into_iter(self) -> Self::IntoIter {
         self.items
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+pub type ParallelIterator1<I> = Parallel<Iterator1<I>>;
+
+#[cfg(feature = "rayon")]
+impl<I> ParallelIterator1<I> {
+    /// # Safety
+    ///
+    /// `items` must yield one or more items from its [`IntoParallelIterator`] implementation.
+    pub unsafe fn from_par_iter_unchecked<T>(items: T) -> Self
+    where
+        T: IntoParallelIterator<Iter = I>,
+    {
+        Parallel {
+            items: Iterator1 {
+                items: items.into_par_iter(),
+            },
+        }
+    }
+
+    /// Maps the inner [`ParallelIterator`] with the given function without checking that the
+    /// output is non-empty.
+    ///
+    /// # Safety
+    ///
+    /// The parallel iterator returned by the function `f` must yield one or more items (must never
+    /// be empty).
+    pub unsafe fn and_then_unchecked<J, F>(self, f: F) -> ParallelIterator1<J>
+    where
+        J: ParallelIterator,
+        F: FnOnce(I) -> J,
+    {
+        ParallelIterator1::from_par_iter_unchecked(f(self.items.items))
+    }
+
+    pub const fn as_par_iter(&self) -> &I {
+        &self.items.items
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<I> ParallelIterator1<I>
+where
+    I: ParallelIterator,
+{
+    pub fn map<U, F>(self, f: F) -> ParallelIterator1<rayon::iter::Map<I, F>>
+    where
+        U: Send,
+        F: Fn(I::Item) -> U + Send + Sync,
+    {
+        unsafe { self.and_then_unchecked(move |items| items.map(f)) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<I> IntoParallelIterator for ParallelIterator1<I>
+where
+    I: ParallelIterator,
+{
+    type Iter = I;
+    type Item = I::Item;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.items.items
     }
 }
 

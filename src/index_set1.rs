@@ -18,13 +18,16 @@ use std::hash::RandomState;
 #[cfg(feature = "std")]
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
-#[cfg(feature = "rayon")]
-use crate::parallel::{self, Parallelization};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
+#[cfg(feature = "rayon")]
+use {
+    crate::iter1::ParallelIterator1,
+    crate::parallel::{self, Parallelization},
+};
 
 impl<T, S> Extend1<T> for IndexSet<T, S>
 where
@@ -316,7 +319,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: 'a + BuildHasher,
     {
-        // SAFETY: `self` must be non-empty and `BTreeSet::union` cannot reduce the cardinality of
+        // SAFETY: `self` must be non-empty and `IndexSet::union` cannot reduce the cardinality of
         //         its inputs.
         unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_ref())) }
     }
@@ -567,13 +570,17 @@ where
         self.items.par_intersection(other.as_ref())
     }
 
-    // TODO: Implement parallel non-empty iterators and use them here.
-    pub fn union<'a, R, SR>(&'a self, other: &'a R) -> set::rayon::ParUnion<'a, T, S, SR>
+    pub fn union<'a, R, SR>(
+        &'a self,
+        other: &'a R,
+    ) -> ParallelIterator1<set::rayon::ParUnion<'a, T, S, SR>>
     where
         R: AsRef<IndexSet<T, SR>>,
         SR: 'a + BuildHasher + Sync,
     {
-        self.items.par_union(other.as_ref())
+        // SAFETY: `self` must be non-empty and `IndexSet::par_union` cannot reduce the cardinality
+        //         of its inputs.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_union(other.as_ref())) }
     }
 
     pub fn is_disjoint<R, SR>(&self, other: &R) -> bool
