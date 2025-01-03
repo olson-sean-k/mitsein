@@ -183,11 +183,11 @@
 //! | Feature     | Default | Primary Dependency | Description                                               |
 //! |-------------|---------|--------------------|-----------------------------------------------------------|
 //! | `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like [`Vec1`].       |
-//! | `arrayvec`  | No      | `arrayvec`         | Non-empty implementation of [`ArrayVec`].                 |
-//! | `indexmap`  | No      | `indexmap`         | Non-empty implementation of [`IndexMap`].                 |
-//! | `itertools` | No      | `itertools`        | Combinators from [`itertools`] for `Iterator1`.           |
-//! | `rayon`     | No      | `rayon`            | Parallel iterators and operations for non-empty types.    |
-//! | `serde`     | No      | `serde`            | De/serialization of non-empty collections with [`serde`]. |
+//! | `arrayvec`  | No      | [`arrayvec`]       | Non-empty implementations of [`arrayvec`] types.          |
+//! | `indexmap`  | No      | [`indexmap`]       | Non-empty implementations of [`indexmap`] types.          |
+//! | `itertools` | No      | [`itertools`]      | Combinators from [`itertools`] for `Iterator1`.           |
+//! | `rayon`     | No      | [`rayon`]          | Parallel iterators and operations for non-empty types.    |
+//! | `serde`     | No      | [`serde`]          | De/serialization of non-empty collections with [`serde`]. |
 //! | `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 //!
 //! [`Arc`]: alloc::sync::Arc
@@ -195,16 +195,17 @@
 //! [`ArcStr1`]: crate::sync1::ArcStr1
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`Array1`]: crate::array1::Array1
-//! [`ArrayVec`]: arrayvec::ArrayVec
+//! [`arrayvec`]: https://crates.io/crates/arrayvec
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
 //! [`BoxedStr1`]: crate::boxed1::BoxedStr1
 //! [`CowSlice1`]: crate::vec1::CowSlice1
 //! [`CowStr1`]: crate::string1::CowStr1
-//! [`IndexMap`]: indexmap::map::IndexMap
+//! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
-//! [`itertools`]: ::itertools
-//! [`serde`]: ::serde
+//! [`itertools`]: https://crates.io/crates/itertools
+//! [`rayon`]: https://crates.io/crates/rayon
+//! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`Str1`]: crate::str1::Str1
 //! [`Vec`]: alloc::vec::Vec

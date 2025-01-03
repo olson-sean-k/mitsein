@@ -1,4 +1,6 @@
-//! A non-empty [`IndexSet`][`set`].
+//! A non-empty [`IndexSet`].
+//!
+//! [`IndexSet`]: indexmap::set
 
 #![cfg(feature = "indexmap")]
 #![cfg_attr(docsrs, doc(cfg(feature = "indexmap")))]
