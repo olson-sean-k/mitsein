@@ -329,6 +329,8 @@ pub mod prelude {
     pub use crate::sync1::{
         ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
     };
+    #[cfg(feature = "rayon")]
+    pub use crate::Parallelization;
     #[cfg(any(feature = "arrayvec", feature = "alloc"))]
     pub use crate::Segmentation;
     #[cfg(feature = "alloc")]
@@ -353,7 +355,7 @@ use {
 use crate::serde::{EmptyError, Serde};
 
 #[cfg(feature = "rayon")]
-pub use parallel::Parallel;
+pub use parallel::{Parallel, Parallelization};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]

@@ -3,22 +3,26 @@
 
 use core::fmt::{self, Debug, Formatter};
 
-use crate::NonEmpty;
+pub trait Parallelization {
+    type Target: ?Sized;
+
+    fn parallel(&self) -> Parallel<&'_ Self::Target>;
+}
 
 #[must_use]
 #[repr(transparent)]
-pub struct Parallel<'a, T> {
-    pub(crate) items: &'a NonEmpty<T>,
+pub struct Parallel<T> {
+    pub(crate) items: T,
 }
 
-impl<T> Debug for Parallel<'_, T>
+impl<T> Debug for Parallel<T>
 where
-    NonEmpty<T>: Debug,
+    T: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("Parallel")
-            .field("items", self.items)
+            .field("items", &self.items)
             .finish()
     }
 }

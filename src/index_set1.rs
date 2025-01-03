@@ -17,7 +17,7 @@ use std::hash::RandomState;
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
-use crate::parallel;
+use crate::parallel::{self, Parallelization};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
@@ -47,6 +47,19 @@ unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
             1 => Some(crate::Cardinality::One(())),
             _ => Some(crate::Cardinality::Many(())),
         }
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<T, S> Parallelization for IndexSet<T, S>
+where
+    T: Sync,
+    S: Sync,
+{
+    type Target = Self;
+
+    fn parallel(&self) -> Parallel<'_, T, S> {
+        Parallel { items: self }
     }
 }
 
@@ -182,16 +195,6 @@ impl<T, S> IndexSet1<T, S> {
     pub fn iter1(&self) -> Iterator1<set::Iter<'_, T>> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
-    }
-
-    #[cfg(feature = "rayon")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
-    pub fn parallel(&self) -> Parallel<'_, T, S>
-    where
-        T: Sync,
-        S: Sync,
-    {
-        Parallel { items: self }
     }
 
     pub const fn as_index_set(&self) -> &IndexSet<T, S> {
@@ -341,6 +344,14 @@ where
     }
 }
 
+// TODO: The implementations for set operations like this are implemented over the same
+//       `BuildHasher` (sets with different `BuildHasher`s cannot be used). This is limiting and is
+//       a consquence of implementing these traits over a type `R: AsRef<IndexSet<_, _>>`, because
+//       an additional `BuildHasher` type parameter cannot be bound to the trait or implementing
+//       type.
+//
+//       Implement these traits explicitly over references to both `IndexSet` and `IndexSet1` to
+//       support different `BuildHasher`s.
 impl<R, T, S> BitAnd<&'_ R> for &'_ IndexSet1<T, S>
 where
     R: AsRef<IndexSet<T, S>>,
@@ -452,6 +463,19 @@ impl<T, S> IntoIterator1 for IndexSet1<T, S> {
     }
 }
 
+#[cfg(feature = "rayon")]
+impl<T, S> Parallelization for IndexSet1<T, S>
+where
+    T: Sync,
+    S: Sync,
+{
+    type Target = IndexSet<T, S>;
+
+    fn parallel(&self) -> Parallel<'_, T, S> {
+        Parallel { items: &self.items }
+    }
+}
+
 impl<T, S> Segmentation for IndexSet1<T, S> {
     fn tail(&mut self) -> Segment<'_, Self, T, S> {
         Segmentation::segment(self, Ranged::tail(&self.items))
@@ -499,11 +523,11 @@ impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
 
 #[cfg(all(feature = "rayon", feature = "std"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
-pub type Parallel<'a, T, S = RandomState> = parallel::Parallel<'a, IndexSet<T, S>>;
+pub type Parallel<'a, T, S = RandomState> = parallel::Parallel<&'a IndexSet<T, S>>;
 
 #[cfg(all(feature = "rayon", not(feature = "std")))]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
-pub type Parallel<'a, T, S> = parallel::Parallel<'a, IndexSet<T, S>>;
+pub type Parallel<'a, T, S> = parallel::Parallel<&'a IndexSet<T, S>>;
 
 #[cfg(feature = "rayon")]
 impl<T, S> Parallel<'_, T, S>
@@ -516,7 +540,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: BuildHasher + Sync,
     {
-        self.items.items.par_difference(other.as_ref())
+        self.items.par_difference(other.as_ref())
     }
 
     pub fn symmetric_difference<'a, R, SR>(
@@ -527,7 +551,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: BuildHasher + Sync,
     {
-        self.items.items.par_symmetric_difference(other.as_ref())
+        self.items.par_symmetric_difference(other.as_ref())
     }
 
     pub fn intersection<'a, R, SR>(
@@ -538,7 +562,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: BuildHasher + Sync,
     {
-        self.items.items.par_intersection(other.as_ref())
+        self.items.par_intersection(other.as_ref())
     }
 
     // TODO: Implement parallel non-empty iterators and use them here.
@@ -547,7 +571,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: 'a + BuildHasher + Sync,
     {
-        self.items.items.par_union(other.as_ref())
+        self.items.par_union(other.as_ref())
     }
 
     pub fn is_disjoint<R, SR>(&self, other: &R) -> bool
@@ -555,7 +579,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: BuildHasher + Sync,
     {
-        self.items.items.par_is_disjoint(other.as_ref())
+        self.items.par_is_disjoint(other.as_ref())
     }
 
     pub fn is_subset<R, SR>(&self, other: &R) -> bool
@@ -563,7 +587,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: BuildHasher + Sync,
     {
-        self.items.items.par_is_subset(other.as_ref())
+        self.items.par_is_subset(other.as_ref())
     }
 
     pub fn is_superset<R, SR>(&self, other: &R) -> bool
@@ -571,7 +595,7 @@ where
         R: AsRef<IndexSet<T, SR>>,
         SR: BuildHasher + Sync,
     {
-        self.items.items.par_is_superset(other.as_ref())
+        self.items.par_is_superset(other.as_ref())
     }
 }
 
