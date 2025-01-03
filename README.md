@@ -141,11 +141,14 @@ features.
 |-------------|---------|--------------------|-----------------------------------------------------------|
 | `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like `Vec1`.         |
 | `arrayvec`  | No      | `arrayvec`         | Non-empty implementation of [`ArrayVec`][`arrayvec`].     |
+| `indexmap`  | No      | `indexmap`         | Non-empty implementation of [`IndexMap`][`indexmap`].     |
 | `itertools` | No      | `itertools`        | Combinators from [`itertools`] for `Iterator1`.           |
+| `rayon`     | No      | `rayon`            | Parallel iterators and operations for non-empty types.    |
 | `serde`     | No      | `serde`            | De/serialization of non-empty collections with [`serde`]. |
 | `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 
 [`arrayvec`]: https://crates.io/crates/arrayvec
+[`indexmap`]: https://crates.io/crates/indexmap
 [`itertools`]: https://crates.io/crates/itertools
 [`nonempty`]: https://crates.io/crates/nonempty
 [`nunny`]: https://crates.io/crates/nunny

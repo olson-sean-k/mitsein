@@ -42,6 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
+//! - [`IndexSet1`][`index_set1`]
 //! - [`String1`][`string1`]
 //! - [`Vec1`][`mod@vec1`]
 //! - [`VecDeque1`][`vec_deque1`]
@@ -183,9 +184,11 @@
 //! |-------------|---------|--------------------|-----------------------------------------------------------|
 //! | `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like [`Vec1`].       |
 //! | `arrayvec`  | No      | `arrayvec`         | Non-empty implementation of [`ArrayVec`].                 |
-//! | `itertools` | No      | `itertools`        | Combinators from [`itertools`] for [`Iterator1`].         |
+//! | `indexmap`  | No      | `indexmap`         | Non-empty implementation of [`IndexMap`].                 |
+//! | `itertools` | No      | `itertools`        | Combinators from [`itertools`] for `Iterator1`.           |
+//! | `rayon`     | No      | `rayon`            | Parallel iterators and operations for non-empty types.    |
 //! | `serde`     | No      | `serde`            | De/serialization of non-empty collections with [`serde`]. |
-//! | `std`       | Yes     | `std`              | Integrations with [`std::io`].                            |
+//! | `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 //!
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1`]: crate::sync1::ArcSlice1
@@ -197,6 +200,7 @@
 //! [`BoxedStr1`]: crate::boxed1::BoxedStr1
 //! [`CowSlice1`]: crate::vec1::CowSlice1
 //! [`CowStr1`]: crate::string1::CowStr1
+//! [`IndexMap`]: indexmap::map::IndexMap
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
 //! [`itertools`]: ::itertools
@@ -276,6 +280,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod parallel;
 mod safety;
 mod segment;
 mod serde;
@@ -287,6 +292,7 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
+pub mod index_set1;
 pub mod iter1;
 pub mod slice1;
 pub mod str1;
@@ -346,6 +352,8 @@ use {
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 
+#[cfg(feature = "rayon")]
+pub use parallel::Parallel;
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
