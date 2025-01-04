@@ -22,7 +22,9 @@ use itertools::{
 #[cfg(all(feature = "std", feature = "itertools"))]
 use itertools::{Unique, UniqueBy};
 #[cfg(feature = "rayon")]
-use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, ParallelBridge, ParallelIterator,
+};
 #[cfg(all(feature = "alloc", feature = "itertools"))]
 use {
     alloc::vec,
@@ -30,13 +32,13 @@ use {
     itertools::{MultiPeek, Powerset, Tee},
 };
 
-#[cfg(feature = "rayon")]
-use crate::parallel::Parallel;
 use crate::safety::OptionExt as _;
 use crate::NonEmpty;
 use crate::NonZeroExt as _;
 #[cfg(feature = "itertools")]
 use crate::{safety, Cardinality};
+#[cfg(feature = "rayon")]
+use {crate::parallel::Parallel, crate::vec1::Vec1};
 
 // The input type parameter `K` is unused in this trait, but is required to prevent a coherence
 // error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
@@ -244,13 +246,18 @@ pub trait IntoIterator1: IntoIterator {
     fn into_iter1(self) -> Iterator1<Self::IntoIter>;
 }
 
-impl<I> IntoIterator1 for Iterator1<I>
-where
-    I: Iterator,
-{
-    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        self
-    }
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+pub trait FromParallelIterator1<T> {
+    fn from_par_iter1<I>(items: I) -> Self
+    where
+        I: IntoParallelIterator1<Item = T>;
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+pub trait IntoParallelIterator1: IntoParallelIterator {
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter>;
 }
 
 pub type AtMostOne<T> = option::IntoIter<T>;
@@ -853,6 +860,15 @@ where
     }
 }
 
+impl<I> IntoIterator1 for Iterator1<I>
+where
+    I: Iterator,
+{
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self
+    }
+}
+
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 pub type ParallelIterator1<I> = Parallel<Iterator1<I>>;
@@ -898,12 +914,96 @@ impl<I> ParallelIterator1<I>
 where
     I: ParallelIterator,
 {
+    pub fn len(&self) -> NonZeroUsize
+    where
+        I: IndexedParallelIterator,
+    {
+        NonZeroUsize::clamped(self.items.items.len())
+    }
+
+    pub fn count(self) -> NonZeroUsize {
+        // Though the count must be non-zero here, it may overflow to zero.
+        NonZeroUsize::new(self.items.items.count())
+            .expect("non-empty parallel iterator has zero items or overflow in count")
+    }
+
     pub fn map<U, F>(self, f: F) -> ParallelIterator1<rayon::iter::Map<I, F>>
     where
         U: Send,
         F: Fn(I::Item) -> U + Send + Sync,
     {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.and_then_unchecked(move |items| items.map(f)) }
+    }
+
+    pub fn min_by<F>(self, f: F) -> I::Item
+    where
+        F: Fn(&I::Item, &I::Item) -> Ordering + Send + Sync,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { self.items.items.min_by(f).unwrap_maybe_unchecked() }
+    }
+
+    pub fn min_by_key<B, F>(self, f: F) -> I::Item
+    where
+        B: Ord,
+        F: Fn(&I::Item) -> B + Send + Sync,
+    {
+        self.min_by(move |lhs, rhs| f(lhs).cmp(&f(rhs)))
+    }
+
+    pub fn min(self) -> I::Item
+    where
+        I::Item: Ord,
+    {
+        self.min_by(Ord::cmp)
+    }
+
+    pub fn max_by<F>(self, f: F) -> I::Item
+    where
+        F: Fn(&I::Item, &I::Item) -> Ordering + Send + Sync,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { self.items.items.max_by(f).unwrap_maybe_unchecked() }
+    }
+
+    pub fn max_by_key<B, F>(self, f: F) -> I::Item
+    where
+        B: Ord,
+        F: Fn(&I::Item) -> B + Send + Sync,
+    {
+        self.max_by(move |lhs, rhs| f(lhs).cmp(&f(rhs)))
+    }
+
+    pub fn max(self) -> I::Item
+    where
+        I::Item: Ord,
+    {
+        self.max_by(Ord::cmp)
+    }
+
+    pub fn reduce_with<F>(self, f: F) -> I::Item
+    where
+        F: Fn(I::Item, I::Item) -> I::Item + Send + Sync,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { self.items.items.reduce_with(f).unwrap_maybe_unchecked() }
+    }
+
+    pub fn collect1<T>(self) -> T
+    where
+        T: FromParallelIterator1<I::Item>,
+    {
+        T::from_par_iter1(self)
+    }
+
+    pub fn collect_into_vec1(self, items: &mut Vec1<I::Item>)
+    where
+        I: IndexedParallelIterator,
+    {
+        // `self` is non-empty, so clearing and extending the underlying `Vec` from `self` cannot
+        // violate the non-empty guarantee of `Vec1`.
+        self.items.items.collect_into_vec(&mut items.items)
     }
 }
 
@@ -917,6 +1017,16 @@ where
 
     fn into_par_iter(self) -> Self::Iter {
         self.items.items
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<I> IntoParallelIterator1 for ParallelIterator1<I>
+where
+    I: ParallelIterator,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        self
     }
 }
 

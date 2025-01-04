@@ -145,7 +145,7 @@ features.
 | `itertools` | No      | [`itertools`]      | Combinators from [`itertools`] for `Iterator1`.           |
 | `rayon`     | No      | [`rayon`]          | Parallel iterators and operations for non-empty types.    |
 | `serde`     | No      | [`serde`]          | De/serialization of non-empty collections with [`serde`]. |
-| `std`       | Yes     | `std`]              | Integrations with `std::io`.                              |
+| `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 
 [`arrayvec`]: https://crates.io/crates/arrayvec
 [`indexmap`]: https://crates.io/crates/indexmap

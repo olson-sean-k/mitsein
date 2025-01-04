@@ -12,6 +12,8 @@ use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
 use indexmap::set::{self, IndexSet};
 use indexmap::Equivalent;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 #[cfg(feature = "std")]
 use std::hash::RandomState;
 
@@ -25,7 +27,7 @@ use crate::take;
 use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "rayon")]
 use {
-    crate::iter1::ParallelIterator1,
+    crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1},
     crate::parallel::{self, Parallelization},
 };
 
@@ -452,6 +454,23 @@ where
     }
 }
 
+#[cfg(feature = "rayon")]
+impl<T, S> FromParallelIterator1<T> for IndexSet1<T, S>
+where
+    T: Eq + Hash + Send,
+    S: BuildHasher + Default + Send,
+{
+    fn from_par_iter1<I>(items: I) -> Self
+    where
+        I: IntoParallelIterator1<Item = T>,
+    {
+        // SAFETY: `items` is non-empty.
+        unsafe {
+            IndexSet1::from_index_set_unchecked(items.into_par_iter1().into_par_iter().collect())
+        }
+    }
+}
+
 impl<T, S> IntoIterator for IndexSet1<T, S> {
     type Item = T;
     type IntoIter = set::IntoIter<T>;
@@ -465,6 +484,32 @@ impl<T, S> IntoIterator1 for IndexSet1<T, S> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<T, S> IntoParallelIterator for IndexSet1<T, S>
+where
+    T: Send,
+    S: Send,
+{
+    type Item = T;
+    type Iter = set::rayon::IntoParIter<T>;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.items.into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<T, S> IntoParallelIterator1 for IndexSet1<T, S>
+where
+    T: Send,
+    S: Send,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
 
