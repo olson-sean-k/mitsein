@@ -334,14 +334,11 @@ pub mod prelude {
     };
 }
 
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Serialize};
 use core::fmt::Debug;
 use core::mem;
 use core::num::NonZeroUsize;
-#[cfg(feature = "serde")]
-use {
-    ::serde::{Deserialize, Serialize},
-    ::serde_derive::{Deserialize, Serialize},
-};
 
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
@@ -412,7 +409,10 @@ where
     unsafe fn from_maybe_empty_unchecked(items: T) -> Self;
 }
 
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(::serde_derive::Deserialize, ::serde_derive::Serialize)
+)]
 #[cfg_attr(
     feature = "serde",
     serde(
