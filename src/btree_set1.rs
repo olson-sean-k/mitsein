@@ -18,6 +18,22 @@ use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
+type ItemFor<K> = <K as ClosedBTreeSet>::Item;
+
+pub trait ClosedBTreeSet {
+    type Item;
+
+    fn as_btree_set(&self) -> &BTreeSet<Self::Item>;
+}
+
+impl<T> ClosedBTreeSet for BTreeSet<T> {
+    type Item = T;
+
+    fn as_btree_set(&self) -> &BTreeSet<Self::Item> {
+        self
+    }
+}
+
 impl<T> Extend1<T> for BTreeSet<T>
 where
     T: Ord,
@@ -72,14 +88,14 @@ impl<T> Segmentation for BTreeSet<T>
 where
     T: Clone + Ord,
 {
-    fn tail(&mut self) -> Segment<'_, Self, T> {
+    fn tail(&mut self) -> Segment<'_, Self> {
         match Ranged::tail(self).try_into_range_inclusive() {
             Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(self),
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T> {
+    fn rtail(&mut self) -> Segment<'_, Self> {
         match Ranged::rtail(self).try_into_range_inclusive() {
             Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(self),
@@ -93,7 +109,7 @@ where
     T: Clone + Ord,
     R: RangeBounds<T>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect(self, &range::ordered_range_bounds(range))
     }
 }
@@ -108,11 +124,11 @@ where
 
 type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, BTreeSet<T>, U, N>;
 
-pub type PopOr<'a, T> = TakeOr<'a, T, T>;
+pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, ItemFor<K>>;
 
-pub type DropRemoveOr<'a, 'q, T, Q> = TakeOr<'a, T, bool, &'q Q>;
+pub type DropRemoveOr<'a, 'q, K, Q> = TakeOr<'a, ItemFor<K>, bool, &'q Q>;
 
-pub type TakeRemoveOr<'a, 'q, T, Q> = TakeOr<'a, T, Option<T>, &'q Q>;
+pub type TakeRemoveOr<'a, 'q, K, Q> = TakeOr<'a, ItemFor<K>, Option<ItemFor<K>>, &'q Q>;
 
 impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
@@ -219,7 +235,7 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_or(&mut self) -> PopOr<'_, T>
+    pub fn pop_first_or(&mut self) -> PopOr<'_, Self>
     where
         T: Ord,
     {
@@ -247,7 +263,7 @@ impl<T> BTreeSet1<T> {
         self.first()
     }
 
-    pub fn pop_last_or(&mut self) -> PopOr<'_, T>
+    pub fn pop_last_or(&mut self) -> PopOr<'_, Self>
     where
         T: Ord,
     {
@@ -275,7 +291,7 @@ impl<T> BTreeSet1<T> {
         self.last()
     }
 
-    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, T, Q>
+    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, Self, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -283,7 +299,7 @@ impl<T> BTreeSet1<T> {
         TakeOr::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, 'q, T, Q>
+    pub fn take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, 'q, Self, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -332,9 +348,9 @@ impl<T> BTreeSet1<T> {
     pub fn difference<'a, R>(&'a self, other: &'a R) -> btree_set::Difference<'a, T>
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.difference(other.as_ref())
+        self.items.difference(other.as_btree_set())
     }
 
     pub fn symmetric_difference<'a, R>(
@@ -343,27 +359,27 @@ impl<T> BTreeSet1<T> {
     ) -> btree_set::SymmetricDifference<'a, T>
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.symmetric_difference(other.as_ref())
+        self.items.symmetric_difference(other.as_btree_set())
     }
 
     pub fn intersection<'a, R>(&'a self, other: &'a R) -> btree_set::Intersection<'a, T>
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.intersection(other.as_ref())
+        self.items.intersection(other.as_btree_set())
     }
 
     pub fn union<'a, R>(&'a self, other: &'a R) -> Iterator1<btree_set::Union<'a, T>>
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
         // SAFETY: `self` must be non-empty and `BTreeSet::union` cannot reduce the cardinality of
         //         its inputs.
-        unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_ref())) }
+        unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_btree_set())) }
     }
 
     pub fn iter1(&self) -> Iterator1<btree_set::Iter<'_, T>> {
@@ -374,25 +390,25 @@ impl<T> BTreeSet1<T> {
     pub fn is_disjoint<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.is_disjoint(other.as_ref())
+        self.items.is_disjoint(other.as_btree_set())
     }
 
     pub fn is_subset<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.is_subset(other.as_ref())
+        self.items.is_subset(other.as_btree_set())
     }
 
     pub fn is_superset<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.is_superset(other.as_ref())
+        self.items.is_superset(other.as_btree_set())
     }
 
     pub fn contains<Q>(&self, item: &Q) -> bool
@@ -410,19 +426,19 @@ impl<T> BTreeSet1<T> {
 
 impl<R, T> BitAnd<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
 
     fn bitand(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() & rhs.as_ref()
+        self.as_btree_set() & rhs.as_btree_set()
     }
 }
 
 impl<R, T> BitOr<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet1<T>;
@@ -430,19 +446,27 @@ where
     fn bitor(self, rhs: &'_ R) -> Self::Output {
         // SAFETY: `self` must be non-empty and `BTreeSet::bitor` cannot reduce the cardinality of
         //         its inputs.
-        unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_ref()) }
+        unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_btree_set()) }
     }
 }
 
 impl<R, T> BitXor<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
 
     fn bitxor(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() ^ rhs.as_ref()
+        self.as_btree_set() ^ rhs.as_btree_set()
+    }
+}
+
+impl<T> ClosedBTreeSet for BTreeSet1<T> {
+    type Item = T;
+
+    fn as_btree_set(&self) -> &BTreeSet<Self::Item> {
+        self.as_ref()
     }
 }
 
@@ -517,14 +541,14 @@ impl<T> Segmentation for BTreeSet1<T>
 where
     T: Clone + UnsafeOrd,
 {
-    fn tail(&mut self) -> Segment<'_, Self, T> {
+    fn tail(&mut self) -> Segment<'_, Self> {
         match Ranged::tail(&self.items).try_into_range_inclusive() {
             Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(&mut self.items),
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T> {
+    fn rtail(&mut self) -> Segment<'_, Self> {
         match Ranged::rtail(&self.items).try_into_range_inclusive() {
             Some(range) => Segmentation::segment(self, range),
             _ => Segment::empty(&mut self.items),
@@ -538,7 +562,7 @@ where
     T: Clone + UnsafeOrd,
     R: RangeBounds<T>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_bounds(range))
     }
 }
@@ -553,13 +577,13 @@ where
 
 impl<R, T> Sub<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
 
     fn sub(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() - rhs.as_ref()
+        self.as_btree_set() - rhs.as_btree_set()
     }
 }
 
@@ -571,11 +595,11 @@ impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
     }
 }
 
-pub type Segment<'a, K, T> = segment::Segment<'a, K, BTreeSet<T>>;
+pub type Segment<'a, K> = segment::Segment<'a, K, BTreeSet<ItemFor<K>>>;
 
-impl<K, T> Segment<'_, K, T>
+impl<K, T> Segment<'_, K>
 where
-    K: SegmentedOver<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
 {
     pub fn insert_in_range(&mut self, item: T) -> Result<bool, T> {
@@ -652,12 +676,12 @@ where
     }
 }
 
-impl<K, T> Segmentation for Segment<'_, K, T>
+impl<K, T> Segmentation for Segment<'_, K>
 where
-    K: SegmentedOver<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
 {
-    fn tail(&mut self) -> Segment<'_, K, T> {
+    fn tail(&mut self) -> Segment<'_, K> {
         match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeSet::range(self.items, range.clone()).nth(1) {
                 Some(start) => Segment::unchecked(
@@ -670,7 +694,7 @@ where
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, K, T> {
+    fn rtail(&mut self) -> Segment<'_, K> {
         match self.range.clone().try_into_range_inclusive() {
             Some(range) => match BTreeSet::range(self.items, range.clone()).rev().nth(1) {
                 Some(end) => Segment::unchecked(
@@ -684,14 +708,14 @@ where
     }
 }
 
-impl<K, T, R> SegmentedBy<R> for Segment<'_, K, T>
+impl<K, T, R> SegmentedBy<R> for Segment<'_, K>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
-    K: SegmentedBy<R> + SegmentedOver<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + SegmentedBy<R> + SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
     R: RangeBounds<T>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, K, T> {
+    fn segment(&mut self, range: R) -> Segment<'_, K> {
         Segment::intersect(self.items, &range::ordered_range_bounds(range))
     }
 }

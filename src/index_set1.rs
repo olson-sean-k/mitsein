@@ -31,6 +31,25 @@ use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
+type ItemFor<K> = <K as ClosedIndexSet>::Item;
+type StateFor<K> = <K as ClosedIndexSet>::State;
+
+pub trait ClosedIndexSet {
+    type Item;
+    type State;
+
+    fn as_index_set(&self) -> &IndexSet<Self::Item, Self::State>;
+}
+
+impl<T, S> ClosedIndexSet for IndexSet<T, S> {
+    type Item = T;
+    type State = S;
+
+    fn as_index_set(&self) -> &IndexSet<Self::Item, Self::State> {
+        self
+    }
+}
+
 impl<T, S> Extend1<T> for IndexSet<T, S>
 where
     T: Eq + Hash,
@@ -74,11 +93,11 @@ impl<T, S> Ranged for IndexSet<T, S> {
 }
 
 impl<T, S> Segmentation for IndexSet<T, S> {
-    fn tail(&mut self) -> Segment<'_, Self, T, S> {
+    fn tail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T, S> {
+    fn rtail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::rtail(self))
     }
 }
@@ -87,7 +106,7 @@ impl<T, S, R> SegmentedBy<R> for IndexSet<T, S>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T, S> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
@@ -99,17 +118,28 @@ impl<T, S> SegmentedOver for IndexSet<T, S> {
 
 type TakeOr<'a, T, S, U, N = ()> = take::TakeOr<'a, IndexSet<T, S>, U, N>;
 
-pub type PopOr<'a, T, S> = TakeOr<'a, T, S, T>;
+pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, StateFor<K>, ItemFor<K>>;
 
-pub type DropRemoveOr<'a, 'q, T, S, Q> = TakeOr<'a, T, S, bool, &'q Q>;
+pub type DropRemoveOr<'a, 'q, K, Q> = TakeOr<'a, ItemFor<K>, StateFor<K>, bool, &'q Q>;
 
-pub type TakeRemoveOr<'a, T, S, N = usize> = TakeOr<'a, T, S, Option<T>, N>;
+pub type TakeRemoveOr<'a, K, N = usize> =
+    TakeOr<'a, ItemFor<K>, StateFor<K>, Option<ItemFor<K>>, N>;
 
-pub type TakeRemoveFullOr<'a, 'q, T, S, Q> = TakeOr<'a, T, S, Option<(usize, T)>, &'q Q>;
+pub type TakeRemoveFullOr<'a, 'q, K, Q> =
+    TakeOr<'a, ItemFor<K>, StateFor<K>, Option<(usize, ItemFor<K>)>, &'q Q>;
 
 impl<'a, T, S, U, N> TakeOr<'a, T, S, U, N> {
     pub fn only(self) -> Result<U, &'a T> {
         self.take_or_else(|items, _| items.first())
+    }
+}
+
+impl<'a, T, S> TakeOr<'a, T, S, Option<T>, usize>
+where
+    S: BuildHasher,
+{
+    pub fn get(self) -> Option<Result<T, &'a T>> {
+        self.try_take_or_else(|items, index| items.get_index(index))
     }
 }
 
@@ -315,7 +345,7 @@ impl<T, S> IndexSet1<T, S> {
         self.items.swap_indices(a, b)
     }
 
-    pub fn pop_or(&mut self) -> PopOr<'_, T, S>
+    pub fn pop_or(&mut self) -> PopOr<'_, Self>
     where
         T: Eq + Hash,
     {
@@ -325,13 +355,13 @@ impl<T, S> IndexSet1<T, S> {
         })
     }
 
-    pub fn shift_remove_index_or(&mut self, index: usize) -> TakeRemoveOr<'_, T, S> {
+    pub fn shift_remove_index_or(&mut self, index: usize) -> TakeRemoveOr<'_, Self> {
         TakeOr::with(self, index, |items, index| {
             items.items.shift_remove_index(index)
         })
     }
 
-    pub fn swap_remove_index_or(&mut self, index: usize) -> TakeRemoveOr<'_, T, S> {
+    pub fn swap_remove_index_or(&mut self, index: usize) -> TakeRemoveOr<'_, Self> {
         TakeOr::with(self, index, |items, index| {
             items.items.swap_remove_index(index)
         })
@@ -428,7 +458,7 @@ where
         self.items.get(query)
     }
 
-    pub fn shift_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, T, S, Q>
+    pub fn shift_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
@@ -436,7 +466,7 @@ where
         TakeOr::with(self, query, |items, query| items.items.shift_remove(query))
     }
 
-    pub fn swap_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, T, S, Q>
+    pub fn swap_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
@@ -447,7 +477,7 @@ where
     pub fn shift_remove_full_or<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> TakeRemoveFullOr<'a, 'q, T, S, Q>
+    ) -> TakeRemoveFullOr<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
@@ -460,7 +490,7 @@ where
     pub fn swap_remove_full_or<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> TakeRemoveFullOr<'a, 'q, T, S, Q>
+    ) -> TakeRemoveFullOr<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
@@ -470,7 +500,7 @@ where
         })
     }
 
-    pub fn shift_take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, T, S, &'q Q>
+    pub fn shift_take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, Self, &'q Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
@@ -478,7 +508,7 @@ where
         TakeOr::with(self, query, |items, query| items.items.shift_take(query))
     }
 
-    pub fn swap_take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, T, S, &'q Q>
+    pub fn swap_take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, Self, &'q Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
@@ -573,10 +603,10 @@ where
 
     pub fn difference<'a, R, SR>(&'a self, other: &'a R) -> index_set::Difference<'a, T, SR>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher,
     {
-        self.items.difference(other.as_ref())
+        self.items.difference(other.as_index_set())
     }
 
     pub fn symmetric_difference<'a, R, SR>(
@@ -584,52 +614,52 @@ where
         other: &'a R,
     ) -> index_set::SymmetricDifference<'a, T, S, SR>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher,
     {
-        self.items.symmetric_difference(other.as_ref())
+        self.items.symmetric_difference(other.as_index_set())
     }
 
     pub fn intersection<'a, R, SR>(&'a self, other: &'a R) -> index_set::Intersection<'a, T, SR>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher,
     {
-        self.items.intersection(other.as_ref())
+        self.items.intersection(other.as_index_set())
     }
 
     pub fn union<'a, R, SR>(&'a self, other: &'a R) -> Iterator1<index_set::Union<'a, T, S>>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: 'a + BuildHasher,
     {
         // SAFETY: `self` must be non-empty and `IndexSet::union` cannot reduce the cardinality of
         //         its inputs.
-        unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_ref())) }
+        unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_index_set())) }
     }
 
     pub fn is_disjoint<R, SR>(&self, other: &R) -> bool
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher,
     {
-        self.items.is_disjoint(other.as_ref())
+        self.items.is_disjoint(other.as_index_set())
     }
 
     pub fn is_subset<R, SR>(&self, other: &R) -> bool
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher,
     {
-        self.items.is_subset(other.as_ref())
+        self.items.is_subset(other.as_index_set())
     }
 
     pub fn is_superset<R, SR>(&self, other: &R) -> bool
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher,
     {
-        self.items.is_superset(other.as_ref())
+        self.items.is_superset(other.as_index_set())
     }
 }
 
@@ -644,10 +674,10 @@ where
         other: &'a R,
     ) -> index_set::rayon::ParDifference<'a, T, S, SR>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher + Sync,
     {
-        self.items.par_difference(other.as_ref())
+        self.items.par_difference(other.as_index_set())
     }
 
     pub fn par_symmetric_difference<'a, R, SR>(
@@ -655,10 +685,10 @@ where
         other: &'a R,
     ) -> index_set::rayon::ParSymmetricDifference<'a, T, S, SR>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher + Sync,
     {
-        self.items.par_symmetric_difference(other.as_ref())
+        self.items.par_symmetric_difference(other.as_index_set())
     }
 
     pub fn par_intersection<'a, R, SR>(
@@ -666,10 +696,10 @@ where
         other: &'a R,
     ) -> index_set::rayon::ParIntersection<'a, T, S, SR>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher + Sync,
     {
-        self.items.par_intersection(other.as_ref())
+        self.items.par_intersection(other.as_index_set())
     }
 
     pub fn par_union<'a, R, SR>(
@@ -677,44 +707,46 @@ where
         other: &'a R,
     ) -> ParallelIterator1<index_set::rayon::ParUnion<'a, T, S, SR>>
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: 'a + BuildHasher + Sync,
     {
         // SAFETY: `self` must be non-empty and `IndexSet::par_union` cannot reduce the cardinality
         //         of its inputs.
-        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_union(other.as_ref())) }
+        unsafe {
+            ParallelIterator1::from_par_iter_unchecked(self.items.par_union(other.as_index_set()))
+        }
     }
 
     pub fn par_eq<R, SR>(&self, other: &R) -> bool
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher + Sync,
     {
-        self.items.par_eq(other.as_ref())
+        self.items.par_eq(other.as_index_set())
     }
 
     pub fn par_is_disjoint<R, SR>(&self, other: &R) -> bool
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher + Sync,
     {
-        self.items.par_is_disjoint(other.as_ref())
+        self.items.par_is_disjoint(other.as_index_set())
     }
 
     pub fn par_is_subset<R, SR>(&self, other: &R) -> bool
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher + Sync,
     {
-        self.items.par_is_subset(other.as_ref())
+        self.items.par_is_subset(other.as_index_set())
     }
 
     pub fn par_is_superset<R, SR>(&self, other: &R) -> bool
     where
-        R: AsRef<IndexSet<T, SR>>,
+        R: ClosedIndexSet<Item = T, State = SR>,
         SR: BuildHasher + Sync,
     {
-        self.items.par_is_superset(other.as_ref())
+        self.items.par_is_superset(other.as_index_set())
     }
 }
 
@@ -806,30 +838,24 @@ where
     }
 }
 
-// TODO: The implementations for set operations like this are implemented over the same
-//       `BuildHasher` (sets with different `BuildHasher`s cannot be used). This is limiting and is
-//       a consquence of implementing these traits over a type `R: AsRef<IndexSet<_, _>>`, because
-//       an additional `BuildHasher` type parameter cannot be bound to the trait or implementing
-//       type.
-//
-//       Implement these traits explicitly over references to both `IndexSet` and `IndexSet1` to
-//       support different `BuildHasher`s.
 impl<R, T, S> BitAnd<&'_ R> for &'_ IndexSet1<T, S>
 where
-    R: AsRef<IndexSet<T, S>>,
+    R: ClosedIndexSet<Item = T>,
+    R::State: BuildHasher,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
     type Output = IndexSet<T, S>;
 
     fn bitand(self, rhs: &'_ R) -> Self::Output {
-        self.as_index_set() & rhs.as_ref()
+        self.as_index_set() & rhs.as_index_set()
     }
 }
 
 impl<R, T, S> BitOr<&'_ R> for &'_ IndexSet1<T, S>
 where
-    R: AsRef<IndexSet<T, S>>,
+    R: ClosedIndexSet<Item = T>,
+    R::State: BuildHasher,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
@@ -838,20 +864,30 @@ where
     fn bitor(self, rhs: &'_ R) -> Self::Output {
         // SAFETY: `self` must be non-empty and `IndexSet::bitor` cannot reduce the cardinality of
         //         its inputs.
-        unsafe { IndexSet1::from_index_set_unchecked(self.as_index_set() | rhs.as_ref()) }
+        unsafe { IndexSet1::from_index_set_unchecked(self.as_index_set() | rhs.as_index_set()) }
     }
 }
 
 impl<R, T, S> BitXor<&'_ R> for &'_ IndexSet1<T, S>
 where
-    R: AsRef<IndexSet<T, S>>,
+    R: ClosedIndexSet<Item = T>,
+    R::State: BuildHasher,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
     type Output = IndexSet<T, S>;
 
     fn bitxor(self, rhs: &'_ R) -> Self::Output {
-        self.as_index_set() ^ rhs.as_ref()
+        self.as_index_set() ^ rhs.as_index_set()
+    }
+}
+
+impl<T, S> ClosedIndexSet for IndexSet1<T, S> {
+    type Item = T;
+    type State = S;
+
+    fn as_index_set(&self) -> &IndexSet<Self::Item, Self::State> {
+        self.as_ref()
     }
 }
 
@@ -969,11 +1005,11 @@ where
 }
 
 impl<T, S> Segmentation for IndexSet1<T, S> {
-    fn tail(&mut self) -> Segment<'_, Self, T, S> {
+    fn tail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::tail(&self.items))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T, S> {
+    fn rtail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::rtail(&self.items))
     }
 }
@@ -982,7 +1018,7 @@ impl<T, S, R> SegmentedBy<R> for IndexSet1<T, S>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T, S> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }
@@ -994,14 +1030,15 @@ impl<T, S> SegmentedOver for IndexSet1<T, S> {
 
 impl<R, T, S> Sub<&'_ R> for &'_ IndexSet1<T, S>
 where
-    R: AsRef<IndexSet<T, S>>,
+    R: ClosedIndexSet<Item = T>,
+    R::State: BuildHasher,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
     type Output = IndexSet<T, S>;
 
     fn sub(self, rhs: &'_ R) -> Self::Output {
-        self.as_index_set() - rhs.as_ref()
+        self.as_index_set() - rhs.as_index_set()
     }
 }
 
@@ -1013,18 +1050,14 @@ impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
     }
 }
 
-#[cfg(feature = "std")]
-pub type Segment<'a, K, T, S = RandomState> = segment::Segment<'a, K, IndexSet<T, S>>;
-
-#[cfg(not(feature = "std"))]
-pub type Segment<'a, K, T, S> = segment::Segment<'a, K, IndexSet<T, S>>;
+pub type Segment<'a, K> = segment::Segment<'a, K, IndexSet<ItemFor<K>, StateFor<K>>>;
 
 // TODO: It should be possible to safely implement `swap_drain` for segments over `IndexSet1`. The
 //       `IndexSet::drain` iterator immediately culls its indices but then defers to `vec::Drain`
 //       for removing buckets. `IndexSet::swap_indices` can be used much like `slice::swap` here.
-impl<K, T, S> Segment<'_, K, T, S>
+impl<K, T, S> Segment<'_, K>
 where
-    K: SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
 {
     pub fn move_index(&mut self, from: usize, to: usize) {
         let from = self.range.project(&from).expect_in_bounds();
@@ -1061,9 +1094,9 @@ where
     }
 }
 
-impl<K, T, S> Segment<'_, K, T, S>
+impl<K, T, S> Segment<'_, K>
 where
-    K: SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
     T: Eq + Hash,
     S: BuildHasher,
 {
@@ -1079,28 +1112,30 @@ where
     }
 }
 
-impl<K, T, S> Segmentation for Segment<'_, K, T, S>
+impl<K, T, S> Segmentation for Segment<'_, K>
 where
-    K: SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
 {
-    fn tail(&mut self) -> Segment<'_, K, T, S> {
+    fn tail(&mut self) -> Segment<'_, K> {
         let range = self.project(&(1..));
         Segment::intersect(self.items, &range)
     }
 
-    fn rtail(&mut self) -> Segment<'_, K, T, S> {
+    fn rtail(&mut self) -> Segment<'_, K> {
         let range = self.project(&(..self.len().saturating_sub(1)));
         Segment::intersect(self.items, &range)
     }
 }
 
-impl<K, T, S, R> SegmentedBy<R> for Segment<'_, K, T, S>
+impl<K, T, S, R> SegmentedBy<R> for Segment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: SegmentedBy<R> + SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S>
+        + SegmentedBy<R>
+        + SegmentedOver<Target = IndexSet<T, S>>,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, K, T, S> {
+    fn segment(&mut self, range: R) -> Segment<'_, K> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
     }

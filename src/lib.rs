@@ -216,25 +216,6 @@
 //       the legibility of non-rendered documentation. Migrate this to a cleaner mechanism when
 //       possible.
 
-// TODO: Introduce traits that close the input type parameters of collections and forward them to
-//       output type parameters and provide a by-reference conversion. For example, for `BTreeMap`
-//       and `BTreeMap1`:
-//
-//       pub trait ClosedBTreeMap {
-//          type Key;
-//          type Value;
-//
-//          fn as_btree_map(&self) -> &BTreeMap<Self::Key, Self::Value>;
-//       }
-//
-//       Such traits can simplify input type parameters for proxy and segment types. Again in
-//       `BTreeMap1`:
-//
-//       pub type Segment<'a, K> = segment::Segment<'a, K, BTreeMap<KeyFor<K>, ValueFor<K>>>;
-//
-//       This reduces the input type parameters for `Segment` to only the collection type `K`,
-//       where `K` is `ClosedBTreeMap`.
-
 // SAFETY: This crate implements non-empty collections, slices, and iterators. This non-empty
 //         invariant is critical to memory safety and soundness, because these implementations use
 //         unsafe code to omit branches and checks that are unnecessary if and only if the

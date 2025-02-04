@@ -25,6 +25,34 @@ use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
+type ItemFor<K, const N: usize> = <K as ClosedArrayVec<N>>::Item;
+
+// TODO: At time of writing, Rust does not support generic parameters in `const` expressions and
+//       operatations, so `N` is an input of this trait. When support lands, factor `N` into the
+//       trait:
+//
+//       pub trait ClosedArrayVec {
+//           ...
+//           const N: usize;
+//
+//           fn as_array_vec(&self) -> &ArrayVec<Self::Item, { Self::N }>;
+//       }
+//
+//       This factorization applies to many types and implementations below as well.
+pub trait ClosedArrayVec<const N: usize> {
+    type Item;
+
+    fn as_array_vec(&self) -> &ArrayVec<Self::Item, N>;
+}
+
+impl<T, const N: usize> ClosedArrayVec<N> for ArrayVec<T, N> {
+    type Item = T;
+
+    fn as_array_vec(&self) -> &ArrayVec<Self::Item, N> {
+        self
+    }
+}
+
 impl<T, const N: usize> Extend1<T> for ArrayVec<T, N>
 where
     // This bound isn't necessary for memory safety here, because an `ArrayVec` with no capacity
@@ -72,11 +100,11 @@ impl<T, const N: usize> Ranged for ArrayVec<T, N> {
 }
 
 impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
-    fn tail(&mut self) -> Segment<'_, Self, T, N> {
+    fn tail(&mut self) -> Segment<'_, Self, N> {
         Segmentation::segment(self, Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T, N> {
+    fn rtail(&mut self) -> Segment<'_, Self, N> {
         Segmentation::segment(self, Ranged::rtail(self))
     }
 }
@@ -85,7 +113,7 @@ impl<T, R, const N: usize> SegmentedBy<R> for ArrayVec<T, N>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T, N> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, N> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
@@ -97,9 +125,9 @@ impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
 
 type TakeOr<'a, T, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, T, M>;
 
-pub type PopOr<'a, T, const N: usize> = TakeOr<'a, T, (), N>;
+pub type PopOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, (), N>;
 
-pub type RemoveOr<'a, T, const N: usize> = TakeOr<'a, T, usize, N>;
+pub type RemoveOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, usize, N>;
 
 impl<'a, T, M, const N: usize> TakeOr<'a, T, M, N>
 where
@@ -218,7 +246,7 @@ where
         self.items.push(item)
     }
 
-    pub fn pop_or(&mut self) -> PopOr<'_, T, N> {
+    pub fn pop_or(&mut self) -> PopOr<'_, Self, N> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeOr::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
@@ -229,11 +257,11 @@ where
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, T, N> {
+    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, Self, N> {
         TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> RemoveOr<'_, T, N> {
+    pub fn swap_remove_or(&mut self, index: usize) -> RemoveOr<'_, Self, N> {
         TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
@@ -333,6 +361,17 @@ where
 {
     fn borrow_mut(&mut self) -> &mut Slice1<T> {
         self.as_mut_slice1()
+    }
+}
+
+impl<T, const N: usize> ClosedArrayVec<N> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    type Item = T;
+
+    fn as_array_vec(&self) -> &ArrayVec<Self::Item, N> {
+        self.as_ref()
     }
 }
 
@@ -436,11 +475,11 @@ impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
-    fn tail(&mut self) -> Segment<'_, Self, T, N> {
+    fn tail(&mut self) -> Segment<'_, Self, N> {
         Segmentation::segment(self, Ranged::tail(&self.items))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T, N> {
+    fn rtail(&mut self) -> Segment<'_, Self, N> {
         Segmentation::segment(self, Ranged::rtail(&self.items))
     }
 }
@@ -450,7 +489,7 @@ where
     [T; N]: Array1,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T, N> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, N> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }
@@ -519,11 +558,11 @@ where
     }
 }
 
-pub type Segment<'a, K, T, const N: usize> = segment::Segment<'a, K, ArrayVec<T, N>>;
+pub type Segment<'a, K, const N: usize> = segment::Segment<'a, K, ArrayVec<ItemFor<K, N>, N>>;
 
-impl<K, T, const N: usize> Segment<'_, K, T, N>
+impl<K, T, const N: usize> Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     pub fn truncate(&mut self, len: usize) {
         let basis = self.len();
@@ -606,45 +645,45 @@ where
     }
 }
 
-impl<K, T, const N: usize> AsMut<[T]> for Segment<'_, K, T, N>
+impl<K, T, const N: usize> AsMut<[T]> for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     fn as_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<K, T, const N: usize> AsRef<[T]> for Segment<'_, K, T, N>
+impl<K, T, const N: usize> AsRef<[T]> for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<K, T, const N: usize> Borrow<[T]> for Segment<'_, K, T, N>
+impl<K, T, const N: usize> Borrow<[T]> for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     fn borrow(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<K, T, const N: usize> BorrowMut<[T]> for Segment<'_, K, T, N>
+impl<K, T, const N: usize> BorrowMut<[T]> for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<K, T, const N: usize> Deref for Segment<'_, K, T, N>
+impl<K, T, const N: usize> Deref for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     type Target = [T];
 
@@ -653,25 +692,25 @@ where
     }
 }
 
-impl<K, T, const N: usize> DerefMut for Segment<'_, K, T, N>
+impl<K, T, const N: usize> DerefMut for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<K, T, const N: usize> Eq for Segment<'_, K, T, N>
+impl<K, T, const N: usize> Eq for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
     T: Eq,
 {
 }
 
-impl<K, T, const N: usize> Extend<T> for Segment<'_, K, T, N>
+impl<K, T, const N: usize> Extend<T> for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     fn extend<I>(&mut self, items: I)
     where
@@ -688,9 +727,9 @@ where
     }
 }
 
-impl<K, T, const N: usize> Ord for Segment<'_, K, T, N>
+impl<K, T, const N: usize> Ord for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
     T: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -698,9 +737,9 @@ where
     }
 }
 
-impl<K, T, const N: usize> PartialEq<Self> for Segment<'_, K, T, N>
+impl<K, T, const N: usize> PartialEq<Self> for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
     T: PartialEq<T>,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -708,9 +747,9 @@ where
     }
 }
 
-impl<K, T, const N: usize> PartialOrd<Self> for Segment<'_, K, T, N>
+impl<K, T, const N: usize> PartialOrd<Self> for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
     T: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -718,28 +757,28 @@ where
     }
 }
 
-impl<K, T, const N: usize> Segmentation for Segment<'_, K, T, N>
+impl<K, T, const N: usize> Segmentation for Segment<'_, K, N>
 where
-    K: SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
-    fn tail(&mut self) -> Segment<'_, K, T, N> {
+    fn tail(&mut self) -> Segment<'_, K, N> {
         let range = self.project(&(1..));
         Segment::intersect(self.items, &range)
     }
 
-    fn rtail(&mut self) -> Segment<'_, K, T, N> {
+    fn rtail(&mut self) -> Segment<'_, K, N> {
         let range = self.project(&(..self.len().saturating_sub(1)));
         Segment::intersect(self.items, &range)
     }
 }
 
-impl<K, T, R, const N: usize> SegmentedBy<R> for Segment<'_, K, T, N>
+impl<K, T, R, const N: usize> SegmentedBy<R> for Segment<'_, K, N>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: SegmentedBy<R> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedBy<R> + SegmentedOver<Target = ArrayVec<T, N>>,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, K, T, N> {
+    fn segment(&mut self, range: R) -> Segment<'_, K, N> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
     }
