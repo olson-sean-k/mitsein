@@ -432,7 +432,7 @@ where
     type Output = BTreeSet<T>;
 
     fn bitand(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() & rhs.as_btree_set()()
+        self.as_btree_set() & rhs.as_btree_set()
     }
 }
 
@@ -446,7 +446,7 @@ where
     fn bitor(self, rhs: &'_ R) -> Self::Output {
         // SAFETY: `self` must be non-empty and `BTreeSet::bitor` cannot reduce the cardinality of
         //         its inputs.
-        unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_btree_set()()) }
+        unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_btree_set()) }
     }
 }
 
@@ -458,7 +458,7 @@ where
     type Output = BTreeSet<T>;
 
     fn bitxor(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() ^ rhs.as_btree_set()()
+        self.as_btree_set() ^ rhs.as_btree_set()
     }
 }
 
