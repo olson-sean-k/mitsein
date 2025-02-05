@@ -5,11 +5,18 @@ use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::SliceIndex;
-use core::str::{self, Bytes, Lines, Utf8Error};
+use core::str::{
+    self, Bytes, CharIndices, Chars, EncodeUtf16, Lines, Split, SplitInclusive, SplitTerminator,
+    Utf8Error,
+};
+#[cfg(feature = "rayon")]
+use rayon::str::ParallelString;
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::string::String};
 
 use crate::iter1::Iterator1;
+#[cfg(feature = "rayon")]
+use crate::iter1::ParallelIterator1;
 use crate::safety;
 use crate::slice1::Slice1;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -95,12 +102,57 @@ impl Str1 {
         }
     }
 
+    pub fn encode1_utf16(&self) -> Iterator1<EncodeUtf16<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.encode_utf16()) }
+    }
+
+    pub fn split1<'a, P>(&'a self, separator: &'a P) -> Iterator1<Split<'a, &'a [char]>>
+    where
+        P: 'a + AsRef<[char]>,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.split(separator.as_ref())) }
+    }
+
+    pub fn split_inclusive1<'a, P>(
+        &'a self,
+        separator: &'a P,
+    ) -> Iterator1<SplitInclusive<'a, &'a [char]>>
+    where
+        P: 'a + AsRef<[char]>,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.split_inclusive(separator.as_ref())) }
+    }
+
+    pub fn split_terminator1<'a, P>(
+        &'a self,
+        separator: &'a P,
+    ) -> Iterator1<SplitTerminator<'a, &'a [char]>>
+    where
+        P: 'a + AsRef<[char]>,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.split_terminator(separator.as_ref())) }
+    }
+
     #[cfg(feature = "alloc")]
     pub(crate) fn first(&self) -> char {
         use crate::safety::OptionExt as _;
 
         // SAFETY: `self` must be non-empty.
         unsafe { self.items.chars().next().unwrap_maybe_unchecked() }
+    }
+
+    pub fn chars1(&self) -> Iterator1<Chars<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.as_str().chars()) }
+    }
+
+    pub fn char_indices1(&self) -> Iterator1<CharIndices<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.as_str().char_indices()) }
     }
 
     pub fn bytes1(&self) -> Iterator1<Bytes<'_>> {
@@ -134,6 +186,74 @@ impl Str1 {
 
     pub const fn as_mut_str(&mut self) -> &'_ mut str {
         &mut self.items
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl Str1 {
+    pub fn par_encode1_utf16(&self) -> ParallelIterator1<rayon::str::EncodeUtf16<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_encode_utf16()) }
+    }
+
+    pub fn par_split1<'a, P>(
+        &'a self,
+        separator: &'a P,
+    ) -> ParallelIterator1<rayon::str::Split<'a, &'a [char]>>
+    where
+        P: 'a + AsRef<[char]>,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_split(separator.as_ref())) }
+    }
+
+    pub fn par_split_inclusive1<'a, P>(
+        &'a self,
+        separator: &'a P,
+    ) -> ParallelIterator1<rayon::str::SplitInclusive<'a, &'a [char]>>
+    where
+        P: 'a + AsRef<[char]>,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe {
+            ParallelIterator1::from_par_iter_unchecked(self.par_split_inclusive(separator.as_ref()))
+        }
+    }
+
+    pub fn par_split_terminator1<'a, P>(
+        &'a self,
+        separator: &'a P,
+    ) -> ParallelIterator1<rayon::str::SplitTerminator<'a, &'a [char]>>
+    where
+        P: 'a + AsRef<[char]>,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe {
+            ParallelIterator1::from_par_iter_unchecked(
+                self.par_split_terminator(separator.as_ref()),
+            )
+        }
+    }
+
+    pub fn par_chars1(&self) -> ParallelIterator1<rayon::str::Chars<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_chars()) }
+    }
+
+    pub fn par_char_indices1(&self) -> ParallelIterator1<rayon::str::CharIndices<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_char_indices()) }
+    }
+
+    pub fn par_bytes1(&self) -> ParallelIterator1<rayon::str::Bytes<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_bytes()) }
+    }
+
+    pub fn par_lines1(&self) -> ParallelIterator1<rayon::str::Lines<'_>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_lines()) }
     }
 }
 

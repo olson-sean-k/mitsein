@@ -8,10 +8,14 @@ use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
+#[cfg(feature = "rayon")]
+use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
@@ -424,6 +428,20 @@ impl<T> BTreeSet1<T> {
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> BTreeSet1<T>
+where
+    T: Ord,
+{
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ BTreeSet<T> as IntoParallelIterator>::Iter>
+    where
+        T: Sync,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
+    }
+}
+
 impl<R, T> BitAnd<&'_ R> for &'_ BTreeSet1<T>
 where
     R: ClosedBTreeSet<Item = T>,
@@ -521,6 +539,23 @@ where
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> FromParallelIterator1<T> for BTreeSet1<T>
+where
+    T: Ord + Send,
+{
+    fn from_par_iter1<I>(items: I) -> Self
+    where
+        I: IntoParallelIterator1<Item = T>,
+    {
+        // SAFETY: `items` is non-empty.
+        unsafe {
+            BTreeSet1::from_btree_set_unchecked(items.into_par_iter1().into_par_iter().collect())
+        }
+    }
+}
+
 impl<T> IntoIterator for BTreeSet1<T> {
     type Item = T;
     type IntoIter = btree_set::IntoIter<T>;
@@ -534,6 +569,46 @@ impl<T> IntoIterator1 for BTreeSet1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator for BTreeSet1<T>
+where
+    T: Ord + Send,
+{
+    type Item = T;
+    type Iter = <BTreeSet<T> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.items.into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, T> IntoParallelIterator for &'a BTreeSet1<T>
+where
+    T: Ord + Sync,
+{
+    type Item = &'a T;
+    type Iter = <&'a BTreeSet<T> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&self.items).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator1 for BTreeSet1<T>
+where
+    T: Ord + Send,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
 

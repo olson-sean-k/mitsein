@@ -9,10 +9,16 @@ use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::RangeBounds;
+#[cfg(feature = "rayon")]
+use rayon::iter::{
+    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
+#[cfg(feature = "rayon")]
+use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
@@ -728,6 +734,31 @@ impl<K, V> BTreeMap1<K, V> {
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<K, V> BTreeMap1<K, V>
+where
+    K: Ord,
+{
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ BTreeMap<K, V> as IntoParallelIterator>::Iter>
+    where
+        K: Sync,
+        V: Sync,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
+    }
+
+    pub fn par_iter1_mut(
+        &mut self,
+    ) -> ParallelIterator1<<&'_ mut BTreeMap<K, V> as IntoParallelIterator>::Iter>
+    where
+        K: Sync,
+        V: Send,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter_mut()) }
+    }
+}
+
 impl<K, V> ClosedBTreeMap for BTreeMap1<K, V> {
     type Key = K;
     type Value = V;
@@ -789,6 +820,24 @@ where
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<K, V> FromParallelIterator1<(K, V)> for BTreeMap1<K, V>
+where
+    K: Ord + Send,
+    V: Send,
+{
+    fn from_par_iter1<I>(items: I) -> Self
+    where
+        I: IntoParallelIterator1<Item = (K, V)>,
+    {
+        // SAFETY: `items` is non-empty.
+        unsafe {
+            BTreeMap1::from_btree_map_unchecked(items.into_par_iter1().into_par_iter().collect())
+        }
+    }
+}
+
 impl<K, V> IntoIterator for BTreeMap1<K, V> {
     type Item = (K, V);
     type IntoIter = btree_map::IntoIter<K, V>;
@@ -802,6 +851,64 @@ impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<K, V> IntoParallelIterator for BTreeMap1<K, V>
+where
+    K: Ord + Send,
+    V: Send,
+{
+    type Item = (K, V);
+    type Iter = <BTreeMap<K, V> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.items.into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, K, V> IntoParallelIterator for &'a BTreeMap1<K, V>
+where
+    K: Ord + Sync,
+    V: Sync,
+{
+    type Item = (&'a K, &'a V);
+    type Iter = <&'a BTreeMap<K, V> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&self.items).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, K, V> IntoParallelIterator for &'a mut BTreeMap1<K, V>
+where
+    K: Ord + Sync,
+    V: Send,
+{
+    type Item = (&'a K, &'a mut V);
+    type Iter = <&'a mut BTreeMap<K, V> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&mut self.items).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<K, V> IntoParallelIterator1 for BTreeMap1<K, V>
+where
+    K: Ord + Send,
+    V: Send,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
 

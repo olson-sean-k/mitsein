@@ -5,10 +5,14 @@ use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::{self, Chunks, ChunksMut, RChunks, RChunksMut};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
 use crate::iter1::Iterator1;
+#[cfg(feature = "rayon")]
+use crate::iter1::ParallelIterator1;
 use crate::safety;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
@@ -165,6 +169,26 @@ impl<T> Slice1<T> {
 
     pub const fn as_mut_slice(&mut self) -> &'_ mut [T] {
         &mut self.items
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> Slice1<T> {
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ [T] as IntoParallelIterator>::Iter>
+    where
+        T: Sync,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
+    }
+
+    pub fn par_iter1_mut(
+        &mut self,
+    ) -> ParallelIterator1<<&'_ mut [T] as IntoParallelIterator>::Iter>
+    where
+        T: Send,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter_mut()) }
     }
 }
 

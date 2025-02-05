@@ -10,11 +10,17 @@ use core::iter;
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Index, IndexMut, RangeBounds};
+#[cfg(feature = "rayon")]
+use rayon::iter::{
+    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 #[cfg(feature = "std")]
 use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
+#[cfg(feature = "rayon")]
+use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
@@ -324,6 +330,26 @@ impl<T> VecDeque1<T> {
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> VecDeque1<T> {
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ VecDeque<T> as IntoParallelIterator>::Iter>
+    where
+        T: Sync,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
+    }
+
+    pub fn par_iter1_mut(
+        &mut self,
+    ) -> ParallelIterator1<<&'_ mut VecDeque<T> as IntoParallelIterator>::Iter>
+    where
+        T: Send,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter_mut()) }
+    }
+}
+
 impl<T> ClosedVecDeque for VecDeque1<T> {
     type Item = T;
 
@@ -376,6 +402,21 @@ impl<T> FromIterator1<T> for VecDeque1<T> {
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> FromParallelIterator1<T> for VecDeque1<T>
+where
+    T: Send,
+{
+    fn from_par_iter1<I>(items: I) -> Self
+    where
+        I: IntoParallelIterator1<Item = T>,
+    {
+        // SAFETY: `items` must be non-empty.
+        unsafe { VecDeque1::from_vec_deque_unchecked(items.into_par_iter().collect()) }
+    }
+}
+
 impl<T, I> Index<I> for VecDeque1<T>
 where
     VecDeque<T>: Index<I>,
@@ -409,6 +450,60 @@ impl<T> IntoIterator1 for VecDeque1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator for VecDeque1<T>
+where
+    T: Send,
+{
+    type Item = T;
+    type Iter = <VecDeque<T> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.items.into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, T> IntoParallelIterator for &'a VecDeque1<T>
+where
+    T: Sync,
+{
+    type Item = &'a T;
+    type Iter = <&'a VecDeque<T> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&self.items).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, T> IntoParallelIterator for &'a mut VecDeque1<T>
+where
+    T: Send,
+{
+    type Item = &'a mut T;
+    type Iter = <&'a mut VecDeque<T> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&mut self.items).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator1 for VecDeque1<T>
+where
+    T: Send,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
 

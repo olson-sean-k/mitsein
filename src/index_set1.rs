@@ -16,7 +16,7 @@ use core::ops::{BitAnd, BitOr, BitXor, Deref, RangeBounds, Sub};
 use indexmap::set::{self as index_set, IndexSet, Slice};
 use indexmap::{Equivalent, TryReserveError};
 #[cfg(feature = "rayon")]
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "std")]
 use std::hash::RandomState;
 
@@ -665,6 +665,18 @@ where
 
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T, S> IndexSet1<T, S> {
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ IndexSet<T, S> as IntoParallelIterator>::Iter>
+    where
+        T: Sync,
+        S: Sync,
+    {
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T, S> IndexSet1<T, S>
 where
     T: Eq + Hash + Sync,
@@ -995,6 +1007,21 @@ where
 
     fn into_par_iter(self) -> Self::Iter {
         self.items.into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, T, S> IntoParallelIterator for &'a IndexSet1<T, S>
+where
+    T: Sync,
+    S: Sync,
+{
+    type Item = &'a T;
+    type Iter = <&'a IndexSet<T, S> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&self.items).into_par_iter()
     }
 }
 
