@@ -1,6 +1,6 @@
 [package]
 name = "mitsein"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Sean Olson <olson.sean.k@gmail.com>"]
 description = "Strongly typed APIs for non-empty collections, slices, and iterators."
 repository = "https://github.com/olson-sean-k/mitsein"
