@@ -664,6 +664,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T, S> IndexSet1<T, S>
 where
     T: Eq + Hash + Sync,
@@ -751,6 +752,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T, S> IndexSet1<T, S>
 where
     T: Eq + Hash + Send + Sync,
@@ -815,6 +817,7 @@ where
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T> IndexSet1<T, RandomState>
 where
     T: Eq + Hash,
@@ -914,6 +917,7 @@ where
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T, const N: usize> From<[T; N]> for IndexSet1<T, RandomState>
 where
     [T; N]: Array1,
@@ -946,6 +950,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T, S> FromParallelIterator1<T> for IndexSet1<T, S>
 where
     T: Eq + Hash + Send,
@@ -979,6 +984,7 @@ impl<T, S> IntoIterator1 for IndexSet1<T, S> {
 }
 
 #[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T, S> IntoParallelIterator for IndexSet1<T, S>
 where
     T: Send,
@@ -993,6 +999,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T, S> IntoParallelIterator1 for IndexSet1<T, S>
 where
     T: Send,
