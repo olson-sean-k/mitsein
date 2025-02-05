@@ -22,6 +22,22 @@ use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
+type ItemFor<K> = <K as ClosedVecDeque>::Item;
+
+pub trait ClosedVecDeque {
+    type Item;
+
+    fn as_vec_deque(&self) -> &VecDeque<Self::Item>;
+}
+
+impl<T> ClosedVecDeque for VecDeque<T> {
+    type Item = T;
+
+    fn as_vec_deque(&self) -> &VecDeque<Self::Item> {
+        self
+    }
+}
+
 impl<T> Extend1<T> for VecDeque<T> {
     fn extend_non_empty<I>(mut self, items: I) -> VecDeque1<T>
     where
@@ -61,11 +77,11 @@ impl<T> Ranged for VecDeque<T> {
 }
 
 impl<T> Segmentation for VecDeque<T> {
-    fn tail(&mut self) -> Segment<'_, Self, T> {
+    fn tail(&mut self) -> Segment<'_, Self> {
         Segment::intersect(self, &Ranged::tail(self))
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T> {
+    fn rtail(&mut self) -> Segment<'_, Self> {
         Segment::intersect(self, &Ranged::rtail(self))
     }
 }
@@ -74,7 +90,7 @@ impl<T, R> SegmentedBy<R> for VecDeque<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
 }
@@ -86,9 +102,9 @@ impl<T> SegmentedOver for VecDeque<T> {
 
 type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, VecDeque<T>, U, N>;
 
-pub type PopOr<'a, T> = TakeOr<'a, T, T, ()>;
+pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, ItemFor<K>, ()>;
 
-pub type RemoveOr<'a, T> = TakeOr<'a, T, Option<T>, usize>;
+pub type RemoveOr<'a, K> = TakeOr<'a, ItemFor<K>, Option<ItemFor<K>>, usize>;
 
 impl<'a, T, N> TakeOr<'a, T, T, N> {
     pub fn only(self) -> Result<T, &'a T> {
@@ -221,14 +237,14 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_or(&mut self) -> PopOr<'_, T> {
+    pub fn pop_front_or(&mut self) -> PopOr<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeOr::with(self, (), |items, ()| unsafe {
             items.items.pop_front().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn pop_back_or(&mut self) -> PopOr<'_, T> {
+    pub fn pop_back_or(&mut self) -> PopOr<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeOr::with(self, (), |items, ()| unsafe {
             items.items.pop_back().unwrap_maybe_unchecked()
@@ -239,17 +255,17 @@ impl<T> VecDeque1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, T> {
+    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
         TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_front_or(&mut self, index: usize) -> RemoveOr<'_, T> {
+    pub fn swap_remove_front_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
         TakeOr::with(self, index, |items, index| {
             items.items.swap_remove_front(index)
         })
     }
 
-    pub fn swap_remove_back_or(&mut self, index: usize) -> RemoveOr<'_, T> {
+    pub fn swap_remove_back_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
         TakeOr::with(self, index, |items, index| {
             items.items.swap_remove_back(index)
         })
@@ -305,6 +321,14 @@ impl<T> VecDeque1<T> {
 
     pub const fn as_vec_deque(&self) -> &VecDeque<T> {
         &self.items
+    }
+}
+
+impl<T> ClosedVecDeque for VecDeque1<T> {
+    type Item = T;
+
+    fn as_vec_deque(&self) -> &VecDeque<Self::Item> {
+        self.as_ref()
     }
 }
 
@@ -389,12 +413,12 @@ impl<T> IntoIterator1 for VecDeque1<T> {
 }
 
 impl<T> Segmentation for VecDeque1<T> {
-    fn tail(&mut self) -> Segment<'_, Self, T> {
+    fn tail(&mut self) -> Segment<'_, Self> {
         let range = Ranged::tail(&self.items);
         Segment::intersect_strict_subset(&mut self.items, &range)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, T> {
+    fn rtail(&mut self) -> Segment<'_, Self> {
         let range = Ranged::rtail(&self.items);
         Segment::intersect_strict_subset(&mut self.items, &range)
     }
@@ -404,7 +428,7 @@ impl<T, R> SegmentedBy<R> for VecDeque1<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, T> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
 }
@@ -449,11 +473,11 @@ impl Write for VecDeque1<u8> {
     }
 }
 
-pub type Segment<'a, K, T> = segment::Segment<'a, K, VecDeque<T>>;
+pub type Segment<'a, K> = segment::Segment<'a, K, VecDeque<ItemFor<K>>>;
 
-impl<K, T> Segment<'_, K, T>
+impl<K, T> Segment<'_, K>
 where
-    K: SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
 {
     pub fn split_off(&mut self, at: usize) -> VecDeque<T> {
         let at = self.range.project(&at).expect_in_bounds();
@@ -576,16 +600,16 @@ where
     }
 }
 
-impl<K, T> Eq for Segment<'_, K, T>
+impl<K, T> Eq for Segment<'_, K>
 where
-    K: SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
     T: Eq,
 {
 }
 
-impl<K, T> Extend<T> for Segment<'_, K, T>
+impl<K, T> Extend<T> for Segment<'_, K>
 where
-    K: SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
 {
     fn extend<I>(&mut self, items: I)
     where
@@ -608,9 +632,9 @@ where
 //       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
 //       `T`)! This appears to be a limitation rather than a true conflict.
 //
-// impl<'i, K, T> Extend<&'i T> for Segment<'_, K, T>
+// impl<'i, K, T> Extend<&'i T> for Segment<'_, K>
 // where
-//     K: Segmentation<Target = VecDeque<T>>,
+//     K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
 //     T: 'i + Copy,
 // {
 //     fn extend<I>(&mut self, items: I)
@@ -621,9 +645,9 @@ where
 //     }
 // }
 
-impl<K, T> Ord for Segment<'_, K, T>
+impl<K, T> Ord for Segment<'_, K>
 where
-    K: SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
     T: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -631,9 +655,9 @@ where
     }
 }
 
-impl<K, T> PartialEq<Self> for Segment<'_, K, T>
+impl<K, T> PartialEq<Self> for Segment<'_, K>
 where
-    K: SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
     T: PartialEq<T>,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -641,9 +665,9 @@ where
     }
 }
 
-impl<K, T> PartialOrd<Self> for Segment<'_, K, T>
+impl<K, T> PartialOrd<Self> for Segment<'_, K>
 where
-    K: SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
     T: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -651,28 +675,28 @@ where
     }
 }
 
-impl<K, T> Segmentation for Segment<'_, K, T>
+impl<K, T> Segmentation for Segment<'_, K>
 where
-    K: SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
 {
-    fn tail(&mut self) -> Segment<'_, K, T> {
+    fn tail(&mut self) -> Segment<'_, K> {
         let range = self.project(&(1..));
         Segment::intersect(self.items, &range)
     }
 
-    fn rtail(&mut self) -> Segment<'_, K, T> {
+    fn rtail(&mut self) -> Segment<'_, K> {
         let range = self.project(&(..self.len().saturating_sub(1)));
         Segment::intersect(self.items, &range)
     }
 }
 
-impl<K, T, R> SegmentedBy<R> for Segment<'_, K, T>
+impl<K, T, R> SegmentedBy<R> for Segment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: SegmentedBy<R> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedBy<R> + SegmentedOver<Target = VecDeque<T>>,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, K, T> {
+    fn segment(&mut self, range: R) -> Segment<'_, K> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
     }

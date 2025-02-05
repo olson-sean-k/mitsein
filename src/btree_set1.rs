@@ -390,25 +390,25 @@ impl<T> BTreeSet1<T> {
     pub fn is_disjoint<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.is_disjoint(other.as_ref())
+        self.items.is_disjoint(other.as_btree_set())
     }
 
     pub fn is_subset<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.is_subset(other.as_ref())
+        self.items.is_subset(other.as_btree_set())
     }
 
     pub fn is_superset<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: AsRef<BTreeSet<T>>,
+        R: ClosedBTreeSet<Item = T>,
     {
-        self.items.is_superset(other.as_ref())
+        self.items.is_superset(other.as_btree_set())
     }
 
     pub fn contains<Q>(&self, item: &Q) -> bool
@@ -426,19 +426,19 @@ impl<T> BTreeSet1<T> {
 
 impl<R, T> BitAnd<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
 
     fn bitand(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() & rhs.as_ref()
+        self.as_btree_set() & rhs.as_btree_set()()
     }
 }
 
 impl<R, T> BitOr<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet1<T>;
@@ -446,19 +446,19 @@ where
     fn bitor(self, rhs: &'_ R) -> Self::Output {
         // SAFETY: `self` must be non-empty and `BTreeSet::bitor` cannot reduce the cardinality of
         //         its inputs.
-        unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_ref()) }
+        unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_btree_set()()) }
     }
 }
 
 impl<R, T> BitXor<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
 
     fn bitxor(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() ^ rhs.as_ref()
+        self.as_btree_set() ^ rhs.as_btree_set()()
     }
 }
 
@@ -577,13 +577,13 @@ where
 
 impl<R, T> Sub<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: AsRef<BTreeSet<T>>,
+    R: ClosedBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
 
     fn sub(self, rhs: &'_ R) -> Self::Output {
-        self.as_btree_set() - rhs.as_ref()
+        self.as_btree_set() - rhs.as_btree_set()
     }
 }
 

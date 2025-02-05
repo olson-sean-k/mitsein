@@ -134,6 +134,15 @@ impl<'a, T, S, U, N> TakeOr<'a, T, S, U, N> {
     }
 }
 
+impl<'a, T, S> TakeOr<'a, T, S, Option<T>, usize>
+where
+    S: BuildHasher,
+{
+    pub fn get(self) -> Option<Result<T, &'a T>> {
+        self.try_take_or_else(|items, index| items.get_index(index))
+    }
+}
+
 impl<'a, T, S, Q> TakeOr<'a, T, S, bool, &'_ Q>
 where
     T: Borrow<Q>,
@@ -1021,14 +1030,15 @@ impl<T, S> SegmentedOver for IndexSet1<T, S> {
 
 impl<R, T, S> Sub<&'_ R> for &'_ IndexSet1<T, S>
 where
-    R: AsRef<IndexSet<T, S>>,
+    R: ClosedIndexSet<Item = T>,
+    R::State: BuildHasher,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
     type Output = IndexSet<T, S>;
 
     fn sub(self, rhs: &'_ R) -> Self::Output {
-        self.as_index_set() - rhs.as_ref()
+        self.as_index_set() - rhs.as_index_set()
     }
 }
 
