@@ -115,7 +115,7 @@ impl Str1 {
         unsafe { Iterator1::from_iter_unchecked(self.split(separator.as_ref())) }
     }
 
-    pub fn split_inclusive1<'a, P>(
+    pub fn split1_inclusive<'a, P>(
         &'a self,
         separator: &'a P,
     ) -> Iterator1<SplitInclusive<'a, &'a [char]>>
@@ -126,7 +126,7 @@ impl Str1 {
         unsafe { Iterator1::from_iter_unchecked(self.split_inclusive(separator.as_ref())) }
     }
 
-    pub fn split_terminator1<'a, P>(
+    pub fn split1_terminator<'a, P>(
         &'a self,
         separator: &'a P,
     ) -> Iterator1<SplitTerminator<'a, &'a [char]>>
@@ -208,7 +208,7 @@ impl Str1 {
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_split(separator.as_ref())) }
     }
 
-    pub fn par_split_inclusive1<'a, P>(
+    pub fn par_split1_inclusive<'a, P>(
         &'a self,
         separator: &'a P,
     ) -> ParallelIterator1<rayon::str::SplitInclusive<'a, &'a [char]>>
@@ -221,7 +221,7 @@ impl Str1 {
         }
     }
 
-    pub fn par_split_terminator1<'a, P>(
+    pub fn par_split1_terminator<'a, P>(
         &'a self,
         separator: &'a P,
     ) -> ParallelIterator1<rayon::str::SplitTerminator<'a, &'a [char]>>
