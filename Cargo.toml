@@ -32,8 +32,8 @@ rustdoc-args = [
 [features]
 default = ["std"]
 alloc = [
-    "itertools/use_alloc",
-    "serde/alloc",
+    "itertools?/use_alloc",
+    "serde?/alloc",
 ]
 arrayvec = ["dep:arrayvec"]
 indexmap = [
@@ -43,19 +43,20 @@ indexmap = [
 itertools = ["dep:itertools"]
 rayon = [
     "dep:rayon",
-    "indexmap/rayon",
+    "indexmap?/rayon",
+    "std",
 ]
 serde = [
     "dep:serde",
     "dep:serde_derive",
-    "arrayvec/serde",
-    "indexmap/serde",
+    "arrayvec?/serde",
+    "indexmap?/serde",
 ]
 std = [
     "alloc",
-    "indexmap/std",
-    "itertools/use_std",
-    "serde/std",
+    "indexmap?/std",
+    "itertools?/use_std",
+    "serde?/std",
 ]
 
 [dependencies]
