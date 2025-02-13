@@ -13,13 +13,12 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::SliceIndex;
 
+use crate::borrow1::CowStr1;
 use crate::boxed1::{BoxedStr1, BoxedStr1Ext as _};
 use crate::iter1::{Extend1, FromIterator1, IntoIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
-#[cfg(target_has_atomic = "ptr")]
-use crate::sync1::{ArcStr1, ArcStr1Ext as _};
 use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -39,31 +38,6 @@ impl Extend1<char> for String {
 unsafe impl MaybeEmpty for String {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         self.as_str().cardinality()
-    }
-}
-
-pub type CowStr1<'a> = Cow<'a, Str1>;
-
-pub trait CowStr1Ext<'a> {
-    #[cfg(target_has_atomic = "ptr")]
-    #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
-    fn into_arc_str1(self) -> ArcStr1;
-
-    fn into_cow_str(self) -> Cow<'a, str>;
-}
-
-impl<'a> CowStr1Ext<'a> for CowStr1<'a> {
-    #[cfg(target_has_atomic = "ptr")]
-    #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
-    fn into_arc_str1(self) -> ArcStr1 {
-        ArcStr1::from_cow_str1(self)
-    }
-
-    fn into_cow_str(self) -> Cow<'a, str> {
-        match self {
-            Cow::Borrowed(borrowed) => Cow::Borrowed(borrowed),
-            Cow::Owned(owned) => Cow::Owned(owned.into_string()),
-        }
     }
 }
 

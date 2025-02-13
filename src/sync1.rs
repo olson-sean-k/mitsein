@@ -8,12 +8,12 @@
 use alloc::sync::{Arc, Weak};
 
 use crate::array1::Array1;
+use crate::borrow1::{CowSlice1, CowSlice1Ext as _, CowStr1, CowStr1Ext as _};
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _, BoxedStr1, BoxedStr1Ext as _};
 use crate::iter1::{FromIterator1, IntoIterator1};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
-use crate::string1::{CowStr1, CowStr1Ext as _};
-use crate::vec1::{CowSlice1, CowSlice1Ext as _, Vec1};
+use crate::vec1::Vec1;
 use crate::MaybeEmpty;
 
 pub type ArcSlice1<T> = Arc<Slice1<T>>;

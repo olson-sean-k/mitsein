@@ -3,7 +3,7 @@
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
-use alloc::borrow::{Borrow, BorrowMut, Cow};
+use alloc::borrow::{Borrow, BorrowMut};
 use alloc::vec::{self, Drain, Splice, Vec};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
@@ -27,8 +27,6 @@ use crate::segment::range::{
 };
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
-#[cfg(target_has_atomic = "ptr")]
-use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::take;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -104,37 +102,6 @@ where
 impl<T> SegmentedOver for Vec<T> {
     type Target = Self;
     type Kind = Self;
-}
-
-pub type CowSlice1<'a, T> = Cow<'a, Slice1<T>>;
-
-pub trait CowSlice1Ext<'a, T>
-where
-    T: Clone,
-{
-    #[cfg(target_has_atomic = "ptr")]
-    #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
-    fn into_arc_slice1(self) -> ArcSlice1<T>;
-
-    fn into_cow_slice(self) -> Cow<'a, [T]>;
-}
-
-impl<'a, T> CowSlice1Ext<'a, T> for CowSlice1<'a, T>
-where
-    T: Clone,
-{
-    #[cfg(target_has_atomic = "ptr")]
-    #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
-    fn into_arc_slice1(self) -> ArcSlice1<T> {
-        ArcSlice1::from_cow_slice1(self)
-    }
-
-    fn into_cow_slice(self) -> Cow<'a, [T]> {
-        match self {
-            Cow::Borrowed(borrowed) => Cow::Borrowed(borrowed),
-            Cow::Owned(owned) => Cow::Owned(owned.into_vec()),
-        }
-    }
 }
 
 type TakeOr<'a, T, N = ()> = take::TakeOr<'a, Vec<T>, T, N>;

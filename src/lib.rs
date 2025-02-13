@@ -288,6 +288,7 @@ mod take;
 
 pub mod array1;
 pub mod array_vec1;
+pub mod borrow1;
 pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
@@ -335,10 +336,11 @@ pub mod prelude {
     pub use crate::Segmentation;
     #[cfg(feature = "alloc")]
     pub use {
+        crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
         crate::boxed1::{BoxedSlice1Ext as _, BoxedStr1Ext as _},
         crate::btree_map1::OrOnlyEntryExt as _,
         crate::string1::String1,
-        crate::vec1::{vec1, CowSlice1Ext as _, Vec1},
+        crate::vec1::{vec1, Vec1},
     };
 }
 
