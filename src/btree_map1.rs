@@ -412,7 +412,7 @@ impl<'a, K, V, U, N> TakeOr<'a, K, V, U, N>
 where
     K: Ord,
 {
-    pub fn only(self) -> Result<U, OnlyEntry<'a, K, V>> {
+    pub fn get_only(self) -> Result<U, OnlyEntry<'a, K, V>> {
         self.take_or_else(|items, _| items.first_entry_as_only())
     }
 

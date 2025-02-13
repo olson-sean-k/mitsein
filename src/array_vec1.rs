@@ -135,7 +135,7 @@ impl<'a, T, M, const N: usize> TakeOr<'a, T, M, N>
 where
     [T; N]: Array1,
 {
-    pub fn only(self) -> Result<T, &'a T> {
+    pub fn get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 

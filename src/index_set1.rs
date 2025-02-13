@@ -131,7 +131,7 @@ pub type TakeRemoveFullOr<'a, 'q, K, Q> =
     TakeOr<'a, ItemFor<K>, StateFor<K>, Option<(usize, ItemFor<K>)>, &'q Q>;
 
 impl<'a, T, S, U, N> TakeOr<'a, T, S, U, N> {
-    pub fn only(self) -> Result<U, &'a T> {
+    pub fn get_only(self) -> Result<U, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 }

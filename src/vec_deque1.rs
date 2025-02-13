@@ -115,7 +115,7 @@ pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, ItemFor<K>, ()>;
 pub type RemoveOr<'a, K> = TakeOr<'a, ItemFor<K>, Option<ItemFor<K>>, usize>;
 
 impl<'a, T, N> TakeOr<'a, T, T, N> {
-    pub fn only(self) -> Result<T, &'a T> {
+    pub fn get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.front())
     }
 

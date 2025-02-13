@@ -51,7 +51,7 @@ Removing items from a `Vec1`:
 use mitsein::prelude::*;
 
 let mut xs = Vec1::from([0i32, 1, 2]);
-while let Ok(item) = xs.pop_or().only() { ... }
+while let Ok(item) = xs.pop_or().get_only() { ... }
 
 let mut xs = Vec1::from([0i32, 1, 2]);
 xs.tail().clear();
@@ -93,7 +93,7 @@ counterparts have distinct names in Mitsein. For example, the [`vec1`] crate
 presents `Vec1::pop` and `Vec1::remove`, which may be unclear in context.
 Mitsein instead presents more explicit APIs like `Vec1::pop_or`, which returns a
 `TakeOr` that determine what to do when only one item remains. This leads to
-more explicit expressions like `xs.pop_or().only()` and
+more explicit expressions like `xs.pop_or().get_only()` and
 `xs.remove_or(1).replace_only(0)`.
 
 **Mitsein separates many non-empty error concerns into a segmentation API.**

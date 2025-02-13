@@ -50,7 +50,7 @@ pub type PopOr<'a> = TakeOr<'a, ()>;
 pub type RemoveOr<'a> = TakeOr<'a, usize>;
 
 impl<N> TakeOr<'_, N> {
-    pub fn only(self) -> Result<char, char> {
+    pub fn get_only(self) -> Result<char, char> {
         self.take_or_else(|items, _| items.first())
     }
 

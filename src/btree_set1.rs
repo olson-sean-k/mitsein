@@ -140,7 +140,7 @@ impl<'a, T, U, N> TakeOr<'a, T, U, N>
 where
     T: Ord,
 {
-    pub fn only(self) -> Result<U, &'a T> {
+    pub fn get_only(self) -> Result<U, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 }

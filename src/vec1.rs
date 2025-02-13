@@ -113,7 +113,7 @@ pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, ()>;
 pub type RemoveOr<'a, K> = TakeOr<'a, ItemFor<K>, usize>;
 
 impl<'a, T, N> TakeOr<'a, T, N> {
-    pub fn only(self) -> Result<T, &'a T> {
+    pub fn get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 
@@ -1168,11 +1168,11 @@ mod tests {
     fn pop_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
         let first = *xs1.first();
         let mut tail = xs1.as_slice()[1..].to_vec();
-        while let Ok(item) = xs1.pop_or().only() {
+        while let Ok(item) = xs1.pop_or().get_only() {
             assert_eq!(tail.pop().unwrap(), item);
         }
         for _ in 0..3 {
-            assert_eq!(xs1.pop_or().only(), Err(&first));
+            assert_eq!(xs1.pop_or().get_only(), Err(&first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
     }

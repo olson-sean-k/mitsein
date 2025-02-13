@@ -56,7 +56,7 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
-//! while let Ok(_) = xs.pop_or().only() {}
+//! while let Ok(_) = xs.pop_or().get_only() {}
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
