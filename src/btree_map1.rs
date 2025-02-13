@@ -4,6 +4,8 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::collections::btree_map::{self, BTreeMap, VacantEntry};
+#[cfg(feature = "arbitrary")]
+use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
@@ -756,6 +758,26 @@ where
         V: Send,
     {
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter_mut()) }
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+#[cfg_attr(docsrs, doc(cfg(feature = "arbitrary")))]
+impl<'a, K, V> Arbitrary<'a> for BTreeMap1<K, V>
+where
+    (K, V): Arbitrary<'a>,
+    K: Ord,
+{
+    fn arbitrary(unstructured: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        iter1::head_and_tail(
+            <(K, V)>::arbitrary(unstructured),
+            unstructured.arbitrary_iter()?,
+        )
+        .collect1()
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        (<(K, V)>::size_hint(depth).0, None)
     }
 }
 

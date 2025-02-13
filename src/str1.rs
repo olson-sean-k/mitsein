@@ -1,5 +1,7 @@
 //! A non-empty [str][`prim@str`].
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::{Arbitrary, Unstructured};
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
@@ -254,6 +256,22 @@ impl Str1 {
     pub fn par_lines1(&self) -> ParallelIterator1<rayon::str::Lines<'_>> {
         // SAFETY: `self` must be non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_lines()) }
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+#[cfg_attr(docsrs, doc(cfg(feature = "arbitrary")))]
+impl<'a> Arbitrary<'a> for &'a Str1 {
+    fn arbitrary(unstructured: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        loop {
+            if let Ok(items) = Str1::try_from_str(<&'a str>::arbitrary(unstructured)?) {
+                break Ok(items);
+            }
+        }
+    }
+
+    fn size_hint(_: usize) -> (usize, Option<usize>) {
+        (1, None)
     }
 }
 

@@ -4,6 +4,8 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::collections::btree_set::{self, BTreeSet};
+#[cfg(feature = "arbitrary")]
+use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::num::NonZeroUsize;
@@ -439,6 +441,21 @@ where
         T: Sync,
     {
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+#[cfg_attr(docsrs, doc(cfg(feature = "arbitrary")))]
+impl<'a, T> Arbitrary<'a> for BTreeSet1<T>
+where
+    T: Arbitrary<'a> + Ord,
+{
+    fn arbitrary(unstructured: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        iter1::head_and_tail(T::arbitrary(unstructured), unstructured.arbitrary_iter()?).collect1()
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        (T::size_hint(depth).0, None)
     }
 }
 

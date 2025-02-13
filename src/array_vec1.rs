@@ -3,6 +3,8 @@
 #![cfg(feature = "arrayvec")]
 #![cfg_attr(docsrs, doc(cfg(feature = "arrayvec")))]
 
+#[cfg(feature = "arbitrary")]
+use arbitrary::{Arbitrary, Unstructured};
 use arrayvec::ArrayVec;
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
@@ -295,6 +297,27 @@ where
 
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.items.as_mut_ptr()
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+#[cfg_attr(docsrs, doc(cfg(feature = "arbitrary")))]
+impl<'a, T, const N: usize> Arbitrary<'a> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    T: Arbitrary<'a>,
+{
+    fn arbitrary(unstructured: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        iter1::head_and_tail(
+            T::arbitrary(unstructured),
+            unstructured.arbitrary_iter()?.take(N - 1),
+        )
+        .collect1()
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        let item = T::size_hint(depth).0;
+        (item, Some(item.saturating_mul(N)))
     }
 }
 

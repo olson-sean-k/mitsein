@@ -183,6 +183,7 @@
 //! | Feature     | Default | Primary Dependency | Description                                               |
 //! |-------------|---------|--------------------|-----------------------------------------------------------|
 //! | `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like [`Vec1`].       |
+//! | `arbitrary` | No      | [`arbitrary`]      | Construction of arbitrary non-empty collections.          |
 //! | `arrayvec`  | No      | [`arrayvec`]       | Non-empty implementations of [`arrayvec`] types.          |
 //! | `indexmap`  | No      | [`indexmap`]       | Non-empty implementations of [`indexmap`] types.          |
 //! | `itertools` | No      | [`itertools`]      | Combinators from [`itertools`] for `Iterator1`.           |
@@ -195,6 +196,7 @@
 //! [`ArcStr1`]: crate::sync1::ArcStr1
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`Array1`]: crate::array1::Array1
+//! [`arbitrary`]: https://crates.io/crates/arbitrary
 //! [`arrayvec`]: https://crates.io/crates/arrayvec
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
 //! [`BoxedStr1`]: crate::boxed1::BoxedStr1

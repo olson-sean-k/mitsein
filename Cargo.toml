@@ -35,6 +35,11 @@ alloc = [
     "itertools?/use_alloc",
     "serde?/alloc",
 ]
+arbitrary = [
+    "dep:arbitrary",
+    "indexmap?/arbitrary",
+    "std",
+]
 arrayvec = ["dep:arrayvec"]
 indexmap = [
     "dep:indexmap",
@@ -60,6 +65,11 @@ std = [
 ]
 
 [dependencies]
+
+[dependencies.arbitrary]
+version = "^1.4.0"
+default-features = false
+optional = true
 
 [dependencies.arrayvec]
 version = "^0.7.0"

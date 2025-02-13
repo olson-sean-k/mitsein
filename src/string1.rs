@@ -7,6 +7,8 @@
 
 use alloc::borrow::{Borrow, BorrowMut, Cow};
 use alloc::string::{FromUtf16Error, FromUtf8Error, String};
+#[cfg(feature = "arbitrary")]
+use arbitrary::{Arbitrary, Unstructured};
 use core::fmt::{self, Debug, Formatter, Write};
 use core::mem;
 use core::num::NonZeroUsize;
@@ -263,6 +265,18 @@ impl String1 {
 
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.items.as_mut_ptr()
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+#[cfg_attr(docsrs, doc(cfg(feature = "arbitrary")))]
+impl<'a> Arbitrary<'a> for String1 {
+    fn arbitrary(unstructured: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        <&'a Str1>::arbitrary(unstructured).map(String1::from)
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        (<&'a Str1>::size_hint(depth).0, None)
     }
 }
 

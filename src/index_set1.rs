@@ -6,6 +6,8 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "indexmap")))]
 
 use alloc::boxed::Box;
+#[cfg(feature = "arbitrary")]
+use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
@@ -850,6 +852,21 @@ where
         // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
         //         items or panics, so `items` must be non-empty here.
         unsafe { IndexSet1::from_index_set_unchecked(items) }
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+#[cfg_attr(docsrs, doc(cfg(feature = "arbitrary")))]
+impl<'a, T> Arbitrary<'a> for IndexSet1<T>
+where
+    T: Arbitrary<'a> + Eq + Hash,
+{
+    fn arbitrary(unstructured: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        iter1::head_and_tail(T::arbitrary(unstructured), unstructured.arbitrary_iter()?).collect1()
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        (T::size_hint(depth).0, None)
     }
 }
 

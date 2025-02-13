@@ -5,6 +5,8 @@
 
 use alloc::borrow::{Borrow, BorrowMut};
 use alloc::vec::{self, Drain, Splice, Vec};
+#[cfg(feature = "arbitrary")]
+use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::{self, FusedIterator};
@@ -306,6 +308,21 @@ impl<T> Vec1<T> {
 
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.items.as_mut_ptr()
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+#[cfg_attr(docsrs, doc(cfg(feature = "arbitrary")))]
+impl<'a, T> Arbitrary<'a> for Vec1<T>
+where
+    T: Arbitrary<'a>,
+{
+    fn arbitrary(unstructured: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        iter1::head_and_tail(T::arbitrary(unstructured), unstructured.arbitrary_iter()?).collect1()
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        (T::size_hint(depth).0, None)
     }
 }
 

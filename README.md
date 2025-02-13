@@ -140,6 +140,7 @@ features.
 | Feature     | Default | Primary Dependency | Description                                               |
 |-------------|---------|--------------------|-----------------------------------------------------------|
 | `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like `Vec1`.         |
+| `arbitrary` | No      | [`arbitrary`]      | Construction of arbitrary non-empty collections.          |
 | `arrayvec`  | No      | [`arrayvec`]       | Non-empty implementations of [`arrayvec`] types.          |
 | `indexmap`  | No      | [`indexmap`]       | Non-empty implementations of [`indexmap`] types.          |
 | `itertools` | No      | [`itertools`]      | Combinators from [`itertools`] for `Iterator1`.           |
@@ -147,6 +148,7 @@ features.
 | `serde`     | No      | [`serde`]          | De/serialization of non-empty collections with [`serde`]. |
 | `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 
+[`arbitrary`]: https://crates.io/crates/arbitrary
 [`arrayvec`]: https://crates.io/crates/arrayvec
 [`indexmap`]: https://crates.io/crates/indexmap
 [`itertools`]: https://crates.io/crates/itertools
