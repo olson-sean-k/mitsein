@@ -200,8 +200,8 @@
 //! [`arrayvec`]: https://crates.io/crates/arrayvec
 //! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
 //! [`BoxedStr1`]: crate::boxed1::BoxedStr1
-//! [`CowSlice1`]: crate::vec1::CowSlice1
-//! [`CowStr1`]: crate::string1::CowStr1
+//! [`CowSlice1`]: crate::borrow1::CowSlice1
+//! [`CowStr1`]: crate::borrow1::CowStr1
 //! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
