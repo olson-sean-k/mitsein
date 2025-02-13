@@ -1,6 +1,6 @@
-//! Mitsein provides strongly typed APIs for non-empty and ordered collections and views, including
-//! iterators, slices, and containers. Where possible, unnecessary branches are omitted and APIs
-//! enforce and reflect the non-empty invariant.
+//! Mitsein provides strongly typed APIs for non-empty collections and views, including (but not
+//! limited to) iterators, slices, and containers. Where possible, unnecessary branches are omitted
+//! and APIs enforce and reflect the non-empty invariant.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]
 #![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
@@ -19,8 +19,8 @@
 //! Modules in this crate reflect corresponding modules in [`core`], [`alloc`], and [`std`], though
 //! collection modules are exported at the crate root rather than a `collections` module. For
 //! example, [`Vec`] is exported in `alloc::vec::Vec` and its non-empty counterpart [`Vec1`] is
-//! exported in `mitsein::vec1::Vec1`. APIs typically append `1` to the names of their
-//! counterparts.
+//! exported in `mitsein::vec1::Vec1`. APIs in this crate are typically named by appending `1` to
+//! the names of their counterparts.
 //!
 //! At time of writing, `rustdoc` ignores input type parameters in the "Methods from
 //! `Deref<Target = _>`" section. For types that implement `Deref<Target = NonEmpty<_>>`, **the API
@@ -31,8 +31,8 @@
 //! # Non-Empty Types
 //!
 //! Types that represent non-empty collections, containers, or views present APIs that reflect the
-//! non-empty guarantee. The names of these types append `1` to their counterparts. For example,
-//! the non-empty [`Vec`] type is [`Vec1`].
+//! non-empty guarantee. The names of these types are formed by appending `1` to the name of their
+//! counterparts. For example, the non-empty [`Vec`] type is [`Vec1`].
 //!
 //! ## Collections
 //!
@@ -84,7 +84,7 @@
 //! assert_eq!(y, 3);
 //! ```
 //!
-//! See the [`slice1`][`mod@slice1`] module.
+//! See the [`slice1`][`mod@slice1`] and [`str1`][`mod@str1`] modules.
 //!
 //! ## Containers
 //!
@@ -129,7 +129,8 @@
 #![doc = "```"]
 //!
 //! Non-empty collections and views naturally support iteration, collection, etc. via
-//! [`Iterator1`].
+//! [`Iterator1`]. When the `rayon` feature is enabled, the [`ParallelIterator1`] type implements
+//! parallel and non-empty iterators.
 //!
 //! See the [`iter1`] module.
 //!
@@ -149,6 +150,9 @@
 //!
 //! assert_eq!(xs.as_slice(), &[4, 1, 2, 3]);
 //! ```
+//!
+//! At time of writing, it is not possible to implement [`Array1`] for any and all non-empty array
+//! types, so this trait is only implemented for arrays with one to 64 items.
 //!
 //! See the [`array1`] module.
 //!
@@ -206,6 +210,7 @@
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
 //! [`itertools`]: https://crates.io/crates/itertools
+//! [`ParallelIterator1`]: crate::iter1::ParallelIterator1
 //! [`rayon`]: https://crates.io/crates/rayon
 //! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
