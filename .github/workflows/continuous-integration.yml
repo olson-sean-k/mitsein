@@ -56,7 +56,7 @@ jobs:
     name: Test
     env:
       RUSTFLAGS: -D warnings
-    needs: [clippy, rustfmt]
+    needs: [clippy, rustdoc, rustfmt]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
