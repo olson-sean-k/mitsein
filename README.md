@@ -1,6 +1,6 @@
 **Mitsein** is a Rust library that provides strongly typed APIs for non-empty
-and ordered collections and views, including (but not limited to) iterators,
-slices, and vectors.
+collections and views, including (but not limited to) iterators, slices, and
+vectors.
 
 [![GitHub](https://img.shields.io/badge/GitHub-olson--sean--k/mitsein-8da0cb?logo=github&style=for-the-badge)](https://github.com/olson-sean-k/mitsein)
 [![docs.rs](https://img.shields.io/badge/docs.rs-mitsein-66c2a5?logo=rust&style=for-the-badge)](https://docs.rs/mitsein)
@@ -76,25 +76,26 @@ functions in non-empty collections. For example, the [`vec1`] crate supports map
 operations over its `Vec1` type via the `Vec1::mapped`, `Vec1::mapped_ref`, and
 `Vec1::mapped_mut` functions. Mitsein instead exposes map operations via
 `Iterator1`, which can support any non-empty view or collection with a more
-typical API (e.g., `Iterator1::map`).
+typical API (i.e., `Iterator1::map`).
 
 Non-empty slice APIs enable borrowing and copy-on-write, so **Mitsein supports
-the standard `Cow` type**, unlike other non-empty `Vec` implementations like the
+the standard `Cow` type**, unlike other non-empty implementations like the
 [`nonempty`] and [`vec1`] crates.
 
 **Items are stored consistently in Mitsein.** No head item is allocated
 differently. For example, the [`nonempty`] crate directly exposes a head item
-that is, unlike tail items, **not** allocated on the heap. This can potentially
-cause surprising behavior or performance and precludes constructing slices over
-nominally contiguous collections.
+that is, unlike tail items, **not** allocated on the heap. This precludes views
+and slicing and can have surprising performance implications when items are
+non-trivial to copy or clone.
 
-Non-empty collection APIs that exhibit different behavior from their
-counterparts have distinct names in Mitsein. For example, the [`vec1`] crate
-presents `Vec1::pop` and `Vec1::remove`, which may be unclear in context.
-Mitsein instead presents more explicit APIs like `Vec1::pop_or`, which returns a
-`TakeOr` that determine what to do when only one item remains. This leads to
-more explicit expressions like `xs.pop_or().get_only()` and
-`xs.remove_or(1).replace_only(0)`.
+**Non-empty collection APIs that exhibit different behavior from their
+counterparts have distinct names and APIs in Mitsein.** For example, the
+[`vec1`] crate presents `Vec1::pop` and `Vec1::remove`, which have different
+behavior than `Vec::pop` and `Vec::remove`. Mitsein presents explicit APIs like
+`Vec1::pop_or`, which return a proxy type that determines what to do when only
+one item remains. This leads to more explicit expressions like
+`xs.pop_or().get_only()`, `xs.pop_or().none()`, and
+`xs.remove_or(1).else_replace_only(|| 0)`.
 
 **Mitsein separates many non-empty error concerns into a segmentation API.**
 Segments span a range in a collection and support the insertion and removal of
@@ -112,7 +113,7 @@ xs.tail().clear();
 assert_eq!(xs.as_slice(), &[0i32]);
 
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
-xs.tail().rtail().swap_drain(..);
+xs.tail().rtail().swap_drain(..); // `swap_drain` is the counterpart to `drain`.
 assert_eq!(xs.as_slice(), &[0i32, 4]);
 
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
@@ -124,13 +125,14 @@ assert_eq!(xs.as_slice(), &[0i32, 1]);
 
 **Mitsein provides comprehensive coverage of ordered collections and container
 APIs in `core` and `alloc`.** This notably includes `slice`, `str`, `BTreeMap`,
-`BTreeSet`, `Box`, and `Arc`. The [`nonempty`] and [`vec1`] crates lack support
-for primitive types like `slice` and collections other than `Vec`.
+`BTreeSet`, `Box`, and `Arc`. Non-empty types also implement standard traits
+like their counterparts. The [`nonempty`] and [`vec1`] crates lack support for
+primitive types like `slice` and collections other than `Vec`.
 
-Mitsein is a `no_std` library and `alloc` is optional. **Non-empty slices,
-iterators, and arrays can be used in contexts where OS features or allocation
-are not available.** Integration with [`arrayvec`][`arrayvec`] also functions in
-`no_std` environments.
+Mitsein is a `no_std` library and both `alloc` and `std` are optional.
+**Non-empty slices, iterators, and arrays can be used in contexts where OS
+features or allocation are not available.** This also includes the integration
+with [`arrayvec`][`arrayvec`].
 
 ## Integrations and Cargo Features
 
