@@ -884,6 +884,19 @@ where
     }
 }
 
+impl<T, S, S1> BitAnd<&'_ IndexSet1<T, S1>> for &'_ IndexSet<T, S>
+where
+    T: Clone + Eq + Hash,
+    S: BuildHasher + Default,
+    S1: BuildHasher,
+{
+    type Output = IndexSet<T, S>;
+
+    fn bitand(self, rhs: &'_ IndexSet1<T, S1>) -> Self::Output {
+        self & rhs.as_index_set()
+    }
+}
+
 impl<R, T, S> BitOr<&'_ R> for &'_ IndexSet1<T, S>
 where
     R: ClosedIndexSet<Item = T>,
@@ -900,6 +913,21 @@ where
     }
 }
 
+impl<T, S, S1> BitOr<&'_ IndexSet1<T, S1>> for &'_ IndexSet<T, S>
+where
+    T: Clone + Eq + Hash,
+    S: BuildHasher + Default,
+    S1: BuildHasher,
+{
+    type Output = IndexSet1<T, S>;
+
+    fn bitor(self, rhs: &'_ IndexSet1<T, S1>) -> Self::Output {
+        // SAFETY: `rhs` must be non-empty and `IndexSet::bitor` cannot reduce the cardinality of
+        //         its inputs.
+        unsafe { IndexSet1::from_index_set_unchecked(self | rhs.as_index_set()) }
+    }
+}
+
 impl<R, T, S> BitXor<&'_ R> for &'_ IndexSet1<T, S>
 where
     R: ClosedIndexSet<Item = T>,
@@ -911,6 +939,19 @@ where
 
     fn bitxor(self, rhs: &'_ R) -> Self::Output {
         self.as_index_set() ^ rhs.as_index_set()
+    }
+}
+
+impl<T, S, S1> BitXor<&'_ IndexSet1<T, S1>> for &'_ IndexSet<T, S>
+where
+    T: Clone + Eq + Hash,
+    S: BuildHasher + Default,
+    S1: BuildHasher,
+{
+    type Output = IndexSet<T, S>;
+
+    fn bitxor(self, rhs: &'_ IndexSet1<T, S1>) -> Self::Output {
+        self ^ rhs.as_index_set()
     }
 }
 
@@ -1090,6 +1131,19 @@ where
 
     fn sub(self, rhs: &'_ R) -> Self::Output {
         self.as_index_set() - rhs.as_index_set()
+    }
+}
+
+impl<T, S, S1> Sub<&'_ IndexSet1<T, S1>> for &'_ IndexSet<T, S>
+where
+    T: Clone + Eq + Hash,
+    S: BuildHasher + Default,
+    S1: BuildHasher,
+{
+    type Output = IndexSet<T, S>;
+
+    fn sub(self, rhs: &'_ IndexSet1<T, S1>) -> Self::Output {
+        self - rhs.as_index_set()
     }
 }
 

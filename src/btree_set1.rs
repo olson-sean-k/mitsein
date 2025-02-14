@@ -471,6 +471,17 @@ where
     }
 }
 
+impl<T> BitAnd<&'_ BTreeSet1<T>> for &'_ BTreeSet<T>
+where
+    T: Clone + Ord,
+{
+    type Output = BTreeSet<T>;
+
+    fn bitand(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
+        self & rhs.as_btree_set()
+    }
+}
+
 impl<R, T> BitOr<&'_ R> for &'_ BTreeSet1<T>
 where
     R: ClosedBTreeSet<Item = T>,
@@ -485,6 +496,19 @@ where
     }
 }
 
+impl<T> BitOr<&'_ BTreeSet1<T>> for &'_ BTreeSet<T>
+where
+    T: Clone + Ord,
+{
+    type Output = BTreeSet1<T>;
+
+    fn bitor(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
+        // SAFETY: `rhs` must be non-empty and `BTreeSet::bitor` cannot reduce the cardinality of
+        //         its inputs.
+        unsafe { BTreeSet1::from_btree_set_unchecked(self | rhs.as_btree_set()) }
+    }
+}
+
 impl<R, T> BitXor<&'_ R> for &'_ BTreeSet1<T>
 where
     R: ClosedBTreeSet<Item = T>,
@@ -494,6 +518,17 @@ where
 
     fn bitxor(self, rhs: &'_ R) -> Self::Output {
         self.as_btree_set() ^ rhs.as_btree_set()
+    }
+}
+
+impl<T> BitXor<&'_ BTreeSet1<T>> for &'_ BTreeSet<T>
+where
+    T: Clone + Ord,
+{
+    type Output = BTreeSet<T>;
+
+    fn bitxor(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
+        self ^ rhs.as_btree_set()
     }
 }
 
@@ -676,6 +711,17 @@ where
 
     fn sub(self, rhs: &'_ R) -> Self::Output {
         self.as_btree_set() - rhs.as_btree_set()
+    }
+}
+
+impl<T> Sub<&'_ BTreeSet1<T>> for &'_ BTreeSet<T>
+where
+    T: Clone + Ord,
+{
+    type Output = BTreeSet<T>;
+
+    fn sub(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
+        self - rhs.as_btree_set()
     }
 }
 
