@@ -610,22 +610,20 @@ where
     where
         F: FnMut() -> T,
     {
-        let basis = self.len();
-        if len > basis {
-            let n = len - basis;
+        let to = len;
+        let from = self.len();
+        if to > from {
+            let n = to - from;
             self.extend(iter::repeat_with(f).take(n))
         }
         else {
-            self.truncate(len)
+            self.truncate(to)
         }
     }
 
     pub fn truncate(&mut self, len: usize) {
-        let basis = self.len();
-        if len < basis {
-            let n = basis - len;
-            self.items.drain((self.range.end - n)..self.range.end);
-            self.range.take_from_end(n);
+        if let Some(range) = self.range.truncate_from_end(len) {
+            self.items.drain(range);
         }
     }
 
@@ -640,7 +638,7 @@ where
     where
         F: FnMut(&mut T) -> bool,
     {
-        self.items.retain_mut(self.range.retain_in_bounds(f))
+        self.items.retain_mut(self.range.retain_mut_from_end(f))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {

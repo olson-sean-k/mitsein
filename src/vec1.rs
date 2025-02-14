@@ -926,22 +926,20 @@ where
     where
         F: FnMut() -> T,
     {
-        let basis = self.len();
-        if len > basis {
-            let n = len - basis;
+        let from = self.len();
+        let to = len;
+        if to > from {
+            let n = to - from;
             self.extend(iter::repeat_with(f).take(n))
         }
         else {
-            self.truncate(len)
+            self.truncate(to)
         }
     }
 
     pub fn truncate(&mut self, len: usize) {
-        let basis = self.len();
-        if len < basis {
-            let n = basis - len;
-            self.items.drain((self.range.end - n)..self.range.end);
-            self.range.take_from_end(n);
+        if let Some(range) = self.range.truncate_from_end(len) {
+            self.items.drain(range);
         }
     }
 
@@ -956,7 +954,7 @@ where
     where
         F: FnMut(&mut T) -> bool,
     {
-        self.items.retain_mut(self.range.retain_in_bounds(f))
+        self.items.retain_mut(self.range.retain_mut_from_end(f))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -1376,6 +1374,21 @@ mod tests {
                 &head_and_tail[..1]
             }
         );
+    }
+
+    #[rstest]
+    #[case::tail(harness::xs1(3), 1..)]
+    #[case::rtail(harness::xs1(3), ..3)]
+    #[case::middle(harness::xs1(9), 4..8)]
+    fn retain_none_from_vec1_segment_then_segment_is_empty<S>(
+        #[case] mut xs1: Vec1<u8>,
+        #[case] segment: S,
+    ) where
+        S: RangeBounds<usize>,
+    {
+        let mut xss = xs1.segment(segment);
+        xss.retain(|_| false);
+        assert!(xss.is_empty());
     }
 
     #[rstest]

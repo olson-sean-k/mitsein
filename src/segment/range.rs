@@ -140,15 +140,62 @@ impl PositionalRange {
         self.take_from_start(n);
     }
 
-    pub(crate) fn retain_in_bounds<'a, T, F>(&'a self, mut f: F) -> impl 'a + FnMut(&mut T) -> bool
+    pub(crate) fn truncate_from_end(&mut self, len: usize) -> Option<Range<usize>> {
+        let from = self.len();
+        let to = len;
+        (to < from).then(|| {
+            let n = from - to;
+            self.take_from_end(n);
+            (self.end - n)..self.end
+        })
+    }
+
+    #[cfg(feature = "indexmap")]
+    pub(crate) fn retain_from_end<'a, T, F>(&'a mut self, mut f: F) -> impl 'a + FnMut(&T) -> bool
+    where
+        F: 'a + FnMut(&T) -> bool,
+    {
+        // See comments in `retain_mut_in_bounds` below; these functions are nearly identical.
+        let mut index = 0;
+        let before = *self;
+        let after = self;
+        move |item| {
+            let is_retained = if before.contains(index) {
+                f(item)
+            }
+            else {
+                true
+            };
+            if !is_retained {
+                after.take_from_end(1);
+            }
+            index = index.saturating_add(1);
+            is_retained
+        }
+    }
+
+    pub(crate) fn retain_mut_from_end<'a, T, F>(
+        &'a mut self,
+        mut f: F,
+    ) -> impl 'a + FnMut(&mut T) -> bool
     where
         F: 'a + FnMut(&mut T) -> bool,
     {
         let mut index = 0;
+        let before = *self;
+        let after = self;
         move |item| {
-            // Always retain items that are **not** contained by the range, otherwise apply the
-            // given predicate.
-            let is_retained = if self.contains(index) { f(item) } else { true };
+            // Always retain items that are **not** contained by the **original** range (`before`),
+            // otherwise apply the given predicate.
+            let is_retained = if before.contains(index) {
+                f(item)
+            }
+            else {
+                true
+            };
+            if !is_retained {
+                after.take_from_end(1);
+            }
             // Saturation is sufficient here, because collections cannot index nor contain more
             // than `usize::MAX` items (only `isize::MAX` for sized item types in most collections)
             // and `index` is initialized to zero. This function will never be called again if this
@@ -215,6 +262,37 @@ impl<T> RelationalRange<T> {
         match self {
             RelationalRange::Empty => None,
             RelationalRange::NonEmpty { start, end } => Some(RangeInclusive::new(start, end)),
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn retain_in_range<'a, F>(&'a self, mut f: F) -> impl 'a + FnMut(&T) -> bool
+    where
+        T: Ord,
+        F: 'a + FnMut(&T) -> bool,
+    {
+        let mut by_key_value = self.retain_key_value_in_range(move |key, _| f(key));
+        move |item| by_key_value(item, &mut ())
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn retain_key_value_in_range<'a, U, F>(
+        &'a self,
+        mut f: F,
+    ) -> impl 'a + FnMut(&T, &mut U) -> bool
+    where
+        T: Ord,
+        F: 'a + FnMut(&T, &mut U) -> bool,
+    {
+        move |key, value| {
+            // Always retain items that are **not** contained by the range, otherwise apply the
+            // given predicate.
+            if self.contains(key) {
+                f(key, value)
+            }
+            else {
+                true
+            }
         }
     }
 

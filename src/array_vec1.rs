@@ -640,11 +640,8 @@ where
     K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
     pub fn truncate(&mut self, len: usize) {
-        let basis = self.len();
-        if len < basis {
-            let n = basis - len;
-            self.items.drain((self.range.end - n)..self.range.end);
-            self.range.take_from_end(n);
+        if let Some(range) = self.range.truncate_from_end(len) {
+            self.items.drain(range);
         }
     }
 
@@ -652,7 +649,7 @@ where
     where
         F: FnMut(&mut T) -> bool,
     {
-        self.items.retain(self.range.retain_in_bounds(f))
+        self.items.retain(self.range.retain_mut_from_end(f))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {

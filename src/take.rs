@@ -46,7 +46,7 @@ impl<'a, T, U, N> TakeOr<'a, T, Option<U>, N>
 where
     T: MaybeEmpty,
 {
-    #[cfg(feature = "alloc")]
+    #[cfg(any(feature = "alloc", feature = "arrayvec"))]
     pub(crate) fn try_take_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> Option<E>,

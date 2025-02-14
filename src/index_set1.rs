@@ -1164,6 +1164,19 @@ impl<K, T, S> Segment<'_, K>
 where
     K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
 {
+    pub fn truncate(&mut self, len: usize) {
+        if let Some(range) = self.range.truncate_from_end(len) {
+            self.items.drain(range);
+        }
+    }
+
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.items.retain(self.range.retain_from_end(f))
+    }
+
     pub fn move_index(&mut self, from: usize, to: usize) {
         let from = self.range.project(&from).expect_in_bounds();
         let to = self.range.project(&to).expect_in_bounds();

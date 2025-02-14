@@ -740,6 +740,13 @@ where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
 {
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.items.retain(self.range.retain_in_range(f))
+    }
+
     pub fn insert_in_range(&mut self, item: T) -> Result<bool, T> {
         if self.range.contains(&item) {
             Ok(self.items.insert(item))

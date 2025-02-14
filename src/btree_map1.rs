@@ -987,6 +987,13 @@ where
     T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
 {
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        self.items.retain(self.range.retain_key_value_in_range(f))
+    }
+
     pub fn insert_in_range(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)> {
         if self.range.contains(&key) {
             Ok(self.items.insert(key, value))
