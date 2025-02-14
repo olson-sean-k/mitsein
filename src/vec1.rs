@@ -952,26 +952,11 @@ where
         self.retain_mut(move |item| f(&*item))
     }
 
-    pub fn retain_mut<F>(&mut self, mut f: F)
+    pub fn retain_mut<F>(&mut self, f: F)
     where
         F: FnMut(&mut T) -> bool,
     {
-        let mut index = 0;
-        self.items.retain_mut(|item| {
-            // Always retain items that are **not** contained by the range, otherwise apply the
-            // given predicate.
-            let is_retained = if self.range.contains(index) {
-                f(item)
-            }
-            else {
-                true
-            };
-            // Saturation is sufficient here, because the target `Vec` cannot contain more than
-            // `usize::MAX` items (only `isize::MAX` for sized item types) and `index` is
-            // initialized to zero. This function will never be called again if this overflows.
-            index = index.saturating_add(1);
-            is_retained
-        })
+        self.items.retain_mut(self.range.retain_in_bounds(f))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {

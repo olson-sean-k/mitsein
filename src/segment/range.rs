@@ -140,6 +140,24 @@ impl PositionalRange {
         self.take_from_start(n);
     }
 
+    pub(crate) fn retain_in_bounds<'a, T, F>(&'a self, mut f: F) -> impl 'a + FnMut(&mut T) -> bool
+    where
+        F: 'a + FnMut(&mut T) -> bool,
+    {
+        let mut index = 0;
+        move |item| {
+            // Always retain items that are **not** contained by the range, otherwise apply the
+            // given predicate.
+            let is_retained = if self.contains(index) { f(item) } else { true };
+            // Saturation is sufficient here, because collections cannot index nor contain more
+            // than `usize::MAX` items (only `isize::MAX` for sized item types in most collections)
+            // and `index` is initialized to zero. This function will never be called again if this
+            // overflows.
+            index = index.saturating_add(1);
+            is_retained
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.end
             .checked_sub(self.start)

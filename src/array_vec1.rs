@@ -5,7 +5,7 @@
 
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
-use arrayvec::ArrayVec;
+use arrayvec::{ArrayVec, CapacityError};
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
@@ -125,13 +125,16 @@ impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
     type Kind = Self;
 }
 
-type TakeOr<'a, T, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, T, M>;
+type TakeOr<'a, T, U, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, U, M>;
 
-pub type PopOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, (), N>;
+pub type PopOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, ItemFor<K, N>, (), N>;
 
-pub type RemoveOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, usize, N>;
+pub type SwapPopOr<'a, K, const N: usize> =
+    TakeOr<'a, ItemFor<K, N>, Option<ItemFor<K, N>>, usize, N>;
 
-impl<'a, T, M, const N: usize> TakeOr<'a, T, M, N>
+pub type RemoveOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, ItemFor<K, N>, usize, N>;
+
+impl<'a, T, M, const N: usize> TakeOr<'a, T, T, M, N>
 where
     [T; N]: Array1,
 {
@@ -151,7 +154,7 @@ where
     }
 }
 
-impl<'a, T, const N: usize> TakeOr<'a, T, usize, N>
+impl<'a, T, const N: usize> TakeOr<'a, T, T, usize, N>
 where
     [T; N]: Array1,
 {
@@ -168,6 +171,28 @@ where
         F: FnOnce() -> T,
     {
         self.take_or_else(move |items, index| mem::replace(&mut items[index], f()))
+    }
+}
+
+impl<'a, T, const N: usize> TakeOr<'a, T, Option<T>, usize, N>
+where
+    [T; N]: Array1,
+{
+    pub fn get(self) -> Option<Result<T, &'a T>> {
+        self.try_take_or_else(|items, index| items.get(index))
+    }
+
+    pub fn replace(self, replacement: T) -> Option<Result<T, T>> {
+        self.else_replace(move || replacement)
+    }
+
+    pub fn else_replace<F>(self, f: F) -> Option<Result<T, T>>
+    where
+        F: FnOnce() -> T,
+    {
+        self.try_take_or_else(move |items, index| {
+            items.get_mut(index).map(|item| mem::replace(item, f()))
+        })
     }
 }
 
@@ -244,8 +269,27 @@ where
         self.items.into_inner_unchecked()
     }
 
+    pub fn try_extend_from_slice(&mut self, items: &[T]) -> Result<(), CapacityError>
+    where
+        T: Copy,
+    {
+        self.items.try_extend_from_slice(items)
+    }
+
     pub fn push(&mut self, item: T) {
         self.items.push(item)
+    }
+
+    pub fn try_push(&mut self, item: T) -> Result<(), CapacityError<T>> {
+        self.items.try_push(item)
+    }
+
+    /// # Safety
+    ///
+    /// The `ArrayVec1` must have vacancy (available capacity) for the given item. Calling this
+    /// function against a saturated `ArrayVec1` is undefined behavior.
+    pub unsafe fn push_unchecked(&mut self, item: T) {
+        self.items.push_unchecked(item)
     }
 
     pub fn pop_or(&mut self) -> PopOr<'_, Self, N> {
@@ -255,8 +299,16 @@ where
         })
     }
 
+    pub fn swap_pop_or(&mut self, index: usize) -> SwapPopOr<'_, Self, N> {
+        TakeOr::with(self, index, |items, index| items.items.swap_pop(index))
+    }
+
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
+    }
+
+    pub fn try_insert(&mut self, index: usize, item: T) -> Result<(), CapacityError<T>> {
+        self.items.try_insert(index, item)
     }
 
     pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, Self, N> {
@@ -594,6 +646,13 @@ where
             self.items.drain((self.range.end - n)..self.range.end);
             self.range.take_from_end(n);
         }
+    }
+
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        self.items.retain(self.range.retain_in_bounds(f))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
