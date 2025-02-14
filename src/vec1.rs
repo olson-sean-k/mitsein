@@ -3,7 +3,7 @@
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
-use alloc::borrow::{Borrow, BorrowMut};
+use alloc::borrow::{Borrow, BorrowMut, ToOwned};
 use alloc::vec::{self, Drain, Splice, Vec};
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
@@ -19,6 +19,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::io::{self, IoSlice, Write};
 
 use crate::array1::Array1;
+use crate::borrow1::CowSlice1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
@@ -29,7 +30,10 @@ use crate::segment::range::{
 };
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
+use crate::str1::Str1;
+use crate::string1::String1;
 use crate::take;
+use crate::vec_deque1::VecDeque1;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ItemFor<K> = <K as ClosedVec>::Item;
@@ -240,11 +244,23 @@ impl<T> Vec1<T> {
         self.items.split_off(1)
     }
 
-    pub fn append<R>(&mut self, items: R)
+    pub fn append(&mut self, items: &mut Vec<T>) {
+        self.items.append(items)
+    }
+
+    pub fn extend_from_slice(&mut self, items: &[T])
     where
-        R: Into<Vec<T>>,
+        T: Clone,
     {
-        self.items.append(&mut items.into())
+        self.items.extend_from_slice(items)
+    }
+
+    pub fn extend_from_within<R>(&mut self, range: R)
+    where
+        T: Clone,
+        R: RangeBounds<usize>,
+    {
+        self.items.extend_from_within(range)
     }
 
     pub fn push(&mut self, item: T) {
@@ -270,14 +286,26 @@ impl<T> Vec1<T> {
         TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
-    pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
-        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
+    pub fn dedup(&mut self)
+    where
+        T: PartialEq,
+    {
+        self.items.dedup()
     }
 
-    pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
-        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
+    pub fn dedup_by<F>(&mut self, f: F)
+    where
+        F: FnMut(&mut T, &mut T) -> bool,
+    {
+        self.items.dedup_by(f)
+    }
+
+    pub fn dedup_by_key<K, F>(&mut self, f: F)
+    where
+        K: PartialEq,
+        F: FnMut(&mut T) -> K,
+    {
+        self.items.dedup_by_key(f)
     }
 
     pub fn splice<R, I>(&mut self, range: R, replacement: I) -> Splice<'_, I::IntoIter>
@@ -286,6 +314,16 @@ impl<T> Vec1<T> {
         I: IntoIterator1<Item = T>,
     {
         self.items.splice(range, replacement.into_iter1())
+    }
+
+    pub fn len(&self) -> NonZeroUsize {
+        // SAFETY: `self` must be non-empty.
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
+    }
+
+    pub fn capacity(&self) -> NonZeroUsize {
+        // SAFETY: `self` must be non-empty.
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
     pub const fn as_vec(&self) -> &Vec<T> {
@@ -308,6 +346,16 @@ impl<T> Vec1<T> {
 
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.items.as_mut_ptr()
+    }
+}
+
+// A bound `[T; N]: Array1` is not necessary here, because `Vec::into_flattened` panics when `N` is
+// zero. See below.
+impl<T, const N: usize> Vec1<[T; N]> {
+    pub fn into_flattened(self) -> Vec1<T> {
+        // SAFETY: `self` must be non-empty and `Vec::into_flattened` panics if `N` is zero, so the
+        //         flattened `Vec` cannot be empty.
+        unsafe { Vec1::from_vec_unchecked(self.items.into_flattened()) }
     }
 }
 
@@ -414,6 +462,18 @@ impl<T> Extend<T> for Vec1<T> {
     }
 }
 
+impl<'a, T> Extend<&'a T> for Vec1<T>
+where
+    T: 'a + Copy,
+{
+    fn extend<I>(&mut self, extension: I)
+    where
+        I: IntoIterator<Item = &'a T>,
+    {
+        self.items.extend(extension)
+    }
+}
+
 impl<T, const N: usize> From<[T; N]> for Vec1<T>
 where
     [T; N]: Array1,
@@ -435,13 +495,13 @@ where
     }
 }
 
-impl<'a, T> From<&'a Slice1<T>> for Vec1<T>
+impl<'a, T, const N: usize> From<&'a mut [T; N]> for Vec1<T>
 where
-    T: Clone,
+    [T; N]: Array1,
+    T: Copy,
 {
-    fn from(items: &'a Slice1<T>) -> Self {
-        // SAFETY: `items` must be non-empty.
-        unsafe { Vec1::from_vec_unchecked(Vec::from(items.as_slice())) }
+    fn from(items: &'a mut [T; N]) -> Self {
+        Vec1::from(&*items)
     }
 }
 
@@ -452,9 +512,58 @@ impl<T> From<BoxedSlice1<T>> for Vec1<T> {
     }
 }
 
+impl<'a, T> From<CowSlice1<'a, T>> for Vec1<T>
+where
+    Slice1<T>: ToOwned<Owned = Vec1<T>>,
+{
+    fn from(items: CowSlice1<'a, T>) -> Self {
+        items.into_owned()
+    }
+}
+
+impl<'a, T> From<&'a Slice1<T>> for Vec1<T>
+where
+    T: Clone,
+{
+    fn from(items: &'a Slice1<T>) -> Self {
+        // SAFETY: `items` must be non-empty.
+        unsafe { Vec1::from_vec_unchecked(Vec::from(items.as_slice())) }
+    }
+}
+
+impl<'a, T> From<&'a mut Slice1<T>> for Vec1<T>
+where
+    T: Clone,
+{
+    fn from(items: &'a mut Slice1<T>) -> Self {
+        Vec1::from(&*items)
+    }
+}
+
+impl<'a> From<&'a Str1> for Vec1<u8> {
+    fn from(items: &'a Str1) -> Self {
+        // SAFETY: `items` must be non-empty.
+        unsafe { Vec1::from_vec_unchecked(Vec::from(items.as_str())) }
+    }
+}
+
+impl From<String1> for Vec1<u8> {
+    fn from(items: String1) -> Self {
+        // SAFETY: `items` must be non-empty.
+        unsafe { Vec1::from_vec_unchecked(Vec::from(items.into_string())) }
+    }
+}
+
 impl<T> From<Vec1<T>> for Vec<T> {
     fn from(items: Vec1<T>) -> Self {
         items.items
+    }
+}
+
+impl<T> From<VecDeque1<T>> for Vec1<T> {
+    fn from(items: VecDeque1<T>) -> Self {
+        // SAFETY: `items` must be non-empty.
+        unsafe { Vec1::from_vec_unchecked(Vec::from(items.into_vec_deque())) }
     }
 }
 

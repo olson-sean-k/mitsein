@@ -7,8 +7,10 @@ use alloc::borrow::Cow;
 
 use crate::slice1::Slice1;
 use crate::str1::Str1;
+use crate::string1::String1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _, ArcStr1, ArcStr1Ext as _};
+use crate::vec1::Vec1;
 
 pub type CowSlice1<'a, T> = Cow<'a, Slice1<T>>;
 
@@ -41,6 +43,33 @@ where
     }
 }
 
+impl<'a, T> From<&'a Slice1<T>> for CowSlice1<'a, T>
+where
+    T: Clone,
+{
+    fn from(items: &'a Slice1<T>) -> Self {
+        Cow::Borrowed(items)
+    }
+}
+
+impl<T> From<Vec1<T>> for CowSlice1<'_, T>
+where
+    T: Clone,
+{
+    fn from(items: Vec1<T>) -> Self {
+        Cow::Owned(items)
+    }
+}
+
+impl<'a, T> From<&'a Vec1<T>> for CowSlice1<'a, T>
+where
+    T: Clone,
+{
+    fn from(items: &'a Vec1<T>) -> Self {
+        Cow::Borrowed(items.as_slice1())
+    }
+}
+
 pub type CowStr1<'a> = Cow<'a, Str1>;
 
 pub trait CowStr1Ext<'a> {
@@ -63,5 +92,23 @@ impl<'a> CowStr1Ext<'a> for CowStr1<'a> {
             Cow::Borrowed(borrowed) => Cow::Borrowed(borrowed),
             Cow::Owned(owned) => Cow::Owned(owned.into_string()),
         }
+    }
+}
+
+impl<'a> From<&'a Str1> for CowStr1<'a> {
+    fn from(items: &'a Str1) -> Self {
+        Cow::Borrowed(items)
+    }
+}
+
+impl From<String1> for CowStr1<'_> {
+    fn from(items: String1) -> Self {
+        Cow::Owned(items)
+    }
+}
+
+impl<'a> From<&'a String1> for CowStr1<'a> {
+    fn from(items: &'a String1) -> Self {
+        Cow::Borrowed(items.as_str1())
     }
 }

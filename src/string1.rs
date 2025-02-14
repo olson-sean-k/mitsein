@@ -367,6 +367,12 @@ impl From<BoxedStr1> for String1 {
     }
 }
 
+impl<'a> From<CowStr1<'a>> for String1 {
+    fn from(items: CowStr1<'a>) -> Self {
+        items.into_owned()
+    }
+}
+
 impl<'a> From<&'a Str1> for String1 {
     fn from(items: &'a Str1) -> Self {
         // SAFETY: `items` must be non-empty.
