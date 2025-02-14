@@ -945,6 +945,35 @@ where
         }
     }
 
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.retain_mut(move |item| f(&*item))
+    }
+
+    pub fn retain_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        let mut index = 0;
+        self.items.retain_mut(|item| {
+            // Always retain items that are **not** contained by the range, otherwise apply the
+            // given predicate.
+            let is_retained = if self.range.contains(index) {
+                f(item)
+            }
+            else {
+                true
+            };
+            // Saturation is sufficient here, because the target `Vec` cannot contain more than
+            // `usize::MAX` items (only `isize::MAX` for sized item types) and `index` is
+            // initialized to zero. This function will never be called again if this overflows.
+            index = index.saturating_add(1);
+            is_retained
+        })
+    }
+
     pub fn insert(&mut self, index: usize, item: T) {
         let index = self.range.project(&index).expect_in_bounds();
         self.items.insert(index, item);
@@ -1365,6 +1394,21 @@ mod tests {
     }
 
     #[rstest]
+    #[case::tail(harness::xs1(3), 1.., slice1![0])]
+    #[case::rtail(harness::xs1(3), ..3, slice1![3])]
+    #[case::middle(harness::xs1(9), 4..8, slice1![0, 1, 2, 3, 8, 9])]
+    fn retain_none_from_vec1_segment_then_vec1_eq<S>(
+        #[case] mut xs1: Vec1<u8>,
+        #[case] segment: S,
+        #[case] expected: &Slice1<u8>,
+    ) where
+        S: RangeBounds<usize>,
+    {
+        xs1.segment(segment).retain(|_| false);
+        assert_eq!(xs1.as_slice1(), expected);
+    }
+
+    #[rstest]
     #[case::empty_tail(harness::xs1(0), 1.., .., slice1![0])]
     #[case::one_tail(harness::xs1(1), 1.., .., slice1![0])]
     #[case::many_tail(harness::xs1(2), 1.., .., slice1![0])]
@@ -1374,7 +1418,7 @@ mod tests {
     #[case::one_rtail(harness::xs1(1), ..1, .., slice1![1])]
     #[case::many_rtail(harness::xs1(2), ..2, .., slice1![2])]
     #[case::many_rtail(harness::xs1(2), ..2, 1.., slice1![0, 2])]
-    fn swap_drain_vec1_segment_then_vec1_eq<S, D>(
+    fn swap_drain_from_vec1_segment_then_vec1_eq<S, D>(
         #[case] mut xs1: Vec1<u8>,
         #[case] segment: S,
         #[case] drain: D,

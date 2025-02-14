@@ -146,6 +146,10 @@ impl PositionalRange {
             .expect("underflow in segment length")
     }
 
+    pub fn contains(&self, index: usize) -> bool {
+        self.start <= index && index < self.end
+    }
+
     pub fn is_empty(&self) -> bool {
         self.start == self.end
     }
