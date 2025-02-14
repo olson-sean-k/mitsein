@@ -102,5 +102,5 @@ default-features = false
 optional = true
 
 [dev-dependencies]
-rstest = "^0.21.0"
+rstest = "^0.24.0"
 serde_test = "1.0"
