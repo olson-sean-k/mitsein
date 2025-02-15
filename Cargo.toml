@@ -56,12 +56,18 @@ serde = [
     "dep:serde_derive",
     "arrayvec?/serde",
     "indexmap?/serde",
+    "smallvec?/serde",
+]
+smallvec = [
+    "dep:smallvec",
+    "alloc",
 ]
 std = [
     "alloc",
     "indexmap?/std",
     "itertools?/use_std",
     "serde?/std",
+    "smallvec?/write",
 ]
 
 [dependencies]
@@ -99,6 +105,15 @@ optional = true
 [dependencies.serde_derive]
 version = "1.0"
 default-features = false
+optional = true
+
+[dependencies.smallvec]
+version = "^1.13.0"
+default-features = false
+features = [
+    "const_generics",
+    "union",
+]
 optional = true
 
 [dev-dependencies]
