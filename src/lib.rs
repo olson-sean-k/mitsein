@@ -43,6 +43,7 @@
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
 //! - [`IndexSet1`][`index_set1`]
+//! - [`SmallVec1`][`small_vec1`]
 //! - [`String1`][`string1`]
 //! - [`Vec1`][`mod@vec1`]
 //! - [`VecDeque1`][`vec_deque1`]
@@ -193,6 +194,7 @@
 //! | `itertools` | No      | [`itertools`]      | Combinators from [`itertools`] for `Iterator1`.           |
 //! | `rayon`     | No      | [`rayon`]          | Parallel operations for non-empty types.                  |
 //! | `serde`     | No      | [`serde`]          | De/serialization of non-empty collections with [`serde`]. |
+//! | `smallvec`  | No      | [`smallvec`]       | Non-empty implementations of [`smallvec`] types.          |
 //! | `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
 //!
 //! [`Arc`]: alloc::sync::Arc
@@ -214,6 +216,7 @@
 //! [`rayon`]: https://crates.io/crates/rayon
 //! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
+//! [`smallvec`]: https://crates.io/crates/smallvec
 //! [`Str1`]: crate::str1::Str1
 //! [`Vec`]: alloc::vec::Vec
 //! [`Vec1`]: crate::vec1::Vec1
@@ -303,6 +306,7 @@ pub mod cmp;
 pub mod index_set1;
 pub mod iter1;
 pub mod slice1;
+pub mod small_vec1;
 pub mod str1;
 pub mod string1;
 pub mod sync1;

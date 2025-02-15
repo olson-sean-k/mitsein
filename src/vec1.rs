@@ -1125,7 +1125,8 @@ where
 // TODO: At time of writing, this implementation conflicts with the `Extend` implementation above
 //       (E0119). However, `T` does not generalize `&'i T` here, because the associated `Target`
 //       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
-//       `T`)! This appears to be a limitation rather than a true conflict.
+//       `T`)! This appears to be a limitation rather than a true conflict. See other segment
+//       implementations as well.
 //
 // impl<'i, K, T> Extend<&'i T> for Segment<'_, K>
 // where
