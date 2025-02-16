@@ -286,6 +286,13 @@ where
         self.items.insert(index, item)
     }
 
+    pub fn insert_from_slice(&mut self, index: usize, items: &[T])
+    where
+        T: Copy,
+    {
+        self.items.insert_from_slice(index, items)
+    }
+
     pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
         TakeOr::with(self, index, |items, index| items.items.remove(index))
     }
@@ -326,6 +333,10 @@ where
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
+    pub fn inline_size(&self) -> usize {
+        self.items.inline_size()
+    }
+
     pub const fn as_small_vec(&self) -> &SmallVec<A> {
         &self.items
     }
@@ -346,6 +357,32 @@ where
 
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.items.as_mut_ptr()
+    }
+
+    pub fn spilled(&self) -> bool {
+        self.items.spilled()
+    }
+}
+
+impl<A> SmallVec1<A>
+where
+    A: Array + Array1,
+{
+    pub fn from_buf(buf: A) -> Self {
+        SmallVec1::from_buf_and_tail_len(buf, A::N.get() - 1)
+    }
+
+    pub fn from_buf_and_tail_len(buf: A, len: usize) -> Self {
+        // A saturating increment is sufficient here, because the buffer can never contain
+        // `usize::MAX + 1` items.
+        // SAFETY: `A` is bound on `Array1`, so `buf` is non-empty. `len` is the length of the tail
+        //         and so is incremented by one to include the head, so the vector is non-empty.
+        unsafe {
+            SmallVec1::from_small_vec_unchecked(SmallVec::from_buf_and_len(
+                buf,
+                len.saturating_add(1),
+            ))
+        }
     }
 }
 
@@ -992,4 +1029,19 @@ pub mod harness {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use rstest::rstest;
+
+    use crate::iter1::FromIterator1;
+    use crate::small_vec1::SmallVec1;
+
+    #[rstest]
+    #[case::from_iter1(SmallVec1::from_iter1([0, 1, 2]))]
+    #[case::from_iter1_with_capacity(SmallVec1::from_iter1_with_capacity([0, 1, 2], 1))]
+    #[case::from_one(SmallVec1::from_one(0))]
+    #[case::from_one_with_capacity(SmallVec1::from_one_with_capacity(0, 1))]
+    fn small_vec1_with_zero_sized_buf_spills_and_is_non_empty(#[case] xs1: SmallVec1<[u8; 0]>) {
+        assert_eq!(xs1.inline_size(), 0);
+        assert!(!xs1.as_small_vec().is_empty());
+    }
+}
