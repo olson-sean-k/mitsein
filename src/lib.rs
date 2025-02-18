@@ -42,6 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
+//! - [`IndexMap1`][`index_map1`]
 //! - [`IndexSet1`][`index_set1`]
 //! - [`SmallVec1`][`small_vec1`]
 //! - [`String1`][`string1`]
@@ -303,6 +304,7 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
+pub mod index_map1;
 pub mod index_set1;
 pub mod iter1;
 pub mod slice1;
@@ -332,6 +334,8 @@ pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
 
     pub use crate::array1::Array1;
+    #[cfg(feature = "indexmap")]
+    pub use crate::index_map1::OrOnlyEntryExt as _;
     pub use crate::iter1::{
         Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
     };
