@@ -672,7 +672,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
     /// `items` must be non-empty. For example, it is unsound to call this function with the
     /// immediate output of [`IndexMap::new()`][`IndexMap::new`].
     ///
-    /// [`IndexMap::new`]: alloc::collections::index_map::IndexMap::new
+    /// [`IndexMap::new`]: index_map::IndexMap::new
     pub unsafe fn from_index_map_unchecked(items: IndexMap<K, V, S>) -> Self {
         FromMaybeEmpty::from_maybe_empty_unchecked(items)
     }
