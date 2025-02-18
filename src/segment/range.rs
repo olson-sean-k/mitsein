@@ -205,6 +205,33 @@ impl PositionalRange {
         }
     }
 
+    #[cfg(feature = "indexmap")]
+    pub(crate) fn retain_key_value_from_end<'a, K, V, F>(
+        &'a mut self,
+        mut f: F,
+    ) -> impl 'a + FnMut(&K, &mut V) -> bool
+    where
+        F: 'a + FnMut(&K, &mut V) -> bool,
+    {
+        // See comments in `retain_mut_in_bounds` above; these functions are nearly identical.
+        let mut index = 0;
+        let before = *self;
+        let after = self;
+        move |key, value| {
+            let is_retained = if before.contains(index) {
+                f(key, value)
+            }
+            else {
+                true
+            };
+            if !is_retained {
+                after.take_from_end(1);
+            }
+            index = index.saturating_add(1);
+            is_retained
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.end
             .checked_sub(self.start)
