@@ -8,7 +8,7 @@
 use alloc::boxed::Box;
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
-use core::borrow::Borrow;
+use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::hash::{BuildHasher, Hash};
 use core::mem;
@@ -23,6 +23,7 @@ use rayon::iter::{
 #[cfg(feature = "std")]
 use std::hash::RandomState;
 
+#[cfg(feature = "std")]
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
@@ -299,6 +300,16 @@ impl<'a, K, V> Entry<'a, K, V> {
         self
     }
 
+    pub fn insert_entry(self, value: V) -> OccupiedEntry<'a, K, V> {
+        match self {
+            Entry::Vacant(vacant) => vacant.insert_entry(value).into(),
+            Entry::Occupied(mut occupied) => {
+                occupied.insert(value);
+                occupied
+            },
+        }
+    }
+
     pub fn or_insert(self, default: V) -> &'a mut V {
         self.or_insert_with(move || default)
     }
@@ -334,6 +345,13 @@ impl<'a, K, V> Entry<'a, K, V> {
         match self {
             Entry::Vacant(vacant) => vacant.key(),
             Entry::Occupied(occupied) => occupied.key(),
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        match self {
+            Entry::Vacant(vacant) => vacant.index(),
+            Entry::Occupied(occupied) => occupied.index(),
         }
     }
 }
@@ -576,7 +594,6 @@ where
 
 impl<'a, K, V, S, U, Q> TakeOr<'a, K, V, S, Option<U>, &'_ Q>
 where
-    K: Borrow<Q> + Eq + Hash,
     S: BuildHasher,
     Q: Equivalent<K> + Hash + ?Sized,
 {
@@ -619,6 +636,16 @@ impl<K, V> Slice1<K, V> {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice<K, V>` and
         //         `Slice1<K, V>` are the same.
         mem::transmute::<&'_ Slice<K, V>, &'_ Slice1<K, V>>(items)
+    }
+
+    /// # Safety
+    ///
+    /// `items` must be non-empty. For example, it is undefined behavior to call this function with
+    /// an empty slice [`Slice::new()`][`Slice::new`].
+    pub const unsafe fn from_mut_slice_unchecked(items: &mut Slice<K, V>) -> &mut Self {
+        // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice<K, V>` and
+        //         `Slice1<K, V>` are the same.
+        mem::transmute::<&'_ mut Slice<K, V>, &'_ mut Slice1<K, V>>(items)
     }
 
     pub fn split_first(&self) -> ((&K, &V), &Slice<K, V>) {
@@ -700,6 +727,22 @@ impl<K, V, S> IndexMap1<K, V, S> {
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
+    pub fn sorted_by<F>(self, f: F) -> Iterator1<index_map::IntoIter<K, V>>
+    where
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.items.sorted_by(f)) }
+    }
+
+    pub fn sorted_unstable_by<F>(self, f: F) -> Iterator1<index_map::IntoIter<K, V>>
+    where
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.items.sorted_unstable_by(f)) }
+    }
+
     pub fn split_off_tail(&mut self) -> IndexMap<K, V, S>
     where
         S: Clone,
@@ -707,13 +750,133 @@ impl<K, V, S> IndexMap1<K, V, S> {
         self.items.split_off(1)
     }
 
+    pub fn reverse(&mut self) {
+        self.items.reverse()
+    }
+
+    pub fn sort_keys(&mut self)
+    where
+        K: Ord,
+    {
+        self.items.sort_keys()
+    }
+
+    pub fn sort_unstable_keys(&mut self)
+    where
+        K: Ord,
+    {
+        self.items.sort_unstable_keys()
+    }
+
+    pub fn sort_by<F>(&mut self, f: F)
+    where
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
+    {
+        self.items.sort_by(f)
+    }
+
+    pub fn sort_unstable_by<F>(&mut self, f: F)
+    where
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
+    {
+        self.items.sort_unstable_by(f)
+    }
+
+    pub fn sort_by_cached_key<T, F>(&mut self, f: F)
+    where
+        T: Ord,
+        F: FnMut(&K, &V) -> T,
+    {
+        self.items.sort_by_cached_key(f)
+    }
+
+    pub fn move_index(&mut self, from: usize, to: usize) {
+        self.items.move_index(from, to)
+    }
+
+    pub fn swap_indices(&mut self, a: usize, b: usize) {
+        self.items.swap_indices(a, b)
+    }
+
+    pub fn get_index(&self, index: usize) -> Option<(&'_ K, &'_ V)> {
+        self.items.get_index(index)
+    }
+
+    pub fn get_index_mut(&mut self, index: usize) -> Option<(&'_ K, &'_ mut V)> {
+        self.items.get_index_mut(index)
+    }
+
+    pub fn get_index_entry(&mut self, index: usize) -> Option<IndexedEntry<'_, K, V>> {
+        self.items.get_index_entry(index).map(From::from)
+    }
+
+    pub fn get_range<R>(&self, range: R) -> Option<&'_ Slice<K, V>>
+    where
+        R: RangeBounds<usize>,
+    {
+        self.items.get_range(range)
+    }
+
+    pub fn get_range_mut<R>(&mut self, range: R) -> Option<&'_ mut Slice<K, V>>
+    where
+        R: RangeBounds<usize>,
+    {
+        self.items.get_range_mut(range)
+    }
+
+    pub fn binary_search_keys(&self, key: &K) -> Result<usize, usize>
+    where
+        K: Ord,
+    {
+        self.items.binary_search_keys(key)
+    }
+
+    pub fn binary_search_by<'a, F>(&'a self, f: F) -> Result<usize, usize>
+    where
+        F: FnMut(&'a K, &'a V) -> Ordering,
+    {
+        self.items.binary_search_by(f)
+    }
+
+    pub fn binary_search_by_key<'a, Q, F>(&'a self, query: &Q, f: F) -> Result<usize, usize>
+    where
+        Q: Ord,
+        F: FnMut(&'a K, &'a V) -> Q,
+    {
+        self.items.binary_search_by_key(query, f)
+    }
+
+    pub fn partition_point<F>(&self, f: F) -> usize
+    where
+        F: FnMut(&K, &V) -> bool,
+    {
+        self.items.partition_point(f)
+    }
+
     pub fn len(&self) -> NonZeroUsize {
         // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
+    pub fn capacity(&self) -> NonZeroUsize {
+        // SAFETY: `self` must be non-empty.
+        unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
+    }
+
+    pub fn hasher(&self) -> &S {
+        self.items.hasher()
+    }
+
     pub const fn as_index_map(&self) -> &IndexMap<K, V, S> {
         &self.items
+    }
+
+    pub fn as_slice1(&self) -> &'_ Slice1<K, V> {
+        unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
+    }
+
+    pub fn as_mut_slice1(&mut self) -> &'_ mut Slice1<K, V> {
+        unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 }
 
@@ -730,7 +893,6 @@ where
 
     pub fn shift_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveOr<'a, 'q, Self, Q>
     where
-        K: Borrow<Q> + Eq + Hash,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         TakeOr::with(self, query, |items, query| items.items.shift_remove(query))
@@ -738,7 +900,6 @@ where
 
     pub fn swap_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveOr<'a, 'q, Self, Q>
     where
-        K: Borrow<Q> + Eq + Hash,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         TakeOr::with(self, query, |items, query| items.items.swap_remove(query))
@@ -749,7 +910,6 @@ where
         query: &'q Q,
     ) -> RemoveEntryOr<'a, 'q, Self, Q>
     where
-        K: Borrow<Q> + Eq + Hash,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         TakeOr::with(self, query, |items, query| {
@@ -762,7 +922,6 @@ where
         query: &'q Q,
     ) -> RemoveEntryOr<'a, 'q, Self, Q>
     where
-        K: Borrow<Q> + Eq + Hash,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         TakeOr::with(self, query, |items, query| {
@@ -772,31 +931,54 @@ where
 
     pub fn get<Q>(&self, query: &Q) -> Option<&V>
     where
-        K: Borrow<Q> + Eq + Hash,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         self.items.get(query)
     }
 
-    pub fn get_key_value<Q>(&self, query: &Q) -> Option<(&K, &V)>
-    where
-        K: Borrow<Q> + Eq + Hash,
-        Q: Equivalent<K> + Hash + ?Sized,
-    {
-        self.items.get_key_value(query)
-    }
-
     pub fn get_mut<Q>(&mut self, query: &Q) -> Option<&mut V>
     where
-        K: Borrow<Q> + Eq + Hash,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         self.items.get_mut(query)
     }
 
+    pub fn get_key_value<Q>(&self, query: &Q) -> Option<(&K, &V)>
+    where
+        Q: Equivalent<K> + Hash + ?Sized,
+    {
+        self.items.get_key_value(query)
+    }
+
+    pub fn get_full<Q>(&self, query: &Q) -> Option<(usize, &K, &V)>
+    where
+        Q: Equivalent<K> + Hash + ?Sized,
+    {
+        self.items.get_full(query)
+    }
+
+    pub fn get_full_mut<Q>(&mut self, query: &Q) -> Option<(usize, &K, &mut V)>
+    where
+        Q: Equivalent<K> + Hash + ?Sized,
+    {
+        self.items.get_full_mut(query)
+    }
+
+    pub fn get_index_of<Q>(&self, query: &Q) -> Option<usize>
+    where
+        Q: Equivalent<K> + Hash + ?Sized,
+    {
+        self.items.get_index_of(query)
+    }
+
     pub fn first(&self) -> (&K, &V) {
         // SAFETY: `self` must be non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
+    }
+
+    pub fn first_mut(&mut self) -> (&K, &mut V) {
+        // SAFETY: `self` must be non-empty.
+        unsafe { self.items.first_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn first_entry(&mut self) -> IndexedEntry<'_, K, V> {
@@ -818,6 +1000,11 @@ where
     pub fn last(&self) -> (&K, &V) {
         // SAFETY: `self` must be non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
+    }
+
+    pub fn last_mut(&mut self) -> (&K, &mut V) {
+        // SAFETY: `self` must be non-empty.
+        unsafe { self.items.last_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn last_entry(&mut self) -> IndexedEntry<'_, K, V> {
@@ -856,7 +1043,6 @@ where
 
     pub fn contains_key<Q>(&self, query: &Q) -> bool
     where
-        K: Borrow<Q> + Eq + Hash,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         self.items.contains_key(query)
@@ -904,23 +1090,106 @@ where
         }
     }
 
-    pub fn get_index_entry(&mut self, index: usize) -> Option<IndexedEntry<'_, K, V>> {
-        self.items.get_index_entry(index).map(From::from)
-    }
-
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         self.items.insert(key, value)
+    }
+
+    pub fn insert_full(&mut self, key: K, value: V) -> (usize, Option<V>) {
+        self.items.insert_full(key, value)
+    }
+
+    pub fn insert_sorted(&mut self, key: K, value: V) -> (usize, Option<V>)
+    where
+        K: Ord,
+    {
+        self.items.insert_sorted(key, value)
+    }
+
+    pub fn insert_before(&mut self, index: usize, key: K, value: V) -> (usize, Option<V>) {
+        self.items.insert_before(index, key, value)
+    }
+
+    pub fn shift_insert(&mut self, index: usize, key: K, value: V) -> Option<V> {
+        self.items.shift_insert(index, key, value)
     }
 }
 
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<K, V, S> IndexMap1<K, V, S> {
+    pub fn par_sorted_by<F>(self, f: F) -> ParallelIterator1<index_map::rayon::IntoParIter<K, V>>
+    where
+        K: Send,
+        V: Send,
+        F: Fn(&K, &V, &K, &V) -> Ordering + Sync,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_sorted_by(f)) }
+    }
+
+    pub fn par_sorted_unstable_by<F>(
+        self,
+        f: F,
+    ) -> ParallelIterator1<index_map::rayon::IntoParIter<K, V>>
+    where
+        K: Send,
+        V: Send,
+        F: Fn(&K, &V, &K, &V) -> Ordering + Sync,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_sorted_unstable_by(f)) }
+    }
+
+    pub fn par_sort_keys(&mut self)
+    where
+        K: Ord + Send,
+        V: Send,
+    {
+        self.items.par_sort_keys()
+    }
+
+    pub fn par_sort_unstable_keys(&mut self)
+    where
+        K: Ord + Send,
+        V: Send,
+    {
+        self.items.par_sort_unstable_keys()
+    }
+
+    pub fn par_sort_by<F>(&mut self, f: F)
+    where
+        K: Send,
+        V: Send,
+        F: Fn(&K, &V, &K, &V) -> Ordering + Sync,
+    {
+        self.items.par_sort_by(f)
+    }
+
+    pub fn par_sort_unstable_by<F>(&mut self, f: F)
+    where
+        K: Send,
+        V: Send,
+        F: Fn(&K, &V, &K, &V) -> Ordering + Sync,
+    {
+        self.items.par_sort_unstable_by(f)
+    }
+
+    pub fn par_sort_by_cached_key<T, F>(&mut self, f: F)
+    where
+        K: Send,
+        V: Send,
+        T: Ord + Send,
+        F: Fn(&K, &V) -> T + Sync,
+    {
+        self.items.par_sort_by_cached_key(f)
+    }
+
     pub fn par_iter1(&self) -> ParallelIterator1<<&'_ IndexMap<K, V> as IntoParallelIterator>::Iter>
     where
         K: Sync,
         V: Sync,
     {
+        // SAFETY: `self` must be non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
     }
 
@@ -931,7 +1200,47 @@ impl<K, V, S> IndexMap1<K, V, S> {
         K: Send + Sync,
         V: Send,
     {
+        // SAFETY: `self` must be non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter_mut()) }
+    }
+
+    pub fn par_keys1(&self) -> ParallelIterator1<index_map::rayon::ParKeys<'_, K, V>>
+    where
+        K: Sync,
+        V: Sync,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_keys()) }
+    }
+
+    pub fn par_values1(&self) -> ParallelIterator1<index_map::rayon::ParValues<'_, K, V>>
+    where
+        K: Sync,
+        V: Sync,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_values()) }
+    }
+
+    pub fn par_values1_mut(&mut self) -> ParallelIterator1<index_map::rayon::ParValuesMut<'_, K, V>>
+    where
+        K: Send,
+        V: Send,
+    {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_values_mut()) }
+    }
+
+    pub fn par_eq<R>(&self, other: &R) -> bool
+    where
+        K: Eq + Hash + Sync,
+        V: PartialEq<R::Value> + Sync,
+        S: BuildHasher,
+        R: ClosedIndexMap<Key = K>,
+        R::Value: Sync,
+        R::State: BuildHasher + Sync,
+    {
+        self.items.par_eq(other.as_index_map())
     }
 }
 
@@ -1210,7 +1519,6 @@ where
 {
     pub fn contains_key<Q>(&self, query: &Q) -> bool
     where
-        K: Borrow<Q>,
         Q: Equivalent<K> + Hash + ?Sized,
     {
         self.items
@@ -1248,7 +1556,7 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 pub mod harness {
     use rstest::fixture;
 
@@ -1293,7 +1601,7 @@ pub mod harness {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use rstest::rstest;
     #[cfg(feature = "serde")]
