@@ -1,5 +1,5 @@
 name: Feature Powerset
-on: [pull_request, workflow_call]
+on: [pull_request, workflow_call, workflow_dispatch]
 jobs:
   powerset:
     name: Feature Powerset
