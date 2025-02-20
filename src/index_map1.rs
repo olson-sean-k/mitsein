@@ -1061,6 +1061,24 @@ where
         iter1::one(item).collect1()
     }
 
+    pub fn from_one_with_hasher(item: (K, V), hasher: S) -> Self {
+        IndexMap1::from_iter1_with_hasher([item], hasher)
+    }
+
+    pub fn from_iter1_with_hasher<I>(items: I, hasher: S) -> Self
+    where
+        I: IntoIterator1<Item = (K, V)>,
+    {
+        let items = {
+            let mut xs = IndexMap::with_hasher(hasher);
+            xs.extend(items);
+            xs
+        };
+        // SAFETY: The input iterator `items` is non-empty and `extend` either pushes one or more
+        //         items or panics, so `items` must be non-empty here.
+        unsafe { IndexMap1::from_index_map_unchecked(items) }
+    }
+
     pub fn from_head_and_tail<I>(head: (K, V), tail: I) -> Self
     where
         S: Default,
@@ -1565,36 +1583,6 @@ pub mod harness {
 
     pub const VALUE: char = 'x';
 
-    pub trait KeyValueRef {
-        type Cloned;
-
-        fn cloned(&self) -> Self::Cloned;
-    }
-
-    impl<'a, K, V> KeyValueRef for (&'a K, &'a V)
-    where
-        K: Clone,
-        V: Clone,
-    {
-        type Cloned = (K, V);
-
-        fn cloned(&self) -> Self::Cloned {
-            (self.0.clone(), self.1.clone())
-        }
-    }
-
-    impl<'a, K, V> KeyValueRef for (&'a K, &'a mut V)
-    where
-        K: Clone,
-        V: Clone,
-    {
-        type Cloned = (K, V);
-
-        fn cloned(&self) -> Self::Cloned {
-            (self.0.clone(), self.1.clone())
-        }
-    }
-
     #[fixture]
     pub fn xs1(#[default(4)] end: u8) -> IndexMap1<u8, char> {
         IndexMap1::from_iter1(iter1::harness::xs1(end).map(|x| (x, VALUE)))
@@ -1607,7 +1595,8 @@ mod tests {
     #[cfg(feature = "serde")]
     use {alloc::vec::Vec, serde_test::Token};
 
-    use crate::index_map1::harness::{self, KeyValueRef, VALUE};
+    use crate::harness::KeyValueRef;
+    use crate::index_map1::harness::{self, VALUE};
     use crate::index_map1::IndexMap1;
     use crate::iter1::FromIterator1;
     use crate::Segmentation;

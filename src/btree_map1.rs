@@ -1120,24 +1120,6 @@ pub mod harness {
 
     pub const VALUE: char = 'x';
 
-    pub trait KeyValueRef {
-        type Cloned;
-
-        fn cloned(&self) -> Self::Cloned;
-    }
-
-    impl<'a, K, V> KeyValueRef for (&'a K, &'a V)
-    where
-        K: Clone,
-        V: Clone,
-    {
-        type Cloned = (K, V);
-
-        fn cloned(&self) -> Self::Cloned {
-            (self.0.clone(), self.1.clone())
-        }
-    }
-
     #[fixture]
     pub fn xs1(#[default(4)] end: u8) -> BTreeMap1<u8, char> {
         BTreeMap1::from_iter1(iter1::harness::xs1(end).map(|x| (x, VALUE)))
@@ -1155,8 +1137,9 @@ mod tests {
     #[cfg(feature = "serde")]
     use {alloc::vec::Vec, serde_test::Token};
 
-    use crate::btree_map1::harness::{self, terminals1, KeyValueRef, VALUE};
+    use crate::btree_map1::harness::{self, terminals1, VALUE};
     use crate::btree_map1::BTreeMap1;
+    use crate::harness::KeyValueRef;
     use crate::iter1::FromIterator1;
     use crate::Segmentation;
     #[cfg(feature = "serde")]

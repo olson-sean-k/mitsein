@@ -222,6 +222,8 @@ impl<T> Deref for Slice1<T> {
     }
 }
 
+// TODO: Remove unnecessary bounds on `Borrow`. The `Equivalent` trait encapsulates this.
+
 #[cfg(feature = "std")]
 pub type IndexSet1<T, S = RandomState> = NonEmpty<IndexSet<T, S>>;
 

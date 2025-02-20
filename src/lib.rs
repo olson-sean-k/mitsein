@@ -594,3 +594,36 @@ macro_rules! with_tuples {
     };
 }
 pub(crate) use with_tuples;
+
+#[cfg(all(test, feature = "alloc"))]
+pub mod harness {
+    pub trait KeyValueRef {
+        type Cloned;
+
+        fn cloned(&self) -> Self::Cloned;
+    }
+
+    impl<'a, K, V> KeyValueRef for (&'a K, &'a V)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        type Cloned = (K, V);
+
+        fn cloned(&self) -> Self::Cloned {
+            (self.0.clone(), self.1.clone())
+        }
+    }
+
+    impl<'a, K, V> KeyValueRef for (&'a K, &'a mut V)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        type Cloned = (K, V);
+
+        fn cloned(&self) -> Self::Cloned {
+            (self.0.clone(), self.1.clone())
+        }
+    }
+}
