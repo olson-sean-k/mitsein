@@ -62,7 +62,7 @@ jobs:
       matrix:
         os: [macOS-latest, ubuntu-latest, windows-latest]
         toolchain:
-          - 1.81.0 # Minimum.
+          - 1.83.0 # Minimum.
           - stable
           - beta
           - nightly
