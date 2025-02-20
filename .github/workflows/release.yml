@@ -1,0 +1,22 @@
+name: Release
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+jobs:
+  powerset:
+    uses: ./.github/workflows/feature-powerset.yml
+  tag:
+    name: Tag
+    needs: [powerset]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          git config --local user.name "GitHub Action"
+          git config --local user.email "action@github.com"
+          git tag -a "v${{ inputs.version }}" -m "Tag version v${{ inputs.version }}."
+          git push origin "v${{ inputs.version }}"

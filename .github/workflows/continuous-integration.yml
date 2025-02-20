@@ -1,5 +1,5 @@
 name: CI
-on: [pull_request, push]
+on: [pull_request, push, workflow_call]
 jobs:
   rustfmt:
     name: Format
@@ -68,7 +68,12 @@ jobs:
           - nightly
     steps:
       - uses: actions/checkout@v2
-      - uses: taiki-e/install-action@v2
+      - uses: actions-rs/toolchain@v1
         with:
-          tool: cargo-hack
-      - run: cargo hack test --feature-powerset
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --verbose
