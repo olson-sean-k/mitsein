@@ -7,7 +7,7 @@ jobs:
       RUSTFLAGS: -D warnings
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-hack
