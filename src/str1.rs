@@ -307,6 +307,18 @@ impl DerefMut for Str1 {
     }
 }
 
+impl<'a> From<&'a Str1> for &'a str {
+    fn from(items: &'a Str1) -> Self {
+        &items.items
+    }
+}
+
+impl<'a> From<&'a mut Str1> for &'a mut str {
+    fn from(items: &'a mut Str1) -> Self {
+        &mut items.items
+    }
+}
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl<'a> From<&'a Str1> for String {
