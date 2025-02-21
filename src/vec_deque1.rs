@@ -230,11 +230,8 @@ impl<T> VecDeque1<T> {
         self.items.split_off(1)
     }
 
-    pub fn append<R>(&mut self, items: R)
-    where
-        R: Into<VecDeque<T>>,
-    {
-        self.items.append(&mut items.into())
+    pub fn append(&mut self, items: &mut VecDeque<T>) {
+        self.items.append(items)
     }
 
     pub fn push_front(&mut self, item: T) {

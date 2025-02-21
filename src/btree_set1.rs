@@ -219,12 +219,11 @@ impl<T> BTreeSet1<T> {
         }
     }
 
-    pub fn append<R>(&mut self, items: R)
+    pub fn append(&mut self, items: &mut BTreeSet<T>)
     where
         T: Ord,
-        R: Into<BTreeSet<T>>,
     {
-        self.items.append(&mut items.into())
+        self.items.append(items)
     }
 
     pub fn insert(&mut self, item: T) -> bool

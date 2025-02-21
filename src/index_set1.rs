@@ -575,11 +575,8 @@ where
         iter1::tail_and_head(tail, head).collect1()
     }
 
-    pub fn append<R, SR>(&mut self, items: R)
-    where
-        R: Into<IndexSet<T, SR>>,
-    {
-        self.items.append(&mut items.into())
+    pub fn append<SR>(&mut self, items: &mut IndexSet<T, SR>) {
+        self.items.append(items)
     }
 
     pub fn insert(&mut self, item: T) -> bool {
