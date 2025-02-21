@@ -1,6 +1,5 @@
 **Mitsein** is a Rust library that provides strongly typed APIs for non-empty
-collections and views, including (but not limited to) iterators, slices, and
-vectors.
+collections and views, including iterators, slices, vectors, and much more.
 
 [![GitHub](https://img.shields.io/badge/GitHub-olson--sean--k/mitsein-8da0cb?logo=github&style=for-the-badge)](https://github.com/olson-sean-k/mitsein)
 [![docs.rs](https://img.shields.io/badge/docs.rs-mitsein-66c2a5?logo=rust&style=for-the-badge)](https://docs.rs/mitsein)
@@ -132,6 +131,27 @@ Mitsein is a `no_std` library and both `alloc` and `std` are optional.
 features or allocation are not available.** This also includes the integration
 with [`arrayvec`][`arrayvec`].
 
+## Memory Safety
+
+**Mitsein uses unsafe code.** Some of this unsafe code is used to support
+`repr(transparent)` and other unsafe conversions, but the majority is used to
+avoid unnecessary branching. For example, given the non-empty guarantee, it
+_shouldn't_ be necessary for the `Slice1::first` function to check that a first
+item is actually present. Omitting this code is great, but it also means that
+there are opportunities for undefined behavior and unsound APIs in Mitsein. Of
+course, the authors strive to prevent this; issues and pull requests are
+welcome!
+
+The nature of unsafe code is also somewhat unusual in Mitsein. The overwhelming
+majority of unsafe code is uninteresting and **not responsible for maintaining
+invariants**. Audits are best focused on **safe** code that affects non-empty
+invariants instead.
+
+Branching is toggled in the `safety` module. The presence of items in non-empty
+types is asserted when executing tests, though not in the context of
+[Miri][`miri`]. These conditional checks use the nomenclature
+`_maybe_unchecked`.
+
 ## Integrations and Cargo Features
 
 Mitsein provides some optional features and integrations via the following Cargo
@@ -153,6 +173,7 @@ features.
 [`arrayvec`]: https://crates.io/crates/arrayvec
 [`indexmap`]: https://crates.io/crates/indexmap
 [`itertools`]: https://crates.io/crates/itertools
+[`miri`]: https://github.com/rust-lang/miri
 [`nonempty`]: https://crates.io/crates/nonempty
 [`nunny`]: https://crates.io/crates/nunny
 [`rayon`]: https://crates.io/crates/rayon
