@@ -4,7 +4,7 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::borrow::{Borrow, BorrowMut, ToOwned};
-use alloc::vec::{self, Drain, Splice, Vec};
+use alloc::vec::{self, Drain, Vec};
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
@@ -306,14 +306,6 @@ impl<T> Vec1<T> {
         F: FnMut(&mut T) -> K,
     {
         self.items.dedup_by_key(f)
-    }
-
-    pub fn splice<R, I>(&mut self, range: R, replacement: I) -> Splice<'_, I::IntoIter>
-    where
-        R: RangeBounds<usize>,
-        I: IntoIterator1<Item = T>,
-    {
-        self.items.splice(range, replacement.into_iter1())
     }
 
     pub fn len(&self) -> NonZeroUsize {
@@ -1002,16 +994,6 @@ where
 
     pub fn clear(&mut self) {
         self.items.drain(self.range.get_and_clear_from_end());
-    }
-
-    pub fn splice<R, I>(&mut self, range: R, replacement: I) -> Splice<'_, I::IntoIter>
-    where
-        PositionalRange: Project<R, Output = PositionalRange>,
-        R: RangeBounds<usize>,
-        I: IntoIterator<Item = T>,
-    {
-        let range = self.range.project(&range).expect_in_bounds();
-        self.items.splice(range, replacement)
     }
 
     pub fn len(&self) -> usize {
