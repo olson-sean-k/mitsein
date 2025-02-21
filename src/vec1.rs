@@ -13,6 +13,7 @@ use core::iter::{self, FusedIterator};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
+use core::slice;
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 #[cfg(feature = "std")]
@@ -613,10 +614,40 @@ impl<T> IntoIterator for Vec1<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a Vec1<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut Vec1<T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
 impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T> IntoIterator1 for &'_ Vec1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<T> IntoIterator1 for &'_ mut Vec1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 

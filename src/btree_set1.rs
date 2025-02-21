@@ -617,10 +617,25 @@ impl<T> IntoIterator for BTreeSet1<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a BTreeSet1<T> {
+    type Item = &'a T;
+    type IntoIter = btree_set::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
 impl<T> IntoIterator1 for BTreeSet1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T> IntoIterator1 for &'_ BTreeSet1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
     }
 }
 

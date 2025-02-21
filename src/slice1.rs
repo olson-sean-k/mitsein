@@ -10,9 +10,9 @@ use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRef
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
-use crate::iter1::Iterator1;
 #[cfg(feature = "rayon")]
 use crate::iter1::ParallelIterator1;
+use crate::iter1::{IntoIterator1, Iterator1};
 use crate::safety;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
@@ -258,6 +258,36 @@ where
 {
     fn index_mut(&mut self, at: I) -> &mut Self::Output {
         self.items.index_mut(at)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Slice1<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut Slice1<T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
+impl<T> IntoIterator1 for &'_ Slice1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<T> IntoIterator1 for &'_ mut Slice1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 

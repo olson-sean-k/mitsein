@@ -1048,10 +1048,25 @@ impl<T, S> IntoIterator for IndexSet1<T, S> {
     }
 }
 
+impl<'a, T, S> IntoIterator for &'a IndexSet1<T, S> {
+    type Item = &'a T;
+    type IntoIter = index_set::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
 impl<T, S> IntoIterator1 for IndexSet1<T, S> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T, S> IntoIterator1 for &'_ IndexSet1<T, S> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
     }
 }
 

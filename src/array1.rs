@@ -154,6 +154,18 @@ macro_rules! impl_into_iterator1_for_array {
                 unsafe { $crate::iter1::Iterator1::from_iter_unchecked(self) }
             }
         }
+
+        impl<T> $crate::iter1::IntoIterator1 for &'_ [T; $N] {
+            fn into_iter1(self) -> $crate::iter1::Iterator1<Self::IntoIter> {
+                self.as_slice1().iter1()
+            }
+        }
+
+        impl<T> $crate::iter1::IntoIterator1 for &'_ mut [T; $N] {
+            fn into_iter1(self) -> $crate::iter1::Iterator1<Self::IntoIter> {
+                self.as_mut_slice1().iter1_mut()
+            }
+        }
     };
 }
 with_non_zero_array_size_literals!(impl_into_iterator1_for_array);

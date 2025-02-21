@@ -12,6 +12,7 @@ use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
+use core::slice;
 #[cfg(feature = "std")]
 use {
     core::cmp,
@@ -539,10 +540,49 @@ impl<T, const N: usize> IntoIterator for ArrayVec1<T, N> {
     }
 }
 
-impl<T, const N: usize> IntoIterator1 for ArrayVec1<T, N> {
+impl<'a, T, const N: usize> IntoIterator for &'a ArrayVec1<T, N> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, T, const N: usize> IntoIterator for &'a mut ArrayVec1<T, N> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
+impl<T, const N: usize> IntoIterator1 for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T, const N: usize> IntoIterator1 for &'_ ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<T, const N: usize> IntoIterator1 for &'_ mut ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 

@@ -869,10 +869,40 @@ impl<K, V> IntoIterator for BTreeMap1<K, V> {
     }
 }
 
+impl<'a, K, V> IntoIterator for &'a BTreeMap1<K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = btree_map::Iter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a mut BTreeMap1<K, V> {
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = btree_map::IterMut<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
 impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<K, V> IntoIterator1 for &'_ BTreeMap1<K, V> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<K, V> IntoIterator1 for &'_ mut BTreeMap1<K, V> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 

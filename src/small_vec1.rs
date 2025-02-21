@@ -12,6 +12,7 @@ use core::iter;
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
+use core::slice;
 use smallvec::{Array, SmallVec};
 #[cfg(feature = "std")]
 use std::io::{self, IoSlice, Write};
@@ -646,6 +647,32 @@ where
     }
 }
 
+impl<'a, A, T> IntoIterator for &'a SmallVec1<A>
+where
+    A: Array<Item = T>,
+    T: 'a,
+{
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, A, T> IntoIterator for &'a mut SmallVec1<A>
+where
+    A: Array<Item = T>,
+    T: 'a,
+{
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
 impl<A> IntoIterator1 for SmallVec1<A>
 where
     A: Array,
@@ -653,6 +680,24 @@ where
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<A> IntoIterator1 for &'_ SmallVec1<A>
+where
+    A: Array,
+{
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<A> IntoIterator1 for &'_ mut SmallVec1<A>
+where
+    A: Array,
+{
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 

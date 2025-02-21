@@ -6,9 +6,11 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::boxed::Box;
-use alloc::vec::Vec;
+use alloc::vec::{self, Vec};
+use core::slice;
 
 use crate::array1::Array1;
+use crate::iter1::{IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
 use crate::serde::{EmptyError, Serde};
 use crate::slice1::Slice1;
@@ -152,6 +154,52 @@ impl<T> From<BoxedSlice1<T>> for Vec<T> {
 impl<T> From<Vec1<T>> for BoxedSlice1<T> {
     fn from(items: Vec1<T>) -> Self {
         items.into_boxed_slice1()
+    }
+}
+
+impl<T> IntoIterator for BoxedSlice1<T> {
+    type Item = T;
+    type IntoIter = vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        <Box<[T]> as IntoIterator>::into_iter(self.into_boxed_slice())
+    }
+}
+
+impl<'a, T> IntoIterator for &'a BoxedSlice1<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut BoxedSlice1<T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
+impl<T> IntoIterator1 for BoxedSlice1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self) }
+    }
+}
+
+impl<T> IntoIterator1 for &'_ BoxedSlice1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<T> IntoIterator1 for &'_ mut BoxedSlice1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 

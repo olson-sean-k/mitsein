@@ -853,6 +853,31 @@ impl<K, V, S> IndexMap1<K, V, S> {
         self.items.partition_point(f)
     }
 
+    pub fn iter1(&self) -> Iterator1<index_map::Iter<'_, K, V>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
+    }
+
+    pub fn iter1_mut(&mut self) -> Iterator1<index_map::IterMut<'_, K, V>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
+    }
+
+    pub fn keys1(&self) -> Iterator1<index_map::Keys<'_, K, V>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.items.keys()) }
+    }
+
+    pub fn values1(&self) -> Iterator1<index_map::Values<'_, K, V>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.items.values()) }
+    }
+
+    pub fn values1_mut(&mut self) -> Iterator1<index_map::ValuesMut<'_, K, V>> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.items.values_mut()) }
+    }
+
     pub fn len(&self) -> NonZeroUsize {
         // SAFETY: `self` must be non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
@@ -1014,31 +1039,6 @@ where
             .map_one(IndexedOnlyEntry::from_indexed_entry)
             .map_one(From::from)
             .map_many(From::from)
-    }
-
-    pub fn iter1(&self) -> Iterator1<index_map::Iter<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
-        unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
-    }
-
-    pub fn iter1_mut(&mut self) -> Iterator1<index_map::IterMut<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
-        unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
-    }
-
-    pub fn keys1(&self) -> Iterator1<index_map::Keys<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
-        unsafe { Iterator1::from_iter_unchecked(self.items.keys()) }
-    }
-
-    pub fn values1(&self) -> Iterator1<index_map::Values<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
-        unsafe { Iterator1::from_iter_unchecked(self.items.values()) }
-    }
-
-    pub fn values1_mut(&mut self) -> Iterator1<index_map::ValuesMut<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
-        unsafe { Iterator1::from_iter_unchecked(self.items.values_mut()) }
     }
 
     pub fn contains_key<Q>(&self, query: &Q) -> bool
@@ -1379,10 +1379,40 @@ impl<K, V, S> IntoIterator for IndexMap1<K, V, S> {
     }
 }
 
+impl<'a, K, V, S> IntoIterator for &'a IndexMap1<K, V, S> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = index_map::Iter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, K, V, S> IntoIterator for &'a mut IndexMap1<K, V, S> {
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = index_map::IterMut<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
 impl<K, V, S> IntoIterator1 for IndexMap1<K, V, S> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<K, V, S> IntoIterator1 for &'_ IndexMap1<K, V, S> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<K, V, S> IntoIterator1 for &'_ mut IndexMap1<K, V, S> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 

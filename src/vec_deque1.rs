@@ -463,10 +463,40 @@ impl<T> IntoIterator for VecDeque1<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a VecDeque1<T> {
+    type Item = &'a T;
+    type IntoIter = vec_deque::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut VecDeque1<T> {
+    type Item = &'a mut T;
+    type IntoIter = vec_deque::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter_mut()
+    }
+}
+
 impl<T> IntoIterator1 for VecDeque1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` must be non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T> IntoIterator1 for &'_ VecDeque1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1()
+    }
+}
+
+impl<T> IntoIterator1 for &'_ mut VecDeque1<T> {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        self.iter1_mut()
     }
 }
 
