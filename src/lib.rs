@@ -590,7 +590,7 @@ macro_rules! with_tuples {
     };
     ($f:ident, ($head:ident, $($tail:ident $(,)?)+) $(,)?) => {
         $f!(($head, $($tail,)+));
-        crate::with_tuples!($f, ($($tail,)+));
+        $crate::with_tuples!($f, ($($tail,)+));
     };
 }
 pub(crate) use with_tuples;

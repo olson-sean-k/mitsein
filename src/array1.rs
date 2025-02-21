@@ -60,8 +60,8 @@ macro_rules! impl_array1_for_array {
     ($N:literal) => {
         impl<T> $crate::array1::Array1 for [T; $N] {
             // SAFETY: The literal `$N` must non-zero.
-            const N: core::num::NonZeroUsize =
-                unsafe { core::num::NonZeroUsize::new_unchecked($N) };
+            const N: ::core::num::NonZeroUsize =
+                unsafe { ::core::num::NonZeroUsize::new_unchecked($N) };
 
             #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
             #[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", target_has_atomic = "ptr"))))]
@@ -88,7 +88,7 @@ with_non_zero_array_size_literals!(impl_array1_for_array);
 /// The literal `$N` must be non-zero.
 macro_rules! impl_as_mut_for_array {
     ($N:literal) => {
-        impl<T> core::convert::AsMut<$crate::slice1::Slice1<T>> for [T; $N] {
+        impl<T> ::core::convert::AsMut<$crate::slice1::Slice1<T>> for [T; $N] {
             fn as_mut(&mut self) -> &mut $crate::slice1::Slice1<T> {
                 // SAFETY: `self` must be non-empty.
                 unsafe { $crate::slice1::Slice1::from_mut_slice_unchecked(self.as_mut_slice()) }
@@ -103,7 +103,7 @@ with_non_zero_array_size_literals!(impl_as_mut_for_array);
 /// The literal `$N` must be non-zero.
 macro_rules! impl_as_ref_for_array {
     ($N:literal) => {
-        impl<T> core::convert::AsRef<$crate::slice1::Slice1<T>> for [T; $N] {
+        impl<T> ::core::convert::AsRef<$crate::slice1::Slice1<T>> for [T; $N] {
             fn as_ref(&self) -> &$crate::slice1::Slice1<T> {
                 // SAFETY: `self` must be non-empty.
                 unsafe { $crate::slice1::Slice1::from_slice_unchecked(self.as_slice()) }
@@ -118,7 +118,7 @@ with_non_zero_array_size_literals!(impl_as_ref_for_array);
 /// The literal `$N` must be non-zero.
 macro_rules! impl_borrow_for_array {
     ($N:literal) => {
-        impl<T> core::borrow::Borrow<$crate::slice1::Slice1<T>> for [T; $N] {
+        impl<T> ::core::borrow::Borrow<$crate::slice1::Slice1<T>> for [T; $N] {
             fn borrow(&self) -> &$crate::slice1::Slice1<T> {
                 // SAFETY: `self` must be non-empty.
                 unsafe { $crate::slice1::Slice1::from_slice_unchecked(self.as_slice()) }
@@ -133,7 +133,7 @@ with_non_zero_array_size_literals!(impl_borrow_for_array);
 /// The literal `$N` must be non-zero.
 macro_rules! impl_borrow_mut_for_array {
     ($N:literal) => {
-        impl<T> core::borrow::BorrowMut<$crate::slice1::Slice1<T>> for [T; $N] {
+        impl<T> ::core::borrow::BorrowMut<$crate::slice1::Slice1<T>> for [T; $N] {
             fn borrow_mut(&mut self) -> &mut $crate::slice1::Slice1<T> {
                 // SAFETY: `self` must be non-empty.
                 unsafe { $crate::slice1::Slice1::from_mut_slice_unchecked(self.as_mut_slice()) }
