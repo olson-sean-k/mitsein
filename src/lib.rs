@@ -361,6 +361,7 @@ pub mod prelude {
 
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
+use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::mem;
 use core::num::NonZeroUsize;
@@ -450,7 +451,7 @@ where
         into = "Serde<T>",
     )
 )]
-#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Hash)]
 #[repr(transparent)]
 pub struct NonEmpty<T>
 where
@@ -487,6 +488,13 @@ impl<T> AsRef<T> for NonEmpty<T> {
     }
 }
 
+impl<T> Eq for NonEmpty<T>
+where
+    Self: PartialEq,
+    T: Eq,
+{
+}
+
 impl<T> FromMaybeEmpty<T> for NonEmpty<T>
 where
     T: MaybeEmpty,
@@ -517,6 +525,35 @@ where
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
         //         `NonEmpty<T>` are the same.
         mem::transmute::<&'_ mut T, &'_ mut NonEmpty<T>>(items)
+    }
+}
+
+impl<T> Ord for NonEmpty<T>
+where
+    Self: PartialOrd,
+    T: Ord,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&self.items, &other.items)
+    }
+}
+
+impl<T, U> PartialEq<NonEmpty<U>> for NonEmpty<T>
+where
+    T: PartialEq<U> + ?Sized,
+    U: ?Sized,
+{
+    fn eq(&self, other: &NonEmpty<U>) -> bool {
+        PartialEq::eq(&self.items, &other.items)
+    }
+}
+
+impl<T, U> PartialOrd<NonEmpty<U>> for NonEmpty<T>
+where
+    T: PartialOrd<U>,
+{
+    fn partial_cmp(&self, other: &NonEmpty<U>) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&self.items, &other.items)
     }
 }
 
@@ -594,6 +631,63 @@ macro_rules! with_tuples {
     };
 }
 pub(crate) use with_tuples;
+
+macro_rules! impl_partial_eq_for_non_empty {
+    (
+        $(use<$lt:lifetime$(,)?>)?
+        [$(for $right:ident$(,)?)? in $rhs:ty]$(,)?
+        ==
+        [$(for $left:ident$(,)?)? in $lhs:ty]$(,)?
+    ) => {
+        impl<$($lt,)? $($right,)? $($left)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        where
+            $($left: ::core::cmp::PartialEq<$right>,)?
+        {
+            fn eq(&self, rhs: &$rhs) -> bool {
+                ::core::cmp::PartialEq::eq(&self.items, &rhs.items)
+            }
+        }
+    };
+    (
+        $(use<$lt:lifetime$(,)?>)?
+        [$(for $right:ident $(,const $n:ident: usize)?$(,)?)? in $rhs:ty $(as $as:ty)?]
+        <=
+        [$(for $left:ident$(,)?)? in $lhs:ty]$(,)?
+    ) => {
+        impl<$($lt,)? $($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        where
+            $($rhs: ::core::convert::AsRef<$as>,)?
+            $($left: ::core::cmp::PartialEq<$right>,)?
+        {
+            fn eq(&self, rhs: &$rhs) -> bool {
+                ::core::cmp::PartialEq::eq(
+                    &self.items,
+                    $(::core::convert::AsRef::<$as>::as_ref)?(rhs),
+                )
+            }
+        }
+    };
+    (
+        $(use<$lt:lifetime$(,)?>)?
+        [$(for $right:ident$(,)?)? in $rhs:ty]
+        =>
+        [$(for $left:ident $(,const $n:ident: usize)?$(,)?)? in $lhs:ty $(as $as:ty)?]$(,)?
+    ) => {
+        impl<$($lt,)? $($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        where
+            $($lhs: ::core::convert::AsRef<$as>,)?
+            $($left: ::core::cmp::PartialEq<$right>,)?
+        {
+            fn eq(&self, rhs: &$rhs) -> bool {
+                ::core::cmp::PartialEq::eq(
+                    $(::core::convert::AsRef::<$as>::as_ref)?(self),
+                    &rhs.items,
+                )
+            }
+        }
+    };
+}
+pub(crate) use impl_partial_eq_for_non_empty;
 
 #[cfg(all(test, feature = "alloc"))]
 pub mod harness {

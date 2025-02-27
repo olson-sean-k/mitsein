@@ -586,6 +586,16 @@ where
     }
 }
 
+impl<T, const N: usize> PartialEq<[T]> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    T: PartialEq<T>,
+{
+    fn eq(&self, other: &[T]) -> bool {
+        PartialEq::eq(self.as_array_vec(), other)
+    }
+}
+
 impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
 where
     [T; N]: Array1,

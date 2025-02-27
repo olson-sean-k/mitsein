@@ -423,6 +423,14 @@ where
     }
 }
 
+crate::impl_partial_eq_for_non_empty!([in str] <= [in String1]);
+crate::impl_partial_eq_for_non_empty!([in &str] <= [in String1]);
+crate::impl_partial_eq_for_non_empty!([in &Str1] == [in String1]);
+crate::impl_partial_eq_for_non_empty!([in CowStr1<'_>] == [in String1]);
+crate::impl_partial_eq_for_non_empty!([in String1] => [in str]);
+crate::impl_partial_eq_for_non_empty!([in String1] => [in &str]);
+crate::impl_partial_eq_for_non_empty!([in String1] == [in &Str1]);
+
 impl<'a> TryFrom<&'a str> for String1 {
     type Error = &'a str;
 

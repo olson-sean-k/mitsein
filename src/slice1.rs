@@ -192,13 +192,13 @@ impl<T> Slice1<T> {
     }
 }
 
-impl<T> AsMut<[T]> for &'_ mut Slice1<T> {
+impl<T> AsMut<[T]> for Slice1<T> {
     fn as_mut(&mut self) -> &mut [T] {
         &mut self.items
     }
 }
 
-impl<T> AsRef<[T]> for &'_ Slice1<T> {
+impl<T> AsRef<[T]> for Slice1<T> {
     fn as_ref(&self) -> &[T] {
         &self.items
     }
@@ -291,6 +291,9 @@ impl<T> IntoIterator1 for &'_ mut Slice1<T> {
     }
 }
 
+crate::impl_partial_eq_for_non_empty!([for U in [U]] <= [for T in Slice1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in Slice1<U>] => [for T in [T]]);
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl<T> ToOwned for Slice1<T>
@@ -339,3 +342,64 @@ macro_rules! slice1 {
     }};
 }
 pub use slice1;
+
+// TODO:
+//macro_rules! with_as_slice_by_ref {
+//    ($f:ident, [$right:ident in ref $rhs:ty] for [$left:ident in $lhs:ty]$(,)?) => {
+//        $f!([$right in $rhs] for [$left in $lhs]);
+//        $f!([$right in &$rhs] for [$left in $lhs]);
+//        $f!([$right in &mut $rhs] for [$left in $lhs]);
+//    };
+//    (
+//        $f:ident,
+//        with const $cn:ident: $ct:ty
+//        [$right:ident in ref $rhs:ty] for [$left:ident in $lhs:ty]$(,)?
+//    ) => {
+//        $f!(with const $cn: $ct [$right in $rhs] for [$left in $lhs]);
+//        $f!(with const $cn: $ct [$right in &$rhs] for [$left in $lhs]);
+//        $f!(with const $cn: $ct [$right in &mut $rhs] for [$left in $lhs]);
+//    };
+//    ($f:ident, [$right:ident in $rhs:ty] for [$left:ident in ref $lhs:ty]$(,)?) => {
+//        $f!([$right in $rhs] for [$left in $lhs]);
+//        $f!([$right in $rhs] for [$left in &$lhs]);
+//        $f!([$right in $rhs] for [$left in &mut $lhs]);
+//    };
+//    (
+//        $f:ident,
+//        with const $cn:ident: $ct:ty
+//        [$right:ident in $rhs:ty] for [$left:ident in ref $lhs:ty]$(,)?
+//    ) => {
+//        $f!(with const $cn: $ct [$right in $rhs] for [$left in $lhs]);
+//        $f!(with const $cn: $ct [$right in $rhs] for [$left in &$lhs]);
+//        $f!(with const $cn: $ct [$right in $rhs] for [$left in &mut $lhs]);
+//    };
+//}
+//pub(crate) use with_as_slice_by_ref;
+//
+//macro_rules! impl_partial_eq_for_as_slice {
+//    ([$right:ident in $rhs:ty] for [$left:ident in $lhs:ty]$(,)?) => {
+//        impl<$left, $right> ::core::cmp::PartialEq<$rhs> for $lhs
+//        where
+//            $left: ::core::cmp::PartialEq<$right>,
+//        {
+//            impl_partial_eq_for_as_slice!(@eq [$right in $rhs] for $left);
+//        }
+//    };
+//    (with const $cn:ident: $ct:ty [$right:ident in $rhs:ty] for [$left:ident in $lhs:ty]$(,)?) => {
+//        impl<$left, $right, const $cn: $ct> ::core::cmp::PartialEq<$rhs> for $lhs
+//        where
+//            $left: ::core::cmp::PartialEq<$right>,
+//        {
+//            impl_partial_eq_for_as_slice!(@eq [$right in $rhs] for $left);
+//        }
+//    };
+//    (@eq [$right:ident in $rhs:ty] for $left:ident) => {
+//        fn eq(&self, rhs: &$rhs) -> bool {
+//            ::core::cmp::PartialEq::eq(
+//                ::core::convert::AsRef::<[$left]>::as_ref(self),
+//                ::core::convert::AsRef::<[$right]>::as_ref(rhs),
+//            )
+//        }
+//    };
+//}
+//pub(crate) use impl_partial_eq_for_as_slice;

@@ -705,6 +705,19 @@ where
     }
 }
 
+crate::impl_partial_eq_for_non_empty!([for U, const N: usize in [U; N]] <= [for T in Vec1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U, const N: usize in &[U; N]] <= [for T in Vec1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in [U]] <= [for T in Vec1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in &[U]] <= [for T in Vec1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in &mut [U]] <= [for T in Vec1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in &Slice1<U>] == [for T in Vec1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in &mut Slice1<U>] == [for T in Vec1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in [T]]);
+crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in &[T]]);
+crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in &mut [T]]);
+crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &Slice1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &mut Slice1<T>]);
+
 impl<T> Segmentation for Vec1<T> {
     fn tail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::tail(&self.items))

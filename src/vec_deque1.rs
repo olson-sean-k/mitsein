@@ -4,6 +4,7 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::collections::vec_deque::{self, VecDeque};
+use alloc::vec::Vec;
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
@@ -28,6 +29,7 @@ use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
 use crate::take;
+use crate::vec1::Vec1;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ItemFor<K> = <K as ClosedVecDeque>::Item;
@@ -550,6 +552,14 @@ where
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
+
+crate::impl_partial_eq_for_non_empty!([for U, const N: usize in [U; N]] <= [for T in VecDeque1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U, const N: usize in &[U; N]] <= [for T in VecDeque1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U, const N: usize in &mut [U; N]] <= [for T in VecDeque1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in &[U]] <= [for T in VecDeque1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in &mut [U]] <= [for T in VecDeque1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in Vec<U>] <= [for T in VecDeque1<T>]);
+crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in VecDeque<T>]);
 
 impl<T> Segmentation for VecDeque1<T> {
     fn tail(&mut self) -> Segment<'_, Self> {

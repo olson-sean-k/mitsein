@@ -3,7 +3,7 @@
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
-use alloc::borrow::Cow;
+use alloc::borrow::{Cow, ToOwned};
 
 use crate::slice1::Slice1;
 use crate::str1::Str1;
@@ -70,6 +70,16 @@ where
     }
 }
 
+impl<T, U> PartialEq<Vec1<U>> for CowSlice1<'_, T>
+where
+    Slice1<T>: ToOwned,
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &Vec1<U>) -> bool {
+        PartialEq::eq(self.as_ref(), other)
+    }
+}
+
 pub type CowStr1<'a> = Cow<'a, Str1>;
 
 pub trait CowStr1Ext<'a> {
@@ -110,5 +120,11 @@ impl From<String1> for CowStr1<'_> {
 impl<'a> From<&'a String1> for CowStr1<'a> {
     fn from(items: &'a String1) -> Self {
         Cow::Borrowed(items.as_str1())
+    }
+}
+
+impl PartialEq<String1> for CowStr1<'_> {
+    fn eq(&self, other: &String1) -> bool {
+        PartialEq::eq(self.as_ref().as_str(), other.as_string())
     }
 }

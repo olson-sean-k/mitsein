@@ -1642,7 +1642,7 @@ mod tests {
     #[case::many_tail(harness::xs1(2))]
     fn clear_tail_of_index_map1_then_index_map1_eq_head(#[case] mut xs1: IndexMap1<u8, char>) {
         xs1.tail().clear();
-        assert_eq!(xs1, IndexMap1::from_one((0, VALUE)));
+        assert_eq!(xs1, IndexMap1::<_, _>::from_one((0, VALUE)));
     }
 
     #[rstest]
@@ -1652,7 +1652,7 @@ mod tests {
     fn clear_rtail_of_index_map1_then_index_map1_eq_tail(#[case] mut xs1: IndexMap1<u8, char>) {
         let tail = xs1.last().cloned();
         xs1.rtail().clear();
-        assert_eq!(xs1, IndexMap1::from_one(tail));
+        assert_eq!(xs1, IndexMap1::<_, _>::from_one(tail));
     }
 
     #[rstest]
@@ -1668,7 +1668,7 @@ mod tests {
         xs1.tail().rtail().clear();
         assert_eq!(
             xs1,
-            IndexMap1::try_from_iter(if n > 1 {
+            IndexMap1::<_, _>::try_from_iter(if n > 1 {
                 head_and_tail[..].iter().copied()
             }
             else {

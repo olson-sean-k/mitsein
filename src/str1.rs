@@ -347,6 +347,9 @@ where
     }
 }
 
+crate::impl_partial_eq_for_non_empty!([in str] <= [in Str1]);
+crate::impl_partial_eq_for_non_empty!([in Str1] => [in str]);
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl ToOwned for Str1 {
