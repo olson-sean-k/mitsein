@@ -753,6 +753,17 @@ where
     }
 }
 
+impl<'a, T> TryFrom<&'a mut [T]> for Vec1<T>
+where
+    T: Clone,
+{
+    type Error = &'a mut [T];
+
+    fn try_from(items: &'a mut [T]) -> Result<Self, Self::Error> {
+        Slice1::try_from_mut_slice(items).map(Vec1::from)
+    }
+}
+
 impl<T> TryFrom<Vec<T>> for Vec1<T> {
     type Error = Vec<T>;
 
