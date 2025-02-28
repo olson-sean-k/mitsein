@@ -634,14 +634,13 @@ pub(crate) use with_tuples;
 
 macro_rules! impl_partial_eq_for_non_empty {
     (
-        $(use<$lt:lifetime$(,)?>)?
         [$(for $right:ident$(,)?)? in $rhs:ty]$(,)?
         ==
         [$(for $left:ident$(,)?)? in $lhs:ty]$(,)?
     ) => {
-        impl<$($lt,)? $($right,)? $($left)?> ::core::cmp::PartialEq<$rhs> for $lhs
-        where
-            $($left: ::core::cmp::PartialEq<$right>,)?
+        impl<$($right,)? $($left)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        $(where
+            $left: ::core::cmp::PartialEq<$right>,)?
         {
             fn eq(&self, rhs: &$rhs) -> bool {
                 ::core::cmp::PartialEq::eq(&self.items, &rhs.items)
@@ -649,40 +648,30 @@ macro_rules! impl_partial_eq_for_non_empty {
         }
     };
     (
-        $(use<$lt:lifetime$(,)?>)?
-        [$(for $right:ident $(,const $n:ident: usize)?$(,)?)? in $rhs:ty $(as $as:ty)?]
+        [$(for $right:ident $(,const $n:ident: usize)?$(,)?)? in $rhs:ty]
         <=
         [$(for $left:ident$(,)?)? in $lhs:ty]$(,)?
     ) => {
-        impl<$($lt,)? $($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
-        where
-            $($rhs: ::core::convert::AsRef<$as>,)?
-            $($left: ::core::cmp::PartialEq<$right>,)?
+        impl<$($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        $(where
+            $left: ::core::cmp::PartialEq<$right>,)?
         {
             fn eq(&self, rhs: &$rhs) -> bool {
-                ::core::cmp::PartialEq::eq(
-                    &self.items,
-                    $(::core::convert::AsRef::<$as>::as_ref)?(rhs),
-                )
+                ::core::cmp::PartialEq::eq(&self.items, rhs)
             }
         }
     };
     (
-        $(use<$lt:lifetime$(,)?>)?
         [$(for $right:ident$(,)?)? in $rhs:ty]
         =>
-        [$(for $left:ident $(,const $n:ident: usize)?$(,)?)? in $lhs:ty $(as $as:ty)?]$(,)?
+        [$(for $left:ident $(,const $n:ident: usize)?$(,)?)? in $lhs:ty]$(,)?
     ) => {
-        impl<$($lt,)? $($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
-        where
-            $($lhs: ::core::convert::AsRef<$as>,)?
-            $($left: ::core::cmp::PartialEq<$right>,)?
+        impl<$($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        $(where
+            $left: ::core::cmp::PartialEq<$right>,)?
         {
             fn eq(&self, rhs: &$rhs) -> bool {
-                ::core::cmp::PartialEq::eq(
-                    $(::core::convert::AsRef::<$as>::as_ref)?(self),
-                    &rhs.items,
-                )
+                ::core::cmp::PartialEq::eq(self, &rhs.items)
             }
         }
     };
