@@ -10,9 +10,9 @@ use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRef
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
-#[cfg(feature = "rayon")]
-use crate::iter1::ParallelIterator1;
 use crate::iter1::{IntoIterator1, Iterator1};
+#[cfg(feature = "rayon")]
+use crate::iter1::{IntoParallelIterator1, ParallelIterator1};
 use crate::safety;
 use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
@@ -288,6 +288,58 @@ impl<T> IntoIterator1 for &'_ Slice1<T> {
 impl<T> IntoIterator1 for &'_ mut Slice1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         self.iter1_mut()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, T> IntoParallelIterator for &'a Slice1<T>
+where
+    T: Sync,
+{
+    type Item = &'a T;
+    type Iter = <&'a [T] as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&self.items).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<'a, T> IntoParallelIterator for &'a mut Slice1<T>
+where
+    T: Send,
+{
+    type Item = &'a mut T;
+    type Iter = <&'a mut [T] as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&mut self.items).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator1 for &'_ Slice1<T>
+where
+    T: Sync,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator1 for &'_ mut Slice1<T>
+where
+    T: Send,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
     }
 }
 
