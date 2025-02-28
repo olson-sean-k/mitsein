@@ -35,10 +35,9 @@ use {
 use crate::safety::OptionExt as _;
 #[cfg(feature = "rayon")]
 use crate::vec1::Vec1;
-use crate::NonEmpty;
-use crate::NonZeroExt as _;
 #[cfg(feature = "itertools")]
 use crate::{safety, Cardinality};
+use crate::{EmptyError, NonEmpty, NonZeroExt as _};
 
 // The input type parameter `K` is unused in this trait, but is required to prevent a coherence
 // error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
@@ -118,7 +117,7 @@ pub trait IteratorExt: Iterator + Sized {
         Iterator1::try_from_iter(self)
     }
 
-    fn try_collect1<T>(self) -> result::Result<T, Peekable<Self>>
+    fn try_collect1<T>(self) -> result::Result<T, EmptyError<Peekable<Self>>>
     where
         T: FromIterator1<<Self as Iterator>::Item>,
     {
@@ -140,7 +139,7 @@ pub trait FromIterator1<T> {
     where
         I: IntoIterator1<Item = T>;
 
-    fn try_from_iter<I>(items: I) -> result::Result<Self, Peekable<I::IntoIter>>
+    fn try_from_iter<I>(items: I) -> result::Result<Self, EmptyError<Peekable<I::IntoIter>>>
     where
         Self: Sized,
         I: IntoIterator<Item = T>,
@@ -280,7 +279,7 @@ pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
-pub type Result<I> = result::Result<Iterator1<Peekable<I>>, Peekable<I>>;
+pub type Result<I> = result::Result<Iterator1<Peekable<I>>, EmptyError<Peekable<I>>>;
 
 impl<I> ThenIterator1<I> for Result<I>
 where
@@ -299,7 +298,7 @@ where
             Iterator1::from_iter_unchecked(
                 match self {
                     Ok(items) => items.into_iter(),
-                    Err(empty) => empty,
+                    Err(error) => error.into_empty(),
                 }
                 .chain(items.into_iter1()),
             )
@@ -315,7 +314,7 @@ where
         unsafe {
             Iterator1::from_iter_unchecked(match self {
                 Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
-                Err(empty) => empty.chain(empty_or_into(Some(f()))),
+                Err(error) => error.into_empty().chain(empty_or_into(Some(f()))),
             })
         }
     }
@@ -392,7 +391,7 @@ where
         match items.peek() {
             // SAFETY: `items` is non-empty.
             Some(_) => Ok(unsafe { Iterator1::from_iter_unchecked(items) }),
-            _ => Err(items),
+            _ => Err(EmptyError::from_empty(items)),
         }
     }
 
