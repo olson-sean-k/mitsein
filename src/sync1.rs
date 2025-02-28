@@ -14,7 +14,7 @@ use crate::iter1::{FromIterator1, IntoIterator1};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::vec1::Vec1;
-use crate::MaybeEmpty;
+use crate::{EmptyError, MaybeEmpty};
 
 pub type ArcSlice1<T> = Arc<Slice1<T>>;
 
@@ -27,7 +27,7 @@ pub trait ArcSlice1Ext<T>: Sized {
     /// [`Arc::from`]: alloc::sync::Arc::from
     unsafe fn from_arc_slice_unchecked(items: Arc<[T]>) -> Self;
 
-    fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, Arc<[T]>>;
+    fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, EmptyError<Arc<[T]>>>;
 
     fn from_array1<const N: usize>(items: [T; N]) -> Self
     where
@@ -57,9 +57,9 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
         Arc::from_raw(items as *const Slice1<T>)
     }
 
-    fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, Arc<[T]>> {
+    fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, EmptyError<Arc<[T]>>> {
         match items.as_ref().cardinality() {
-            None => Err(items),
+            None => Err(EmptyError::from_empty(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { ArcSlice1::from_arc_slice_unchecked(items) }),
         }
@@ -170,7 +170,7 @@ pub trait ArcStr1Ext: Sized {
     /// [`Arc::from`]: alloc::sync::Arc::from
     unsafe fn from_arc_str_unchecked(items: Arc<str>) -> Self;
 
-    fn try_from_arc_str(items: Arc<str>) -> Result<Self, Arc<str>>;
+    fn try_from_arc_str(items: Arc<str>) -> Result<Self, EmptyError<Arc<str>>>;
 
     fn from_boxed_str1(items: BoxedStr1) -> Self;
 
@@ -192,9 +192,9 @@ impl ArcStr1Ext for ArcStr1 {
         Arc::from_raw(items as *const Str1)
     }
 
-    fn try_from_arc_str(items: Arc<str>) -> Result<Self, Arc<str>> {
+    fn try_from_arc_str(items: Arc<str>) -> Result<Self, EmptyError<Arc<str>>> {
         match items.as_ref().cardinality() {
-            None => Err(items),
+            None => Err(EmptyError::from_empty(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { ArcStr1::from_arc_str_unchecked(items) }),
         }

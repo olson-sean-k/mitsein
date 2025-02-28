@@ -32,7 +32,7 @@ use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type KeyFor<T> = <T as ClosedIndexMap>::Key;
 type ValueFor<T> = <T as ClosedIndexMap>::Value;
@@ -1525,7 +1525,7 @@ impl<K, V, S> SegmentedOver for IndexMap1<K, V, S> {
 }
 
 impl<K, V, S> TryFrom<IndexMap<K, V, S>> for IndexMap1<K, V, S> {
-    type Error = IndexMap<K, V, S>;
+    type Error = EmptyError<IndexMap<K, V, S>>;
 
     fn try_from(items: IndexMap<K, V, S>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

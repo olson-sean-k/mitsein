@@ -30,7 +30,7 @@ use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ItemFor<K> = <K as ClosedVecDeque>::Item;
 
@@ -612,7 +612,7 @@ impl<T> SegmentedOver for VecDeque1<T> {
 }
 
 impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
-    type Error = VecDeque<T>;
+    type Error = EmptyError<VecDeque<T>>;
 
     fn try_from(items: VecDeque<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

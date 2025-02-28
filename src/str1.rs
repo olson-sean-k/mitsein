@@ -21,7 +21,7 @@ use crate::iter1::Iterator1;
 use crate::iter1::ParallelIterator1;
 use crate::safety;
 use crate::slice1::Slice1;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedStr1, crate::string1::String1};
 
@@ -72,11 +72,11 @@ impl Str1 {
         mem::transmute::<&'_ mut str, &'_ mut Str1>(items)
     }
 
-    pub fn try_from_str(items: &str) -> Result<&Self, &str> {
+    pub fn try_from_str(items: &str) -> Result<&Self, EmptyError<&str>> {
         items.try_into()
     }
 
-    pub fn try_from_mut_str(items: &mut str) -> Result<&mut Self, &mut str> {
+    pub fn try_from_mut_str(items: &mut str) -> Result<&mut Self, EmptyError<&mut str>> {
         items.try_into()
     }
 
@@ -361,7 +361,7 @@ impl ToOwned for Str1 {
 }
 
 impl<'a> TryFrom<&'a str> for &'a Str1 {
-    type Error = &'a str;
+    type Error = EmptyError<&'a str>;
 
     fn try_from(items: &'a str) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
@@ -369,7 +369,7 @@ impl<'a> TryFrom<&'a str> for &'a Str1 {
 }
 
 impl<'a> TryFrom<&'a mut str> for &'a mut Str1 {
-    type Error = &'a mut str;
+    type Error = EmptyError<&'a mut str>;
 
     fn try_from(items: &'a mut str) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

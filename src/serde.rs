@@ -1,13 +1,9 @@
 #![cfg(feature = "serde")]
 #![cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 
-use core::error::Error;
-use core::fmt::{self, Display, Formatter};
 use serde_derive::{Deserialize, Serialize};
 
-use crate::NonEmpty;
-
-const EMPTY_ERROR_MESSAGE: &str = "failed to deserialize non-empty collection: no items";
+use crate::{EmptyError, NonEmpty};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[repr(transparent)]
@@ -24,25 +20,14 @@ impl<T> From<NonEmpty<T>> for Serde<T> {
 
 impl<T, U> TryFrom<Serde<U>> for NonEmpty<T>
 where
-    NonEmpty<T>: TryFrom<U>,
+    NonEmpty<T>: TryFrom<U, Error = EmptyError<U>>,
 {
-    type Error = EmptyError;
+    type Error = EmptyError<U>;
 
     fn try_from(serde: Serde<U>) -> Result<Self, Self::Error> {
-        NonEmpty::try_from(serde.items).map_err(|_| EmptyError)
+        <NonEmpty<T> as TryFrom<U>>::try_from(serde.items)
     }
 }
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct EmptyError;
-
-impl Display for EmptyError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", EMPTY_ERROR_MESSAGE)
-    }
-}
-
-impl Error for EmptyError {}
 
 #[cfg(all(test, any(feature = "alloc", feature = "arrayvec")))]
 pub mod harness {
@@ -51,7 +36,7 @@ pub mod harness {
     use serde::{Deserialize, Serialize};
     use serde_test::{self, Token};
 
-    use crate::serde::EMPTY_ERROR_MESSAGE;
+    use crate::EMPTY_ERROR_MESSAGE;
 
     #[fixture]
     pub fn sequence(#[default(5)] len: u8) -> impl Iterator<Item = Token> {

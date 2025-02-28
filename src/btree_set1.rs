@@ -22,7 +22,7 @@ use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, Intersect, RelationalRange};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ItemFor<K> = <K as ClosedBTreeSet>::Item;
 
@@ -752,7 +752,7 @@ where
 }
 
 impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
-    type Error = BTreeSet<T>;
+    type Error = EmptyError<BTreeSet<T>>;
 
     fn try_from(items: BTreeSet<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

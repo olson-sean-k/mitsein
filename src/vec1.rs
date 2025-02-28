@@ -35,7 +35,7 @@ use crate::str1::Str1;
 use crate::string1::String1;
 use crate::take;
 use crate::vec_deque1::VecDeque1;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ItemFor<K> = <K as ClosedVec>::Item;
 
@@ -770,7 +770,7 @@ impl<'a, T> TryFrom<&'a [T]> for Vec1<T>
 where
     T: Clone,
 {
-    type Error = &'a [T];
+    type Error = EmptyError<&'a [T]>;
 
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
         Slice1::try_from_slice(items).map(Vec1::from)
@@ -781,7 +781,7 @@ impl<'a, T> TryFrom<&'a mut [T]> for Vec1<T>
 where
     T: Clone,
 {
-    type Error = &'a mut [T];
+    type Error = EmptyError<&'a mut [T]>;
 
     fn try_from(items: &'a mut [T]) -> Result<Self, Self::Error> {
         Slice1::try_from_mut_slice(items).map(Vec1::from)
@@ -789,7 +789,7 @@ where
 }
 
 impl<T> TryFrom<Vec<T>> for Vec1<T> {
-    type Error = Vec<T>;
+    type Error = EmptyError<Vec<T>>;
 
     fn try_from(items: Vec<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

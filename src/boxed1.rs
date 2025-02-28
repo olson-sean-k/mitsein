@@ -12,12 +12,13 @@ use core::slice;
 use crate::array1::Array1;
 use crate::iter1::{IntoIterator1, Iterator1};
 #[cfg(feature = "serde")]
-use crate::serde::{EmptyError, Serde};
+use crate::serde::Serde;
 use crate::slice1::Slice1;
 use crate::str1::Str1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::vec1::Vec1;
+use crate::EmptyError;
 
 pub type BoxedSlice1<T> = Box<Slice1<T>>;
 
@@ -30,9 +31,9 @@ pub trait BoxedSlice1Ext<T>: Sized {
     /// [`Box::from`]: alloc::boxed::Box::from
     unsafe fn from_boxed_slice_unchecked(items: Box<[T]>) -> Self;
 
-    fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, Box<[T]>>;
+    fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, EmptyError<Box<[T]>>>;
 
-    fn try_from_slice(items: &[T]) -> Result<Self, &[T]>
+    fn try_from_slice(items: &[T]) -> Result<Self, EmptyError<&[T]>>
     where
         T: Clone;
 
@@ -60,20 +61,20 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
         Box::from_raw(items as *mut Slice1<T>)
     }
 
-    fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, Box<[T]>> {
+    fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, EmptyError<Box<[T]>>> {
         match items.len() {
-            0 => Err(items),
+            0 => Err(EmptyError::from_empty(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(items) }),
         }
     }
 
-    fn try_from_slice(items: &[T]) -> Result<Self, &[T]>
+    fn try_from_slice(items: &[T]) -> Result<Self, EmptyError<&[T]>>
     where
         T: Clone,
     {
         match items.len() {
-            0 => Err(items),
+            0 => Err(EmptyError::from_empty(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(Box::from(items)) }),
         }
@@ -207,7 +208,7 @@ impl<'a, T> TryFrom<&'a [T]> for BoxedSlice1<T>
 where
     T: Clone,
 {
-    type Error = &'a [T];
+    type Error = EmptyError<&'a [T]>;
 
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
         BoxedSlice1::try_from_slice(items)
@@ -215,7 +216,7 @@ where
 }
 
 impl<T> TryFrom<Box<[T]>> for BoxedSlice1<T> {
-    type Error = Box<[T]>;
+    type Error = EmptyError<Box<[T]>>;
 
     fn try_from(items: Box<[T]>) -> Result<Self, Self::Error> {
         BoxedSlice1::try_from_boxed_slice(items)
@@ -225,10 +226,10 @@ impl<T> TryFrom<Box<[T]>> for BoxedSlice1<T> {
 #[cfg(feature = "serde")]
 #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl<T> TryFrom<Serde<Box<[T]>>> for BoxedSlice1<T> {
-    type Error = EmptyError;
+    type Error = EmptyError<Box<[T]>>;
 
     fn try_from(serde: Serde<Box<[T]>>) -> Result<Self, Self::Error> {
-        BoxedSlice1::try_from_boxed_slice(serde.items).map_err(|_| EmptyError)
+        BoxedSlice1::try_from_boxed_slice(serde.items)
     }
 }
 

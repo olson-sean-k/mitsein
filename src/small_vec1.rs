@@ -26,7 +26,7 @@ use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ArrayFor<K> = <K as ClosedSmallVec>::Array;
 type ItemFor<K> = <K as ClosedSmallVec>::Item;
@@ -737,7 +737,7 @@ where
     A: Array<Item = T>,
     T: Clone,
 {
-    type Error = &'a [T];
+    type Error = EmptyError<&'a [T]>;
 
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
         Slice1::try_from_slice(items).map(SmallVec1::from)
@@ -748,7 +748,7 @@ impl<A> TryFrom<SmallVec<A>> for SmallVec1<A>
 where
     A: Array,
 {
-    type Error = SmallVec<A>;
+    type Error = EmptyError<SmallVec<A>>;
 
     fn try_from(items: SmallVec<A>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

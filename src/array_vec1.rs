@@ -8,7 +8,8 @@ use arbitrary::{Arbitrary, Unstructured};
 use arrayvec::{ArrayVec, CapacityError};
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
-use core::fmt::{self, Debug, Formatter};
+use core::error::Error;
+use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
@@ -26,7 +27,7 @@ use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::slice1::Slice1;
 use crate::take;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ItemFor<K, const N: usize> = <K as ClosedArrayVec<N>>::Item;
 
@@ -125,6 +126,66 @@ impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
     type Target = Self;
     type Kind = Self;
 }
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum CardinalityError<T> {
+    Empty(EmptyError<T>),
+    // Unlike `EmptyError`, the input type parameter and payload of `CapacityError` is meant to
+    // represent an item rather than a collection, so this parameter is always the unit type here.
+    Capacity(CapacityError<()>),
+}
+
+impl<T> CardinalityError<T> {
+    pub fn empty(self) -> Option<EmptyError<T>> {
+        match self {
+            CardinalityError::Empty(error) => Some(error),
+            _ => None,
+        }
+    }
+
+    pub fn capacity(self) -> Option<CapacityError<()>> {
+        match self {
+            CardinalityError::Capacity(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl<T> Debug for CardinalityError<T> {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        match self {
+            CardinalityError::Empty(ref error) => {
+                formatter.debug_tuple("Empty").field(error).finish()
+            },
+            CardinalityError::Capacity(ref error) => {
+                formatter.debug_tuple("Capacity").field(error).finish()
+            },
+        }
+    }
+}
+
+impl<T> Display for CardinalityError<T> {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        match self {
+            CardinalityError::Empty(ref error) => write!(formatter, "{}", error),
+            CardinalityError::Capacity(ref error) => write!(formatter, "{}", error),
+        }
+    }
+}
+
+impl<T> From<CapacityError<()>> for CardinalityError<T> {
+    fn from(error: CapacityError<()>) -> Self {
+        CardinalityError::Capacity(error)
+    }
+}
+
+impl<T> From<EmptyError<T>> for CardinalityError<T> {
+    fn from(error: EmptyError<T>) -> Self {
+        CardinalityError::Empty(error)
+    }
+}
+
+impl<T> Error for CardinalityError<T> {}
 
 type TakeOr<'a, T, U, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, U, M>;
 
@@ -632,11 +693,12 @@ where
     [T; N]: Array1,
     T: Clone,
 {
-    type Error = &'a [T];
+    type Error = CardinalityError<&'a [T]>;
 
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
         Slice1::try_from_slice(items)
-            .and_then(|items1| ArrayVec1::try_from(items1).map_err(|_| items))
+            .map_err(From::from)
+            .and_then(|items| ArrayVec1::try_from(items).map_err(From::from))
     }
 }
 
@@ -645,13 +707,12 @@ where
     [T; N]: Array1,
     T: Clone,
 {
-    type Error = &'a Slice1<T>;
+    type Error = CapacityError;
 
     fn try_from(items: &'a Slice1<T>) -> Result<Self, Self::Error> {
         ArrayVec::try_from(items.as_slice())
             // SAFETY: `items` is non-empty.
             .map(|items| unsafe { ArrayVec1::from_array_vec_unchecked(items) })
-            .map_err(|_| items)
     }
 }
 
@@ -659,7 +720,7 @@ impl<T, const N: usize> TryFrom<ArrayVec<T, N>> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
-    type Error = ArrayVec<T, N>;
+    type Error = EmptyError<ArrayVec<T, N>>;
 
     fn try_from(items: ArrayVec<T, N>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

@@ -23,7 +23,7 @@ use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 impl Extend1<char> for String {
     fn extend_non_empty<I>(mut self, items: I) -> String1
@@ -432,7 +432,7 @@ crate::impl_partial_eq_for_non_empty!([in String1] => [in &str]);
 crate::impl_partial_eq_for_non_empty!([in String1] == [in &Str1]);
 
 impl<'a> TryFrom<&'a str> for String1 {
-    type Error = &'a str;
+    type Error = EmptyError<&'a str>;
 
     fn try_from(items: &'a str) -> Result<Self, Self::Error> {
         Str1::try_from_str(items).map(String1::from)
@@ -440,7 +440,7 @@ impl<'a> TryFrom<&'a str> for String1 {
 }
 
 impl<'a> TryFrom<&'a mut str> for String1 {
-    type Error = &'a mut str;
+    type Error = EmptyError<&'a mut str>;
 
     fn try_from(items: &'a mut str) -> Result<Self, Self::Error> {
         Str1::try_from_mut_str(items).map(String1::from)
@@ -448,7 +448,7 @@ impl<'a> TryFrom<&'a mut str> for String1 {
 }
 
 impl TryFrom<String> for String1 {
-    type Error = String;
+    type Error = EmptyError<String>;
 
     fn try_from(items: String) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

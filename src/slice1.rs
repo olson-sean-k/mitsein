@@ -14,7 +14,7 @@ use crate::iter1::{IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{IntoParallelIterator1, ParallelIterator1};
 use crate::safety;
-use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 
@@ -60,11 +60,11 @@ impl<T> Slice1<T> {
         mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items)
     }
 
-    pub fn try_from_slice(items: &[T]) -> Result<&Self, &[T]> {
+    pub fn try_from_slice(items: &[T]) -> Result<&Self, EmptyError<&[T]>> {
         items.try_into()
     }
 
-    pub fn try_from_mut_slice(items: &mut [T]) -> Result<&mut Self, &mut [T]> {
+    pub fn try_from_mut_slice(items: &mut [T]) -> Result<&mut Self, EmptyError<&mut [T]>> {
         items.try_into()
     }
 
@@ -360,7 +360,7 @@ where
 }
 
 impl<'a, T> TryFrom<&'a [T]> for &'a Slice1<T> {
-    type Error = &'a [T];
+    type Error = EmptyError<&'a [T]>;
 
     fn try_from(items: &'a [T]) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
@@ -368,7 +368,7 @@ impl<'a, T> TryFrom<&'a [T]> for &'a Slice1<T> {
 }
 
 impl<'a, T> TryFrom<&'a mut [T]> for &'a mut Slice1<T> {
-    type Error = &'a mut [T];
+    type Error = EmptyError<&'a mut [T]>;
 
     fn try_from(items: &'a mut [T]) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)

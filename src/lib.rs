@@ -361,21 +361,26 @@ pub mod prelude {
 
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
+#[cfg(feature = "alloc")]
+use alloc::borrow::ToOwned;
 use core::cmp::Ordering;
-use core::fmt::Debug;
+use core::error::Error;
+use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 
 #[cfg(feature = "serde")]
-use crate::serde::{EmptyError, Serde};
+use crate::serde::Serde;
 
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeOr;
 
+const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
+
 trait MaybeEmptyExt: MaybeEmpty {
-    fn map_non_empty<T, F>(self, f: F) -> Result<T, Self>
+    fn map_non_empty<T, F>(self, f: F) -> Result<T, EmptyError<Self>>
     where
         F: FnOnce(Self) -> T;
 
@@ -390,12 +395,12 @@ impl<T> MaybeEmptyExt for T
 where
     T: MaybeEmpty,
 {
-    fn map_non_empty<U, F>(self, f: F) -> Result<U, Self>
+    fn map_non_empty<U, F>(self, f: F) -> Result<U, EmptyError<Self>>
     where
         F: FnOnce(Self) -> U,
     {
         if self.is_empty() {
-            Err(self)
+            Err(EmptyError::from_empty(self))
         }
         else {
             Ok(f(self))
@@ -421,7 +426,7 @@ trait FromMaybeEmpty<T>: Sized
 where
     T: MaybeEmpty,
 {
-    fn try_from_maybe_empty(items: T) -> Result<Self, T> {
+    fn try_from_maybe_empty(items: T) -> Result<Self, EmptyError<T>> {
         items.map_non_empty(|items| {
             // SAFETY: The `map_non_empty` function only executes this code if `items` is
             //         non-empty.
@@ -435,6 +440,58 @@ where
     unsafe fn from_maybe_empty_unchecked(items: T) -> Self;
 }
 
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub struct EmptyError<T> {
+    items: T,
+}
+
+impl<T> EmptyError<T> {
+    fn from_empty(items: T) -> Self {
+        EmptyError { items }
+    }
+
+    pub fn into_empty(self) -> T {
+        self.items
+    }
+
+    pub fn take(self) -> (T, EmptyError<()>) {
+        (self.items, EmptyError::from_empty(()))
+    }
+
+    pub fn take_and_drop(self) -> EmptyError<()> {
+        EmptyError::from_empty(())
+    }
+
+    pub fn as_empty(&self) -> &T {
+        &self.items
+    }
+}
+
+impl<T> EmptyError<&'_ T> {
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn into_owned(self) -> EmptyError<T::Owned>
+    where
+        T: ToOwned,
+    {
+        EmptyError::from_empty(self.items.to_owned())
+    }
+}
+
+impl<T> Debug for EmptyError<T> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("EmptyError").finish_non_exhaustive()
+    }
+}
+
+impl<T> Display for EmptyError<T> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", EMPTY_ERROR_MESSAGE)
+    }
+}
+
+impl<T> Error for EmptyError<T> {}
+
 #[cfg_attr(
     feature = "serde",
     derive(::serde_derive::Deserialize, ::serde_derive::Serialize)
@@ -443,7 +500,7 @@ where
     feature = "serde",
     serde(
         bound(
-            deserialize = "Self: TryFrom<Serde<T>, Error = EmptyError>, \
+            deserialize = "Self: TryFrom<Serde<T>, Error = EmptyError<T>>, \
                            T: Clone + Deserialize<'de>,",
             serialize = "T: Clone + Serialize,",
         ),

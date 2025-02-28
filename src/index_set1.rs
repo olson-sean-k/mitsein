@@ -31,7 +31,7 @@ use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
-use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 type ItemFor<K> = <K as ClosedIndexSet>::Item;
 type StateFor<K> = <K as ClosedIndexSet>::State;
@@ -1175,7 +1175,7 @@ where
 }
 
 impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
-    type Error = IndexSet<T, S>;
+    type Error = EmptyError<IndexSet<T, S>>;
 
     fn try_from(items: IndexSet<T, S>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
