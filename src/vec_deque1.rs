@@ -334,7 +334,7 @@ impl<T> VecDeque1<T> {
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T> VecDeque1<T> {
-    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ VecDeque<T> as IntoParallelIterator>::Iter>
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ Self as IntoParallelIterator>::Iter>
     where
         T: Sync,
     {
@@ -343,7 +343,7 @@ impl<T> VecDeque1<T> {
 
     pub fn par_iter1_mut(
         &mut self,
-    ) -> ParallelIterator1<<&'_ mut VecDeque<T> as IntoParallelIterator>::Iter>
+    ) -> ParallelIterator1<<&'_ mut Self as IntoParallelIterator>::Iter>
     where
         T: Send,
     {

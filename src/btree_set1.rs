@@ -435,7 +435,7 @@ impl<T> BTreeSet1<T>
 where
     T: Ord,
 {
-    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ BTreeSet<T> as IntoParallelIterator>::Iter>
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ Self as IntoParallelIterator>::Iter>
     where
         T: Sync,
     {

@@ -1202,7 +1202,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         self.items.par_sort_by_cached_key(f)
     }
 
-    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ IndexMap<K, V> as IntoParallelIterator>::Iter>
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ Self as IntoParallelIterator>::Iter>
     where
         K: Sync,
         V: Sync,
@@ -1213,7 +1213,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
 
     pub fn par_iter1_mut(
         &mut self,
-    ) -> ParallelIterator1<<&'_ mut IndexMap<K, V> as IntoParallelIterator>::Iter>
+    ) -> ParallelIterator1<<&'_ mut Self as IntoParallelIterator>::Iter>
     where
         K: Send + Sync,
         V: Send,

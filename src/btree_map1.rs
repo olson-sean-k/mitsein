@@ -741,7 +741,7 @@ impl<K, V> BTreeMap1<K, V>
 where
     K: Ord,
 {
-    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ BTreeMap<K, V> as IntoParallelIterator>::Iter>
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ Self as IntoParallelIterator>::Iter>
     where
         K: Sync,
         V: Sync,
@@ -751,7 +751,7 @@ where
 
     pub fn par_iter1_mut(
         &mut self,
-    ) -> ParallelIterator1<<&'_ mut BTreeMap<K, V> as IntoParallelIterator>::Iter>
+    ) -> ParallelIterator1<<&'_ mut Self as IntoParallelIterator>::Iter>
     where
         K: Sync,
         V: Send,

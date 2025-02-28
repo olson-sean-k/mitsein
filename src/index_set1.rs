@@ -667,7 +667,7 @@ where
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl<T, S> IndexSet1<T, S> {
-    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ IndexSet<T, S> as IntoParallelIterator>::Iter>
+    pub fn par_iter1(&self) -> ParallelIterator1<<&'_ Self as IntoParallelIterator>::Iter>
     where
         T: Sync,
         S: Sync,
