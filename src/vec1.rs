@@ -705,6 +705,30 @@ where
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator1 for &'_ Vec1<T>
+where
+    T: Sync,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T> IntoParallelIterator1 for &'_ mut Vec1<T>
+where
+    T: Send,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
+    }
+}
+
 crate::impl_partial_eq_for_non_empty!([for U, const N: usize in [U; N]] <= [for T in Vec1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U, const N: usize in &[U; N]] <= [for T in Vec1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in [U]] <= [for T in Vec1<T>]);

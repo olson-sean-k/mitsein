@@ -1110,6 +1110,19 @@ where
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<T, S> IntoParallelIterator1 for &'_ IndexSet1<T, S>
+where
+    T: Sync,
+    S: Sync,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
+    }
+}
+
 impl<T, S> Segmentation for IndexSet1<T, S> {
     fn tail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::tail(&self.items))

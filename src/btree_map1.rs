@@ -963,6 +963,32 @@ where
     }
 }
 
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<K, V> IntoParallelIterator1 for &'_ BTreeMap1<K, V>
+where
+    K: Ord + Sync,
+    V: Sync,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+impl<K, V> IntoParallelIterator1 for &'_ mut BTreeMap1<K, V>
+where
+    K: Ord + Sync,
+    V: Send,
+{
+    fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
+        // SAFETY: `self` must be non-empty.
+        unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
+    }
+}
+
 impl<K, V> Segmentation for BTreeMap1<K, V>
 where
     K: Clone + UnsafeOrd,
