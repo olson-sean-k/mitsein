@@ -250,22 +250,11 @@ impl<T> BTreeSet1<T> {
         })
     }
 
-    pub fn pop_first_until_only(&mut self) -> &T
+    pub fn pop_first_until_only(&mut self) -> PopFirstUntilOnly<'_, T>
     where
         T: Ord,
     {
-        self.pop_first_until_only_with(|_| {})
-    }
-
-    pub fn pop_first_until_only_with<F>(&mut self, mut f: F) -> &T
-    where
-        T: Ord,
-        F: FnMut(T),
-    {
-        while let Some(item) = self.pop_first_or().none() {
-            f(item);
-        }
-        self.first()
+        PopFirstUntilOnly { items: self }
     }
 
     pub fn pop_last_or(&mut self) -> PopOr<'_, Self>
@@ -278,22 +267,11 @@ impl<T> BTreeSet1<T> {
         })
     }
 
-    pub fn pop_last_until_only(&mut self) -> &T
+    pub fn pop_last_until_only(&mut self) -> PopLastUntilOnly<'_, T>
     where
         T: Ord,
     {
-        self.pop_last_until_only_with(|_| {})
-    }
-
-    pub fn pop_last_until_only_with<F>(&mut self, mut f: F) -> &T
-    where
-        T: Ord,
-        F: FnMut(T),
-    {
-        while let Some(item) = self.pop_last_or().none() {
-            f(item);
-        }
-        self.last()
+        PopLastUntilOnly { items: self }
     }
 
     pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, Self, Q>
@@ -756,6 +734,62 @@ impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
 
     fn try_from(items: BTreeSet<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+#[derive(Debug)]
+pub struct PopFirstUntilOnly<'a, T>
+where
+    T: Ord,
+{
+    items: &'a mut BTreeSet1<T>,
+}
+
+impl<T> Drop for PopFirstUntilOnly<'_, T>
+where
+    T: Ord,
+{
+    fn drop(&mut self) {
+        self.for_each(drop)
+    }
+}
+
+impl<T> Iterator for PopFirstUntilOnly<'_, T>
+where
+    T: Ord,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.items.pop_first_or().none()
+    }
+}
+
+#[derive(Debug)]
+pub struct PopLastUntilOnly<'a, T>
+where
+    T: Ord,
+{
+    items: &'a mut BTreeSet1<T>,
+}
+
+impl<T> Drop for PopLastUntilOnly<'_, T>
+where
+    T: Ord,
+{
+    fn drop(&mut self) {
+        self.for_each(drop)
+    }
+}
+
+impl<T> Iterator for PopLastUntilOnly<'_, T>
+where
+    T: Ord,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.items.pop_last_or().none()
     }
 }
 

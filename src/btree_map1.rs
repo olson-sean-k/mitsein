@@ -558,22 +558,11 @@ impl<K, V> BTreeMap1<K, V> {
         })
     }
 
-    pub fn pop_first_until_only(&mut self) -> OnlyEntry<'_, K, V>
+    pub fn pop_first_until_only(&mut self) -> PopFirstUntilOnly<'_, K, V>
     where
         K: Ord,
     {
-        self.pop_first_until_only_with(|_| {})
-    }
-
-    pub fn pop_first_until_only_with<F>(&mut self, mut f: F) -> OnlyEntry<'_, K, V>
-    where
-        K: Ord,
-        F: FnMut((K, V)),
-    {
-        while let Some(item) = self.pop_first_or().none() {
-            f(item);
-        }
-        self.first_entry_as_only()
+        PopFirstUntilOnly { items: self }
     }
 
     pub fn pop_last_or(&mut self) -> PopOr<'_, Self>
@@ -586,22 +575,11 @@ impl<K, V> BTreeMap1<K, V> {
         })
     }
 
-    pub fn pop_last_until_only(&mut self) -> OnlyEntry<'_, K, V>
+    pub fn pop_last_until_only(&mut self) -> PopLastUntilOnly<'_, K, V>
     where
         K: Ord,
     {
-        self.pop_last_until_only_with(|_| {})
-    }
-
-    pub fn pop_last_until_only_with<F>(&mut self, mut f: F) -> OnlyEntry<'_, K, V>
-    where
-        K: Ord,
-        F: FnMut((K, V)),
-    {
-        while let Some(item) = self.pop_last_or().none() {
-            f(item);
-        }
-        self.first_entry_as_only()
+        PopLastUntilOnly { items: self }
     }
 
     pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveOr<'a, 'q, Self, Q>
@@ -1032,6 +1010,62 @@ impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
 
     fn try_from(items: BTreeMap<K, V>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+#[derive(Debug)]
+pub struct PopFirstUntilOnly<'a, K, V>
+where
+    K: Ord,
+{
+    items: &'a mut BTreeMap1<K, V>,
+}
+
+impl<K, V> Drop for PopFirstUntilOnly<'_, K, V>
+where
+    K: Ord,
+{
+    fn drop(&mut self) {
+        self.for_each(drop)
+    }
+}
+
+impl<K, V> Iterator for PopFirstUntilOnly<'_, K, V>
+where
+    K: Ord,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.items.pop_first_or().none()
+    }
+}
+
+#[derive(Debug)]
+pub struct PopLastUntilOnly<'a, K, V>
+where
+    K: Ord,
+{
+    items: &'a mut BTreeMap1<K, V>,
+}
+
+impl<K, V> Drop for PopLastUntilOnly<'_, K, V>
+where
+    K: Ord,
+{
+    fn drop(&mut self) {
+        self.for_each(drop)
+    }
+}
+
+impl<K, V> Iterator for PopLastUntilOnly<'_, K, V>
+where
+    K: Ord,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.items.pop_first_or().none()
     }
 }
 
