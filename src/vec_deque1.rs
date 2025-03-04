@@ -110,22 +110,22 @@ impl<T> SegmentedOver for VecDeque<T> {
     type Kind = Self;
 }
 
-type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, VecDeque<T>, U, N>;
+type Take<'a, T, U, N = ()> = take::Take<'a, VecDeque<T>, U, N>;
 
-pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, ItemFor<K>, ()>;
+pub type Pop<'a, K> = Take<'a, ItemFor<K>, ItemFor<K>, ()>;
 
-pub type RemoveOr<'a, K> = TakeOr<'a, ItemFor<K>, Option<ItemFor<K>>, usize>;
+pub type Remove<'a, K> = Take<'a, ItemFor<K>, Option<ItemFor<K>>, usize>;
 
-impl<'a, T, N> TakeOr<'a, T, T, N> {
-    pub fn get_only(self) -> Result<T, &'a T> {
+impl<'a, T, N> Take<'a, T, T, N> {
+    pub fn or_get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.front())
     }
 
-    pub fn replace_only(self, replacement: T) -> Result<T, T> {
-        self.else_replace_only(move || replacement)
+    pub fn or_replace_only(self, replacement: T) -> Result<T, T> {
+        self.or_else_replace_only(move || replacement)
     }
 
-    pub fn else_replace_only<F>(self, f: F) -> Result<T, T>
+    pub fn or_else_replace_only<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
@@ -133,16 +133,16 @@ impl<'a, T, N> TakeOr<'a, T, T, N> {
     }
 }
 
-impl<'a, T> TakeOr<'a, T, Option<T>, usize> {
-    pub fn get(self) -> Option<Result<T, &'a T>> {
+impl<'a, T> Take<'a, T, Option<T>, usize> {
+    pub fn or_get(self) -> Option<Result<T, &'a T>> {
         self.try_take_or_else(|items, index| items.get(index))
     }
 
-    pub fn replace(self, replacement: T) -> Option<Result<T, T>> {
-        self.else_replace(move || replacement)
+    pub fn or_replace(self, replacement: T) -> Option<Result<T, T>> {
+        self.or_else_replace(move || replacement)
     }
 
-    pub fn else_replace<F>(self, f: F) -> Option<Result<T, T>>
+    pub fn or_else_replace<F>(self, f: F) -> Option<Result<T, T>>
     where
         F: FnOnce() -> T,
     {
@@ -244,16 +244,16 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_or(&mut self) -> PopOr<'_, Self> {
+    pub fn pop_front(&mut self) -> Pop<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, ()| unsafe {
+        Take::with(self, (), |items, ()| unsafe {
             items.items.pop_front().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn pop_back_or(&mut self) -> PopOr<'_, Self> {
+    pub fn pop_back(&mut self) -> Pop<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, ()| unsafe {
+        Take::with(self, (), |items, ()| unsafe {
             items.items.pop_back().unwrap_maybe_unchecked()
         })
     }
@@ -262,18 +262,18 @@ impl<T> VecDeque1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
-        TakeOr::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove(&mut self, index: usize) -> Remove<'_, Self> {
+        Take::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_front_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
-        TakeOr::with(self, index, |items, index| {
+    pub fn swap_remove_front(&mut self, index: usize) -> Remove<'_, Self> {
+        Take::with(self, index, |items, index| {
             items.items.swap_remove_front(index)
         })
     }
 
-    pub fn swap_remove_back_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
-        TakeOr::with(self, index, |items, index| {
+    pub fn swap_remove_back(&mut self, index: usize) -> Remove<'_, Self> {
+        Take::with(self, index, |items, index| {
             items.items.swap_remove_back(index)
         })
     }

@@ -51,7 +51,7 @@ Removing items from a `Vec1`:
 use mitsein::prelude::*;
 
 let mut xs = Vec1::from([0i32, 1, 2]);
-while let Ok(item) = xs.pop_or().get_only() { ... }
+while let Ok(item) = xs.pop().or_get_only() { ... }
 
 let mut xs = Vec1::from([0i32, 1, 2]);
 xs.tail().clear();
@@ -89,13 +89,13 @@ and slicing and can have surprising performance implications when items are
 non-trivial to copy or clone.
 
 **Non-empty collection APIs that exhibit different behavior from their
-counterparts have distinct names and APIs in Mitsein.** For example, the
+counterparts have distinct names and/or APIs in Mitsein.** For example, the
 [`vec1`] crate presents `Vec1::pop` and `Vec1::remove`, which have different
-behavior than `Vec::pop` and `Vec::remove`. Mitsein presents explicit APIs like
-`Vec1::pop_or`, which return a proxy type that determines what to do when only
-one item remains. This leads to more explicit expressions like
-`xs.pop_or().get_only()`, `xs.pop_or().none()`, and
-`xs.remove_or(1).else_replace_only(|| 0)`.
+behavior than `Vec::pop` and `Vec::remove`. Mitsein also presents `Vec1::pop`,
+but it returns a proxy type that determines what to do when only one item
+remains. This enforces more explicit and more distinct expressions like
+`xs.pop().or_get_only()`, `xs.pop().or_none()`,
+`xs.remove(1).or_else_replace_only(|| 0)`, etc.
 
 **Mitsein separates many non-empty error concerns into a segmentation API.**
 Segments span a range in a collection and support the insertion and removal of

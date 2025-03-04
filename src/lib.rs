@@ -58,7 +58,7 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
-//! while let Ok(_) = xs.pop_or().get_only() {}
+//! while let Ok(_) = xs.pop().or_get_only() {}
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
@@ -375,7 +375,7 @@ use crate::serde::Serde;
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
-pub use take::TakeOr;
+pub use take::Take;
 
 const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
 

@@ -187,28 +187,27 @@ impl<T> From<EmptyError<T>> for CardinalityError<T> {
 
 impl<T> Error for CardinalityError<T> {}
 
-type TakeOr<'a, T, U, M, const N: usize> = take::TakeOr<'a, ArrayVec<T, N>, U, M>;
+type Take<'a, T, U, M, const N: usize> = take::Take<'a, ArrayVec<T, N>, U, M>;
 
-pub type PopOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, ItemFor<K, N>, (), N>;
+pub type Pop<'a, K, const N: usize> = Take<'a, ItemFor<K, N>, ItemFor<K, N>, (), N>;
 
-pub type SwapPopOr<'a, K, const N: usize> =
-    TakeOr<'a, ItemFor<K, N>, Option<ItemFor<K, N>>, usize, N>;
+pub type SwapPop<'a, K, const N: usize> = Take<'a, ItemFor<K, N>, Option<ItemFor<K, N>>, usize, N>;
 
-pub type RemoveOr<'a, K, const N: usize> = TakeOr<'a, ItemFor<K, N>, ItemFor<K, N>, usize, N>;
+pub type Remove<'a, K, const N: usize> = Take<'a, ItemFor<K, N>, ItemFor<K, N>, usize, N>;
 
-impl<'a, T, M, const N: usize> TakeOr<'a, T, T, M, N>
+impl<'a, T, M, const N: usize> Take<'a, T, T, M, N>
 where
     [T; N]: Array1,
 {
-    pub fn get_only(self) -> Result<T, &'a T> {
+    pub fn or_get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 
-    pub fn replace_only(self, replacement: T) -> Result<T, T> {
-        self.else_replace_only(move || replacement)
+    pub fn or_replace_only(self, replacement: T) -> Result<T, T> {
+        self.or_else_replace_only(move || replacement)
     }
 
-    pub fn else_replace_only<F>(self, f: F) -> Result<T, T>
+    pub fn or_else_replace_only<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
@@ -216,19 +215,19 @@ where
     }
 }
 
-impl<'a, T, const N: usize> TakeOr<'a, T, T, usize, N>
+impl<'a, T, const N: usize> Take<'a, T, T, usize, N>
 where
     [T; N]: Array1,
 {
-    pub fn get(self) -> Result<T, &'a T> {
+    pub fn or_get(self) -> Result<T, &'a T> {
         self.take_or_else(|items, index| &items[index])
     }
 
-    pub fn replace(self, replacement: T) -> Result<T, T> {
-        self.else_replace(move || replacement)
+    pub fn or_replace(self, replacement: T) -> Result<T, T> {
+        self.or_else_replace(move || replacement)
     }
 
-    pub fn else_replace<F>(self, f: F) -> Result<T, T>
+    pub fn or_else_replace<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
@@ -236,19 +235,19 @@ where
     }
 }
 
-impl<'a, T, const N: usize> TakeOr<'a, T, Option<T>, usize, N>
+impl<'a, T, const N: usize> Take<'a, T, Option<T>, usize, N>
 where
     [T; N]: Array1,
 {
-    pub fn get(self) -> Option<Result<T, &'a T>> {
+    pub fn or_get(self) -> Option<Result<T, &'a T>> {
         self.try_take_or_else(|items, index| items.get(index))
     }
 
-    pub fn replace(self, replacement: T) -> Option<Result<T, T>> {
-        self.else_replace(move || replacement)
+    pub fn or_replace(self, replacement: T) -> Option<Result<T, T>> {
+        self.or_else_replace(move || replacement)
     }
 
-    pub fn else_replace<F>(self, f: F) -> Option<Result<T, T>>
+    pub fn or_else_replace<F>(self, f: F) -> Option<Result<T, T>>
     where
         F: FnOnce() -> T,
     {
@@ -354,15 +353,15 @@ where
         self.items.push_unchecked(item)
     }
 
-    pub fn pop_or(&mut self) -> PopOr<'_, Self, N> {
+    pub fn pop(&mut self) -> Pop<'_, Self, N> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, _| unsafe {
+        Take::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn swap_pop_or(&mut self, index: usize) -> SwapPopOr<'_, Self, N> {
-        TakeOr::with(self, index, |items, index| items.items.swap_pop(index))
+    pub fn swap_pop(&mut self, index: usize) -> SwapPop<'_, Self, N> {
+        Take::with(self, index, |items, index| items.items.swap_pop(index))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -373,12 +372,12 @@ where
         self.items.try_insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, Self, N> {
-        TakeOr::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove(&mut self, index: usize) -> Remove<'_, Self, N> {
+        Take::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> RemoveOr<'_, Self, N> {
-        TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove(&mut self, index: usize) -> Remove<'_, Self, N> {
+        Take::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub const fn len(&self) -> NonZeroUsize {
