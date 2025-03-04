@@ -111,22 +111,22 @@ impl<T> SegmentedOver for Vec<T> {
     type Kind = Self;
 }
 
-type TakeOr<'a, T, N = ()> = take::TakeOr<'a, Vec<T>, T, N>;
+type Take<'a, T, N = ()> = take::Take<'a, Vec<T>, T, N>;
 
-pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, ()>;
+pub type Pop<'a, K> = Take<'a, ItemFor<K>, ()>;
 
-pub type RemoveOr<'a, K> = TakeOr<'a, ItemFor<K>, usize>;
+pub type Remove<'a, K> = Take<'a, ItemFor<K>, usize>;
 
-impl<'a, T, N> TakeOr<'a, T, N> {
-    pub fn get_only(self) -> Result<T, &'a T> {
+impl<'a, T, N> Take<'a, T, N> {
+    pub fn or_get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 
-    pub fn replace_only(self, replacement: T) -> Result<T, T> {
-        self.else_replace_only(move || replacement)
+    pub fn or_replace_only(self, replacement: T) -> Result<T, T> {
+        self.or_else_replace_only(move || replacement)
     }
 
-    pub fn else_replace_only<F>(self, f: F) -> Result<T, T>
+    pub fn or_else_replace_only<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
@@ -134,16 +134,16 @@ impl<'a, T, N> TakeOr<'a, T, N> {
     }
 }
 
-impl<'a, T> TakeOr<'a, T, usize> {
-    pub fn get(self) -> Result<T, &'a T> {
+impl<'a, T> Take<'a, T, usize> {
+    pub fn or_get(self) -> Result<T, &'a T> {
         self.take_or_else(|items, index| &items[index])
     }
 
-    pub fn replace(self, replacement: T) -> Result<T, T> {
-        self.else_replace(move || replacement)
+    pub fn or_replace(self, replacement: T) -> Result<T, T> {
+        self.or_else_replace(move || replacement)
     }
 
-    pub fn else_replace<F>(self, f: F) -> Result<T, T>
+    pub fn or_else_replace<F>(self, f: F) -> Result<T, T>
     where
         F: FnOnce() -> T,
     {
@@ -268,9 +268,9 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop_or(&mut self) -> PopOr<'_, Self> {
+    pub fn pop(&mut self) -> Pop<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, ()| unsafe {
+        Take::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -279,12 +279,12 @@ impl<T> Vec1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
-        TakeOr::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove(&mut self, index: usize) -> Remove<'_, Self> {
+        Take::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_or(&mut self, index: usize) -> RemoveOr<'_, Self> {
-        TakeOr::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove(&mut self, index: usize) -> Remove<'_, Self> {
+        Take::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub fn dedup(&mut self)
@@ -1351,11 +1351,11 @@ mod tests {
     fn pop_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
         let first = *xs1.first();
         let mut tail = xs1.as_slice()[1..].to_vec();
-        while let Ok(item) = xs1.pop_or().get_only() {
+        while let Ok(item) = xs1.pop().or_get_only() {
             assert_eq!(tail.pop().unwrap(), item);
         }
         for _ in 0..3 {
-            assert_eq!(xs1.pop_or().get_only(), Err(&first));
+            assert_eq!(xs1.pop().or_get_only(), Err(&first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
     }

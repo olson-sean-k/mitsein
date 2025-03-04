@@ -128,39 +128,39 @@ where
     type Target = Self;
 }
 
-type TakeOr<'a, T, U, N = ()> = take::TakeOr<'a, BTreeSet<T>, U, N>;
+type Take<'a, T, U, N = ()> = take::Take<'a, BTreeSet<T>, U, N>;
 
-pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, ItemFor<K>>;
+pub type Pop<'a, K> = Take<'a, ItemFor<K>, ItemFor<K>>;
 
-pub type DropRemoveOr<'a, 'q, K, Q> = TakeOr<'a, ItemFor<K>, bool, &'q Q>;
+pub type DropRemove<'a, 'q, K, Q> = Take<'a, ItemFor<K>, bool, &'q Q>;
 
-pub type TakeRemoveOr<'a, 'q, K, Q> = TakeOr<'a, ItemFor<K>, Option<ItemFor<K>>, &'q Q>;
+pub type TakeRemove<'a, 'q, K, Q> = Take<'a, ItemFor<K>, Option<ItemFor<K>>, &'q Q>;
 
-impl<'a, T, U, N> TakeOr<'a, T, U, N>
+impl<'a, T, U, N> Take<'a, T, U, N>
 where
     T: Ord,
 {
-    pub fn get_only(self) -> Result<U, &'a T> {
+    pub fn or_get_only(self) -> Result<U, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 }
 
-impl<'a, T, Q> TakeOr<'a, T, bool, &'_ Q>
+impl<'a, T, Q> Take<'a, T, bool, &'_ Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
 {
-    pub fn get(self) -> Result<bool, Option<&'a T>> {
+    pub fn or_get(self) -> Result<bool, Option<&'a T>> {
         self.take_or_else(|items, query| items.get(query))
     }
 }
 
-impl<'a, T, Q> TakeOr<'a, T, Option<T>, &'_ Q>
+impl<'a, T, Q> Take<'a, T, Option<T>, &'_ Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
 {
-    pub fn get(self) -> Option<Result<T, &'a T>> {
+    pub fn or_get(self) -> Option<Result<T, &'a T>> {
         self.try_take_or_else(|items, query| items.get(query))
     }
 }
@@ -240,12 +240,12 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_or(&mut self) -> PopOr<'_, Self>
+    pub fn pop_first(&mut self) -> Pop<'_, Self>
     where
         T: Ord,
     {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, _| unsafe {
+        Take::with(self, (), |items, _| unsafe {
             items.items.pop_first().unwrap_maybe_unchecked()
         })
     }
@@ -257,12 +257,12 @@ impl<T> BTreeSet1<T> {
         PopFirstUntilOnly { items: self }
     }
 
-    pub fn pop_last_or(&mut self) -> PopOr<'_, Self>
+    pub fn pop_last(&mut self) -> Pop<'_, Self>
     where
         T: Ord,
     {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, _| unsafe {
+        Take::with(self, (), |items, _| unsafe {
             items.items.pop_last().unwrap_maybe_unchecked()
         })
     }
@@ -274,20 +274,20 @@ impl<T> BTreeSet1<T> {
         PopLastUntilOnly { items: self }
     }
 
-    pub fn remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, Self, Q>
+    pub fn remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemove<'a, 'q, Self, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.remove(query))
+        Take::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, 'q, Self, Q>
+    pub fn take<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemove<'a, 'q, Self, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.take(query))
+        Take::with(self, query, |items, query| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>
@@ -761,7 +761,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_first_or().none()
+        self.items.pop_first().or_none()
     }
 }
 
@@ -789,7 +789,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_last_or().none()
+        self.items.pop_last().or_none()
     }
 }
 

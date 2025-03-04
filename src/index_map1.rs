@@ -562,29 +562,29 @@ impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrIndexedOnlyEntry<'a, V, K, V> {
     }
 }
 
-type TakeOr<'a, K, V, S, U, N = ()> = take::TakeOr<'a, IndexMap<K, V, S>, U, N>;
+type Take<'a, K, V, S, U, N = ()> = take::Take<'a, IndexMap<K, V, S>, U, N>;
 
-pub type PopOr<'a, T> = TakeOr<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, EntryFor<T>>;
+pub type Pop<'a, T> = Take<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, EntryFor<T>>;
 
-pub type RemoveOr<'a, 'q, T, Q> =
-    TakeOr<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<ValueFor<T>>, &'q Q>;
+pub type Remove<'a, 'q, T, Q> =
+    Take<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<ValueFor<T>>, &'q Q>;
 
-pub type RemoveEntryOr<'a, 'q, T, Q> =
-    TakeOr<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<EntryFor<T>>, &'q Q>;
+pub type RemoveEntry<'a, 'q, T, Q> =
+    Take<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<EntryFor<T>>, &'q Q>;
 
-impl<'a, K, V, S, U, N> TakeOr<'a, K, V, S, U, N>
+impl<'a, K, V, S, U, N> Take<'a, K, V, S, U, N>
 where
     S: BuildHasher,
 {
-    pub fn get_only(self) -> Result<U, IndexedOnlyEntry<'a, K, V>> {
+    pub fn or_get_only(self) -> Result<U, IndexedOnlyEntry<'a, K, V>> {
         self.take_or_else(|items, _| items.first_entry_as_only())
     }
 
-    pub fn replace_only(self, value: V) -> Result<U, V> {
-        self.else_replace_only(move || value)
+    pub fn or_replace_only(self, value: V) -> Result<U, V> {
+        self.or_else_replace_only(move || value)
     }
 
-    pub fn else_replace_only<F>(self, f: F) -> Result<U, V>
+    pub fn or_else_replace_only<F>(self, f: F) -> Result<U, V>
     where
         F: FnOnce() -> V,
     {
@@ -592,12 +592,12 @@ where
     }
 }
 
-impl<'a, K, V, S, U, Q> TakeOr<'a, K, V, S, Option<U>, &'_ Q>
+impl<'a, K, V, S, U, Q> Take<'a, K, V, S, Option<U>, &'_ Q>
 where
     S: BuildHasher,
     Q: Equivalent<K> + Hash + ?Sized,
 {
-    pub fn get(self) -> Option<Result<U, OnlyEntry<'a, K, V>>> {
+    pub fn or_get(self) -> Option<Result<U, OnlyEntry<'a, K, V>>> {
         self.try_take_or_else(|items, query| {
             items
                 .items
@@ -606,11 +606,11 @@ where
         })
     }
 
-    pub fn replace(self, value: V) -> Option<Result<U, V>> {
-        self.else_replace(move || value)
+    pub fn or_replace(self, value: V) -> Option<Result<U, V>> {
+        self.or_else_replace(move || value)
     }
 
-    pub fn else_replace<F>(self, f: F) -> Option<Result<U, V>>
+    pub fn or_else_replace<F>(self, f: F) -> Option<Result<U, V>>
     where
         F: FnOnce() -> V,
     {
@@ -909,47 +909,41 @@ impl<K, V, S> IndexMap1<K, V, S>
 where
     S: BuildHasher,
 {
-    pub fn pop_or(&mut self) -> PopOr<'_, Self> {
+    pub fn pop(&mut self) -> Pop<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, _| unsafe {
+        Take::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn shift_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveOr<'a, 'q, Self, Q>
+    pub fn shift_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> Remove<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.shift_remove(query))
+        Take::with(self, query, |items, query| items.items.shift_remove(query))
     }
 
-    pub fn swap_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveOr<'a, 'q, Self, Q>
+    pub fn swap_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> Remove<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.swap_remove(query))
+        Take::with(self, query, |items, query| items.items.swap_remove(query))
     }
 
-    pub fn shift_remove_entry_or<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> RemoveEntryOr<'a, 'q, Self, Q>
+    pub fn shift_remove_entry<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveEntry<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| {
+        Take::with(self, query, |items, query| {
             items.items.shift_remove_entry(query)
         })
     }
 
-    pub fn swap_remove_entry_or<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> RemoveEntryOr<'a, 'q, Self, Q>
+    pub fn swap_remove_entry<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveEntry<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| {
+        Take::with(self, query, |items, query| {
             items.items.swap_remove_entry(query)
         })
     }

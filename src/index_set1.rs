@@ -118,51 +118,50 @@ impl<T, S> SegmentedOver for IndexSet<T, S> {
     type Target = Self;
 }
 
-type TakeOr<'a, T, S, U, N = ()> = take::TakeOr<'a, IndexSet<T, S>, U, N>;
+type Take<'a, T, S, U, N = ()> = take::Take<'a, IndexSet<T, S>, U, N>;
 
-pub type PopOr<'a, K> = TakeOr<'a, ItemFor<K>, StateFor<K>, ItemFor<K>>;
+pub type Pop<'a, K> = Take<'a, ItemFor<K>, StateFor<K>, ItemFor<K>>;
 
-pub type DropRemoveOr<'a, 'q, K, Q> = TakeOr<'a, ItemFor<K>, StateFor<K>, bool, &'q Q>;
+pub type DropRemove<'a, 'q, K, Q> = Take<'a, ItemFor<K>, StateFor<K>, bool, &'q Q>;
 
-pub type TakeRemoveOr<'a, K, N = usize> =
-    TakeOr<'a, ItemFor<K>, StateFor<K>, Option<ItemFor<K>>, N>;
+pub type TakeRemove<'a, K, N = usize> = Take<'a, ItemFor<K>, StateFor<K>, Option<ItemFor<K>>, N>;
 
-pub type TakeRemoveFullOr<'a, 'q, K, Q> =
-    TakeOr<'a, ItemFor<K>, StateFor<K>, Option<(usize, ItemFor<K>)>, &'q Q>;
+pub type TakeRemoveFull<'a, 'q, K, Q> =
+    Take<'a, ItemFor<K>, StateFor<K>, Option<(usize, ItemFor<K>)>, &'q Q>;
 
-impl<'a, T, S, U, N> TakeOr<'a, T, S, U, N> {
-    pub fn get_only(self) -> Result<U, &'a T> {
+impl<'a, T, S, U, N> Take<'a, T, S, U, N> {
+    pub fn or_get_only(self) -> Result<U, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 }
 
-impl<'a, T, S> TakeOr<'a, T, S, Option<T>, usize>
+impl<'a, T, S> Take<'a, T, S, Option<T>, usize>
 where
     S: BuildHasher,
 {
-    pub fn get(self) -> Option<Result<T, &'a T>> {
+    pub fn or_get(self) -> Option<Result<T, &'a T>> {
         self.try_take_or_else(|items, index| items.get_index(index))
     }
 }
 
-impl<'a, T, S, Q> TakeOr<'a, T, S, bool, &'_ Q>
+impl<'a, T, S, Q> Take<'a, T, S, bool, &'_ Q>
 where
     T: Borrow<Q>,
     S: BuildHasher,
     Q: Equivalent<T> + Hash + ?Sized,
 {
-    pub fn get(self) -> Result<bool, Option<&'a T>> {
+    pub fn or_get(self) -> Result<bool, Option<&'a T>> {
         self.take_or_else(|items, query| items.get(query))
     }
 }
 
-impl<'a, T, S, Q> TakeOr<'a, T, S, Option<T>, &'_ Q>
+impl<'a, T, S, Q> Take<'a, T, S, Option<T>, &'_ Q>
 where
     T: Borrow<Q>,
     S: BuildHasher,
     Q: Equivalent<T> + Hash + ?Sized,
 {
-    pub fn get(self) -> Option<Result<T, &'a T>> {
+    pub fn or_get(self) -> Option<Result<T, &'a T>> {
         self.try_take_or_else(|items, query| items.get(query))
     }
 }
@@ -349,24 +348,24 @@ impl<T, S> IndexSet1<T, S> {
         self.items.swap_indices(a, b)
     }
 
-    pub fn pop_or(&mut self) -> PopOr<'_, Self>
+    pub fn pop(&mut self) -> Pop<'_, Self>
     where
         T: Eq + Hash,
     {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, _| unsafe {
+        Take::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn shift_remove_index_or(&mut self, index: usize) -> TakeRemoveOr<'_, Self> {
-        TakeOr::with(self, index, |items, index| {
+    pub fn shift_remove_index(&mut self, index: usize) -> TakeRemove<'_, Self> {
+        Take::with(self, index, |items, index| {
             items.items.shift_remove_index(index)
         })
     }
 
-    pub fn swap_remove_index_or(&mut self, index: usize) -> TakeRemoveOr<'_, Self> {
-        TakeOr::with(self, index, |items, index| {
+    pub fn swap_remove_index(&mut self, index: usize) -> TakeRemove<'_, Self> {
+        Take::with(self, index, |items, index| {
             items.items.swap_remove_index(index)
         })
     }
@@ -462,62 +461,62 @@ where
         self.items.get(query)
     }
 
-    pub fn shift_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, Self, Q>
+    pub fn shift_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemove<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.shift_remove(query))
+        Take::with(self, query, |items, query| items.items.shift_remove(query))
     }
 
-    pub fn swap_remove_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveOr<'a, 'q, Self, Q>
+    pub fn swap_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemove<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.swap_remove(query))
+        Take::with(self, query, |items, query| items.items.swap_remove(query))
     }
 
-    pub fn shift_remove_full_or<'a, 'q, Q>(
+    pub fn shift_remove_full<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> TakeRemoveFullOr<'a, 'q, Self, Q>
+    ) -> TakeRemoveFull<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| {
+        Take::with(self, query, |items, query| {
             items.items.shift_remove_full(query)
         })
     }
 
-    pub fn swap_remove_full_or<'a, 'q, Q>(
+    pub fn swap_remove_full<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> TakeRemoveFullOr<'a, 'q, Self, Q>
+    ) -> TakeRemoveFull<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| {
+        Take::with(self, query, |items, query| {
             items.items.swap_remove_full(query)
         })
     }
 
-    pub fn shift_take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, Self, &'q Q>
+    pub fn shift_take<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemove<'a, Self, &'q Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.shift_take(query))
+        Take::with(self, query, |items, query| items.items.shift_take(query))
     }
 
-    pub fn swap_take_or<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveOr<'a, Self, &'q Q>
+    pub fn swap_take<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemove<'a, Self, &'q Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeOr::with(self, query, |items, query| items.items.swap_take(query))
+        Take::with(self, query, |items, query| items.items.swap_take(query))
     }
 
     pub fn contains<Q>(&self, item: &Q) -> bool

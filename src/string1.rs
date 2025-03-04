@@ -43,22 +43,22 @@ unsafe impl MaybeEmpty for String {
     }
 }
 
-type TakeOr<'a, N = ()> = take::TakeOr<'a, String, char, N>;
+type Take<'a, N = ()> = take::Take<'a, String, char, N>;
 
-pub type PopOr<'a> = TakeOr<'a, ()>;
+pub type Pop<'a> = Take<'a, ()>;
 
-pub type RemoveOr<'a> = TakeOr<'a, usize>;
+pub type Remove<'a> = Take<'a, usize>;
 
-impl<N> TakeOr<'_, N> {
-    pub fn get_only(self) -> Result<char, char> {
+impl<N> Take<'_, N> {
+    pub fn or_get_only(self) -> Result<char, char> {
         self.take_or_else(|items, _| items.first())
     }
 
-    pub fn replace_only(self, replacement: char) -> Result<char, char> {
-        self.else_replace_only(move || replacement)
+    pub fn or_replace_only(self, replacement: char) -> Result<char, char> {
+        self.or_else_replace_only(move || replacement)
     }
 
-    pub fn else_replace_only<F>(self, f: F) -> Result<char, char>
+    pub fn or_else_replace_only<F>(self, f: F) -> Result<char, char>
     where
         F: FnOnce() -> char,
     {
@@ -71,8 +71,8 @@ impl<N> TakeOr<'_, N> {
     }
 }
 
-impl TakeOr<'_, usize> {
-    pub fn get(self) -> Result<char, char> {
+impl Take<'_, usize> {
+    pub fn or_get(self) -> Result<char, char> {
         self.take_or_else(|items, index| {
             if items.is_char_boundary(index) {
                 items.first()
@@ -83,11 +83,11 @@ impl TakeOr<'_, usize> {
         })
     }
 
-    pub fn replace(self, replacement: char) -> Result<char, char> {
-        self.else_replace(move || replacement)
+    pub fn or_replace(self, replacement: char) -> Result<char, char> {
+        self.or_else_replace(move || replacement)
     }
 
-    pub fn else_replace<F>(self, f: F) -> Result<char, char>
+    pub fn or_else_replace<F>(self, f: F) -> Result<char, char>
     where
         F: FnOnce() -> char,
     {
@@ -211,9 +211,9 @@ impl String1 {
         self.items.push_str(items)
     }
 
-    pub fn pop_or(&mut self) -> PopOr<'_> {
+    pub fn pop(&mut self) -> Pop<'_> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeOr::with(self, (), |items, ()| unsafe {
+        Take::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -222,8 +222,8 @@ impl String1 {
         self.items.insert(index, item)
     }
 
-    pub fn remove_or(&mut self, index: usize) -> RemoveOr<'_> {
-        TakeOr::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove(&mut self, index: usize) -> Remove<'_> {
+        Take::with(self, index, |items, index| items.items.remove(index))
     }
 
     pub fn len(&self) -> NonZeroUsize {
