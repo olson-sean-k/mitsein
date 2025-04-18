@@ -198,12 +198,6 @@ impl<T> AsMut<[T]> for Slice1<T> {
     }
 }
 
-impl<T> AsRef<[T]> for Slice1<T> {
-    fn as_ref(&self) -> &[T] {
-        &self.items
-    }
-}
-
 impl<T> Debug for Slice1<T>
 where
     T: Debug,

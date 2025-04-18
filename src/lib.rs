@@ -539,7 +539,10 @@ where
     }
 }
 
-impl<T> AsRef<T> for NonEmpty<T> {
+impl<T> AsRef<T> for NonEmpty<T>
+where
+    T: ?Sized,
+{
     fn as_ref(&self) -> &T {
         &self.items
     }
@@ -548,7 +551,7 @@ impl<T> AsRef<T> for NonEmpty<T> {
 impl<T> Eq for NonEmpty<T>
 where
     Self: PartialEq,
-    T: Eq,
+    T: Eq + ?Sized,
 {
 }
 
@@ -588,7 +591,7 @@ where
 impl<T> Ord for NonEmpty<T>
 where
     Self: PartialOrd,
-    T: Ord,
+    T: Ord + ?Sized,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         Ord::cmp(&self.items, &other.items)
@@ -607,7 +610,8 @@ where
 
 impl<T, U> PartialOrd<NonEmpty<U>> for NonEmpty<T>
 where
-    T: PartialOrd<U>,
+    T: PartialOrd<U> + ?Sized,
+    U: ?Sized,
 {
     fn partial_cmp(&self, other: &NonEmpty<U>) -> Option<Ordering> {
         PartialOrd::partial_cmp(&self.items, &other.items)

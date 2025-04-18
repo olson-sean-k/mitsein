@@ -275,15 +275,9 @@ impl<'a> Arbitrary<'a> for &'a Str1 {
     }
 }
 
-impl AsMut<str> for &'_ mut Str1 {
+impl AsMut<str> for Str1 {
     fn as_mut(&mut self) -> &mut str {
         &mut self.items
-    }
-}
-
-impl AsRef<str> for &'_ Str1 {
-    fn as_ref(&self) -> &str {
-        &self.items
     }
 }
 
