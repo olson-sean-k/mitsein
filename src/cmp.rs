@@ -18,6 +18,14 @@
 )]
 pub unsafe trait UnsafeOrd: Ord {}
 
+pub unsafe trait UnsafeIsomorph<T>: UnsafeOrd
+where
+    T: ?Sized + UnsafeOrd,
+{
+}
+
+unsafe impl<T> UnsafeIsomorph<T> for T where T: ?Sized + UnsafeOrd {}
+
 // SAFETY: The implementations of `UnsafeOrd` in this module trust that the `Ord` implementations
 //         of the given types from `core`, `alloc`, etc. conform to the safety requirements of
 //         `UnsafeOrd`. Moreover, these `Ord` implementations are very unlikely to change and are
@@ -26,7 +34,7 @@ pub unsafe trait UnsafeOrd: Ord {}
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod alloc {
-    use crate::cmp::UnsafeOrd;
+    use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
 
     unsafe impl<T> UnsafeOrd for alloc::sync::Arc<T> where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for alloc::boxed::Box<T> where T: UnsafeOrd {}
@@ -39,8 +47,15 @@ mod alloc {
     unsafe impl<T> UnsafeOrd for alloc::collections::vec_deque::VecDeque<T> where T: UnsafeOrd {}
 
     unsafe impl<T> UnsafeOrd for crate::btree_set1::BTreeSet1<T> where T: UnsafeOrd {}
+    unsafe impl UnsafeOrd for crate::string1::String1 {}
     unsafe impl<T> UnsafeOrd for crate::vec1::Vec1<T> where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for crate::vec_deque1::VecDeque1<T> where T: UnsafeOrd {}
+
+    unsafe impl UnsafeIsomorph<str> for alloc::string::String {}
+    unsafe impl<T> UnsafeIsomorph<[T]> for alloc::vec::Vec<T> where T: UnsafeOrd {}
+
+    unsafe impl UnsafeIsomorph<crate::str1::Str1> for crate::string1::String1 {}
+    unsafe impl<T> UnsafeIsomorph<crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where T: UnsafeOrd {}
 }
 
 #[cfg(feature = "arrayvec")]
@@ -129,6 +144,9 @@ mod core {
     unsafe impl UnsafeOrd for core::net::SocketAddrV6 {}
     unsafe impl UnsafeOrd for core::any::TypeId {}
     unsafe impl<T> UnsafeOrd for core::num::Wrapping<T> where T: UnsafeOrd {}
+
+    unsafe impl<T> UnsafeOrd for crate::slice1::Slice1<T> where T: UnsafeOrd {}
+    unsafe impl UnsafeOrd for crate::str1::Str1 {}
 
     macro_rules! impl_unsafe_ord_for_tuple {
         (($($T:ident $(,)?)+) $(,)?) => {
