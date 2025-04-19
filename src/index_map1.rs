@@ -109,7 +109,7 @@ impl<K, V, S> Segmentation for IndexMap<K, V, S> {
     }
 }
 
-impl<K, V, S, R> SegmentedBy<R> for IndexMap<K, V, S>
+impl<K, V, S, R> SegmentedBy<usize, R> for IndexMap<K, V, S>
 where
     R: RangeBounds<usize>,
 {
@@ -1504,7 +1504,7 @@ impl<K, V, S> Segmentation for IndexMap1<K, V, S> {
     }
 }
 
-impl<K, V, S, R> SegmentedBy<R> for IndexMap1<K, V, S>
+impl<K, V, S, R> SegmentedBy<usize, R> for IndexMap1<K, V, S>
 where
     R: RangeBounds<usize>,
 {
@@ -1610,11 +1610,11 @@ where
     }
 }
 
-impl<T, K, V, S, R> SegmentedBy<R> for Segment<'_, T>
+impl<T, K, V, S, R> SegmentedBy<usize, R> for Segment<'_, T>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
     T: ClosedIndexMap<Key = K, Value = V, State = S>
-        + SegmentedBy<R>
+        + SegmentedBy<usize, R>
         + SegmentedOver<Target = IndexMap<K, V, S>>,
     R: RangeBounds<usize>,
 {

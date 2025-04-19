@@ -113,7 +113,7 @@ impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
     }
 }
 
-impl<T, R, const N: usize> SegmentedBy<R> for ArrayVec<T, N>
+impl<T, R, const N: usize> SegmentedBy<usize, R> for ArrayVec<T, N>
 where
     R: RangeBounds<usize>,
 {
@@ -669,7 +669,7 @@ where
     }
 }
 
-impl<T, R, const N: usize> SegmentedBy<R> for ArrayVec1<T, N>
+impl<T, R, const N: usize> SegmentedBy<usize, R> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
     R: RangeBounds<usize>,
@@ -961,10 +961,10 @@ where
     }
 }
 
-impl<K, T, R, const N: usize> SegmentedBy<R> for Segment<'_, K, N>
+impl<K, T, R, const N: usize> SegmentedBy<usize, R> for Segment<'_, K, N>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: ClosedArrayVec<N, Item = T> + SegmentedBy<R> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedBy<usize, R> + SegmentedOver<Target = ArrayVec<T, N>>,
     R: RangeBounds<usize>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, K, N> {

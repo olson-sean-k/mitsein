@@ -106,7 +106,7 @@ where
     }
 }
 
-impl<A, R> SegmentedBy<R> for SmallVec<A>
+impl<A, R> SegmentedBy<usize, R> for SmallVec<A>
 where
     A: Array,
     R: RangeBounds<usize>,
@@ -714,7 +714,7 @@ where
     }
 }
 
-impl<A, R> SegmentedBy<R> for SmallVec1<A>
+impl<A, R> SegmentedBy<usize, R> for SmallVec1<A>
 where
     A: Array,
     R: RangeBounds<usize>,
@@ -1047,10 +1047,10 @@ where
     }
 }
 
-impl<K, A, T, R> SegmentedBy<R> for Segment<'_, K>
+impl<K, A, T, R> SegmentedBy<usize, R> for Segment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: ClosedSmallVec<Array = A> + SegmentedBy<R> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SegmentedBy<usize, R> + SegmentedOver<Target = SmallVec<A>>,
     A: Array<Item = T>,
     R: RangeBounds<usize>,
 {

@@ -14,7 +14,7 @@ pub type RangeFor<K> = <<K as SegmentedOver>::Target as Ranged>::Range;
 impl<'a, K, T> Segment<'a, K, T>
 where
     K: SegmentedOver<Target = T> + ?Sized,
-    T: Ranged,
+    T: Ranged + ?Sized,
 {
     pub(crate) fn unchecked(items: &'a mut K::Target, range: RangeFor<K>) -> Self {
         Segment { items, range }
@@ -155,7 +155,7 @@ impl PositionalRange {
     where
         F: 'a + FnMut(&T) -> bool,
     {
-        // See comments in `retain_mut_in_bounds` below; these functions are nearly identical.
+        // See comments in `retain_mut_from_end` below; these functions are nearly identical.
         let mut index = 0;
         let before = *self;
         let after = self;
@@ -213,7 +213,7 @@ impl PositionalRange {
     where
         F: 'a + FnMut(&K, &mut V) -> bool,
     {
-        // See comments in `retain_mut_in_bounds` above; these functions are nearly identical.
+        // See comments in `retain_mut_from_end` above; these functions are nearly identical.
         let mut index = 0;
         let before = *self;
         let after = self;
@@ -674,7 +674,7 @@ where
 #[cfg(feature = "alloc")]
 pub fn ordered_range_bounds<T, R>(range: R) -> R
 where
-    T: Ord,
+    T: Ord + ?Sized,
     R: RangeBounds<T>,
 {
     use Bound::{Excluded, Included, Unbounded};

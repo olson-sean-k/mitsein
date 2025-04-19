@@ -9,6 +9,7 @@
 pub mod range;
 
 use core::fmt::{self, Debug, Formatter};
+use std::ops::RangeBounds;
 
 pub trait Indexer {
     type Index;
@@ -49,14 +50,19 @@ pub trait SegmentedOver: Sized {
     note = "positional collections are typically segmented by ranges over `usize`",
     note = "relational collections are typically segmented by ranges over the item type"
 )]
-pub trait SegmentedBy<R>: SegmentedOver {
+pub trait SegmentedBy<T, R>: SegmentedOver
+where
+    T: ?Sized,
+    R: RangeBounds<T>,
+{
     fn segment(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target>;
 }
 
 pub trait Segmentation: SegmentedOver {
-    fn segment<R>(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target>
+    fn segment<T, R>(&mut self, range: R) -> Segment<'_, Self::Kind, Self::Target>
     where
-        Self: SegmentedBy<R>,
+        Self: SegmentedBy<T, R>,
+        R: RangeBounds<T>,
     {
         SegmentedBy::segment(self, range)
     }
@@ -69,7 +75,7 @@ pub trait Segmentation: SegmentedOver {
 pub struct Segment<'a, K, T>
 where
     K: SegmentedOver<Target = T>,
-    T: Ranged,
+    T: Ranged + ?Sized,
 {
     pub(crate) items: &'a mut K::Target,
     pub(crate) range: <K::Target as Ranged>::Range,

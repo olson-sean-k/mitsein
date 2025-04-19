@@ -104,7 +104,7 @@ impl<T, S> Segmentation for IndexSet<T, S> {
     }
 }
 
-impl<T, S, R> SegmentedBy<R> for IndexSet<T, S>
+impl<T, S, R> SegmentedBy<usize, R> for IndexSet<T, S>
 where
     R: RangeBounds<usize>,
 {
@@ -1132,7 +1132,7 @@ impl<T, S> Segmentation for IndexSet1<T, S> {
     }
 }
 
-impl<T, S, R> SegmentedBy<R> for IndexSet1<T, S>
+impl<T, S, R> SegmentedBy<usize, R> for IndexSet1<T, S>
 where
     R: RangeBounds<usize>,
 {
@@ -1271,11 +1271,11 @@ where
     }
 }
 
-impl<K, T, S, R> SegmentedBy<R> for Segment<'_, K>
+impl<K, T, S, R> SegmentedBy<usize, R> for Segment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
     K: ClosedIndexSet<Item = T, State = S>
-        + SegmentedBy<R>
+        + SegmentedBy<usize, R>
         + SegmentedOver<Target = IndexSet<T, S>>,
     R: RangeBounds<usize>,
 {

@@ -96,7 +96,7 @@ impl<T> Segmentation for VecDeque<T> {
     }
 }
 
-impl<T, R> SegmentedBy<R> for VecDeque<T>
+impl<T, R> SegmentedBy<usize, R> for VecDeque<T>
 where
     R: RangeBounds<usize>,
 {
@@ -597,7 +597,7 @@ impl<T> Segmentation for VecDeque1<T> {
     }
 }
 
-impl<T, R> SegmentedBy<R> for VecDeque1<T>
+impl<T, R> SegmentedBy<usize, R> for VecDeque1<T>
 where
     R: RangeBounds<usize>,
 {
@@ -857,10 +857,10 @@ where
     }
 }
 
-impl<K, T, R> SegmentedBy<R> for Segment<'_, K>
+impl<K, T, R> SegmentedBy<usize, R> for Segment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: ClosedVecDeque<Item = T> + SegmentedBy<R> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + SegmentedBy<usize, R> + SegmentedOver<Target = VecDeque<T>>,
     R: RangeBounds<usize>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, K> {

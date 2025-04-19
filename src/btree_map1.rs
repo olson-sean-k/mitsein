@@ -17,7 +17,7 @@ use rayon::iter::{
 };
 
 use crate::array1::Array1;
-use crate::cmp::UnsafeOrd;
+use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -125,11 +125,12 @@ where
     }
 }
 
-impl<K, V, R> SegmentedBy<R> for BTreeMap<K, V>
+impl<K, V, Q, R> SegmentedBy<Q, R> for BTreeMap<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Clone + Ord,
-    R: RangeBounds<K>,
+    K: Borrow<Q> + Clone + Ord,
+    Q: Ord + ?Sized,
+    R: RangeBounds<Q>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect(self, &range::ordered_range_bounds(range))
@@ -985,11 +986,12 @@ where
     }
 }
 
-impl<K, V, R> SegmentedBy<R> for BTreeMap1<K, V>
+impl<K, V, Q, R> SegmentedBy<Q, R> for BTreeMap1<K, V>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Clone + UnsafeOrd,
-    R: RangeBounds<K>,
+    K: Clone + UnsafeIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+    R: RangeBounds<Q>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_bounds(range))
@@ -1187,14 +1189,26 @@ where
     }
 }
 
-impl<T, K, V, R> SegmentedBy<R> for Segment<'_, T>
+impl<K, V, Q, R> SegmentedBy<Q, R> for Segment<'_, BTreeMap<K, V>>
 where
     RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    T: ClosedBTreeMap<Key = K, Value = V> + SegmentedBy<R> + SegmentedOver<Target = BTreeMap<K, V>>,
-    K: Clone + Ord,
-    R: RangeBounds<K>,
+    K: Borrow<Q> + Clone + Ord,
+    Q: Ord + ?Sized,
+    R: RangeBounds<Q>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, T> {
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeMap<K, V>> {
+        Segment::intersect(self.items, &range::ordered_range_bounds(range))
+    }
+}
+
+impl<K, V, Q, R> SegmentedBy<Q, R> for Segment<'_, BTreeMap1<K, V>>
+where
+    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    K: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+    R: RangeBounds<Q>,
+{
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeMap1<K, V>> {
         Segment::intersect(self.items, &range::ordered_range_bounds(range))
     }
 }

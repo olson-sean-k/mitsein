@@ -97,7 +97,7 @@ impl<T> Segmentation for Vec<T> {
     }
 }
 
-impl<T, R> SegmentedBy<R> for Vec<T>
+impl<T, R> SegmentedBy<usize, R> for Vec<T>
 where
     R: RangeBounds<usize>,
 {
@@ -752,7 +752,7 @@ impl<T> Segmentation for Vec1<T> {
     }
 }
 
-impl<T, R> SegmentedBy<R> for Vec1<T>
+impl<T, R> SegmentedBy<usize, R> for Vec1<T>
 where
     R: RangeBounds<usize>,
 {
@@ -1248,10 +1248,10 @@ where
     }
 }
 
-impl<K, T, R> SegmentedBy<R> for Segment<'_, K>
+impl<K, T, R> SegmentedBy<usize, R> for Segment<'_, K>
 where
     PositionalRange: Project<R, Output = PositionalRange>,
-    K: ClosedVec<Item = T> + SegmentedBy<R> + SegmentedOver<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SegmentedBy<usize, R> + SegmentedOver<Target = Vec<T>>,
     R: RangeBounds<usize>,
 {
     fn segment(&mut self, range: R) -> Segment<'_, K> {
