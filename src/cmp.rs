@@ -18,6 +18,15 @@
 )]
 pub unsafe trait UnsafeOrd: Ord {}
 
+/// [`UnsafeOrd`] types with isomorphic ordering relationships to other [`UnsafeOrd`] types.
+///
+/// # Safety
+///
+/// Implementations of this trait indicate that [`UnsafeOrd`] types have an isomorphic relationship.
+/// Such types describe the same data with consistent notions of ordering and equality and can
+/// therefore be used interchangeably for comparisons. **Inconsistent implementations of this trait
+/// are unsound**. Bounds on this trait indicate that ordering and equality between `Self` and `T`
+/// must be consistently isomorphic for memory safety.
 pub unsafe trait UnsafeIsomorph<T>: UnsafeOrd
 where
     T: ?Sized + UnsafeOrd,
