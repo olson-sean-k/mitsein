@@ -70,38 +70,30 @@ assert_eq!(xs.as_slice(), &[3]);
 
 ## Features and Comparisons
 
-**Non-empty iterator APIs separate concerns using familiar patterns and
-syntax.** Mitsein need not expose combinatorial sets of inherent iterator-like
-functions in non-empty collections. For example, the [`vec1`] crate supports map
-operations over its `Vec1` type via the `Vec1::mapped`, `Vec1::mapped_ref`, and
+### Separation of Concerns
+
+Mitsein separates concerns into dedicated APIs much like standard types. This
+persists the non-empty guarantee across types and supports familiar patterns and
+syntax.
+
+Non-empty iterators support any non-empty collection or view and mirror their
+counterparts. For example, the [`vec1`] crate supports map operations over its
+`Vec1` type via bespoke `Vec1::mapped`, `Vec1::mapped_ref`, and
 `Vec1::mapped_mut` functions. Mitsein instead exposes map operations via
-`Iterator1`, which can support any non-empty view or collection with a more
-typical API (i.e., `Iterator1::map`).
+`Iterator1::map`, which supports a variety of types and receivers just like
+`Iterator` types do.
 
-Non-empty slice APIs enable borrowing and copy-on-write, so **Mitsein supports
-the standard `Cow` type**, unlike other non-empty implementations like the
-[`nonempty`] and [`vec1`] crates.
+```rust
+use mitsein::prelude::*;
 
-**Items are stored consistently in Mitsein.** No head item is allocated
-differently. For example, the [`nonempty`] crate directly exposes a head item
-that is, unlike tail items, **not** allocated on the heap. This precludes views
-and slicing and can have surprising performance implications when items are
-non-trivial to copy or clone.
+let xs = Vec1::from([0i32, 1, 2, 3, 4]);
+let ys: Vec1<_> = xs.into_iter1().map(|x| x * 2).collect1();
+```
 
-**Non-empty collection APIs that exhibit different behavior from their
-counterparts are distinct in Mitsein.** For example, functions that take items
-out of collections like `Vec1::pop` return a proxy type rather than an `Option`.
-This leads to more explicit and distinct expressions like
-`xs.pop().or_get_only()`, `xs.pop().or_none()`,
-`xs.remove(1).or_else_replace_only(|| 0)`, etc.
-
-**Mitsein separates many non-empty error concerns into a segmentation API.**
-Segments span a range in a collection and support the insertion and removal of
-items. Non-empty collections can be segmented prior to removals, which
-consolidates error conditions: the segment can be freely manipulated without
-checks or errors after it has been constructed. The [`nonempty`] and [`nunny`]
-crates have limited or no support for removals while the [`vec1`] crate only
-supports fallible removals directly against `Vec1`.
+Mitsein provides a segmentation API, which isolates a range within a collection
+that supports insertions and removals. Non-empty collections can be segmented
+prior to removals, which consolidates error conditions: a segment can be freely
+manipulated without checks or errors after its construction.
 
 ```rust
 use mitsein::prelude::*;
@@ -119,8 +111,49 @@ xs.segment(..3).retain(|x| *x % 2 != 0);
 assert_eq!(xs.as_slice(), &[1i32, 3, 4]);
 ```
 
-**Mitsein provides comprehensive coverage of ordered collections and container
-APIs in `core` and `alloc`.** This notably includes `slice`, `str`, `BTreeMap`,
+Non-empty slice APIs enable borrowing and copy-on-write, so Mitsein supports
+the standard `Cow` type, unlike many other non-empty implementations like the
+[`nonempty`] and [`vec1`] crates. Extension traits provide seemless conversions
+for these types.
+
+```rust
+use mitsein::borrow1::CowSlice1;
+use mitsein::prelude::*;
+
+let xs = CowSlice1::from(slice1![0i32, 1, 2, 3, 4]);
+let xs = xs.into_arc_slice1();
+```
+
+### Consistent Storage
+
+Items are stored consistently in Mitsein. No head item is allocated differently.
+For example, the [`nonempty`] crate directly exposes a head item that is, unlike
+tail items, **not** allocated on the heap. This precludes views and slicing and
+can have surprising performance implications when items are non-trivial to copy
+or clone.
+
+Non-empty collections are defined by the transparent `NonEmpty` type
+constructor, so the representation of a non-empty collection is always exactly
+the same as its counterpart. For example, `Vec1<T>` is a type definition for
+`NonEmpty<Vec<T>>` and has the same representation as `Vec<T>`.
+
+### Explicitness
+
+Non-empty collection APIs that exhibit different behavior from their
+counterparts are distinct in Mitsein. For example, functions that take items out
+of collections like `Vec1::pop` return a proxy type rather than an `Option`.
+This leads to more explicit and distinct expressions like
+`xs.pop().or_get_only()`, `xs.pop().or_none()`,
+`xs.remove(1).or_else_replace_only(|| 0)`, etc.
+
+Similarly, operations that have additional constraints or otherwise cannot be
+directly supported by non-empty collections are separated into [segmentation
+APIs](#separation-of-concerns), such as `vec1::Segment::swap_drain`.
+
+### Comprehensiveness
+
+Mitsein provides comprehensive coverage of **ordered** collections and container
+APIs in `core` and `alloc`. This notably includes `slice`, `str`, `BTreeMap`,
 `BTreeSet`, `Box`, and `Arc`. Non-empty types also implement standard traits
 like their counterparts. The [`nonempty`] and [`vec1`] crates lack support for
 primitive types like `slice` and collections other than `Vec`.
@@ -133,8 +166,8 @@ with [`arrayvec`][`arrayvec`].
 ## Memory Safety
 
 **Mitsein uses unsafe code.** Some of this unsafe code is used to support
-`repr(transparent)` and other unsafe conversions, but the majority is used to
-avoid unnecessary branching. For example, given the non-empty guarantee, it
+`repr(transparent)` and other unsafe conversions, but most is used to avoid
+unnecessary branching. For example, given the non-empty guarantee, it
 _shouldn't_ be necessary for the `Slice1::first` function to check that a first
 item is actually present. Omitting this code is great, but it also means that
 there are opportunities for undefined behavior and unsound APIs in Mitsein. Of
@@ -148,13 +181,13 @@ invariants instead.
 
 Branching is toggled in the `safety` module. The presence of items in non-empty
 types is asserted when executing tests, though not in the context of
-[Miri][`miri`]. These conditional checks use the nomenclature
-`_maybe_unchecked`.
+[Miri][`miri`]. APIs that interact with these  conditional checks use the
+nomenclature "maybe unchecked", such as `unwrap_maybe_unchecked`.
 
-## Integrations and Cargo Features
+## Integrations and Feature Flags
 
-Mitsein provides some optional features and integrations via the following Cargo
-features.
+Mitsein provides some optional features and integrations via the following
+feature flags.
 
 | Feature     | Default | Primary Dependency | Description                                               |
 |-------------|---------|--------------------|-----------------------------------------------------------|

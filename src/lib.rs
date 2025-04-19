@@ -178,13 +178,13 @@
 //!
 //! See the [`Segmentation`] trait.
 //!
-//! # Integrations and Cargo Features
+//! # Integrations and Feature Flags
 //!
-//! Mitsein supports `no_std` environments and provides features for integrating as needed with
-//! [`alloc`] and [`std`]. By default, the `std` feature is enabled for complete support of the
-//! standard library.
+//! Mitsein supports `no_std` environments and provides feature flags for integrating as needed
+//! with [`alloc`] and [`std`]. By default, the `std` feature is enabled for complete support of
+//! the standard library.
 //!
-//! The following table summarizes supported Cargo features and integrations.
+//! The following table summarizes supported feature flags and integrations.
 //!
 //! | Feature     | Default | Primary Dependency | Description                                               |
 //! |-------------|---------|--------------------|-----------------------------------------------------------|
