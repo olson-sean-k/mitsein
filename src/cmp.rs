@@ -33,8 +33,6 @@ where
 {
 }
 
-unsafe impl<T> UnsafeIsomorph<T> for T where T: ?Sized + UnsafeOrd {}
-
 // SAFETY: The implementations of `UnsafeOrd` in this module trust that the `Ord` implementations
 //         of the given types from `core`, `alloc`, etc. conform to the safety requirements of
 //         `UnsafeOrd`. Moreover, these `Ord` implementations are very unlikely to change and are
@@ -86,7 +84,7 @@ mod array_vec {
 // `Cell` and `RefCell` are intentionally absent here and do not implement `UnsafeOrd`. Interior
 // mutability is incompatible with the safety requirements of `UnsafeOrd`.
 mod core {
-    use crate::cmp::UnsafeOrd;
+    use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
 
     unsafe impl UnsafeOrd for () {}
     unsafe impl UnsafeOrd for bool {}
@@ -105,10 +103,10 @@ mod core {
     unsafe impl UnsafeOrd for u128 {}
     unsafe impl UnsafeOrd for usize {}
 
-    unsafe impl<T> UnsafeOrd for *const T where T: UnsafeOrd {}
-    unsafe impl<T> UnsafeOrd for *mut T where T: UnsafeOrd {}
-    unsafe impl<T> UnsafeOrd for &'_ T where T: UnsafeOrd {}
-    unsafe impl<T> UnsafeOrd for &'_ mut T where T: UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for *const T where T: ?Sized + UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for *mut T where T: ?Sized + UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for &'_ T where T: ?Sized + UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for &'_ mut T where T: ?Sized + UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for [T] where T: UnsafeOrd {}
     unsafe impl<T, const N: usize> UnsafeOrd for [T; N] where T: UnsafeOrd {}
 
@@ -156,6 +154,20 @@ mod core {
 
     unsafe impl<T> UnsafeOrd for crate::slice1::Slice1<T> where T: UnsafeOrd {}
     unsafe impl UnsafeOrd for crate::str1::Str1 {}
+
+    unsafe impl<T> UnsafeIsomorph<T> for T where T: ?Sized + UnsafeOrd {}
+    unsafe impl<T> UnsafeIsomorph<T> for &'_ T
+    where
+        Self: UnsafeOrd,
+        T: ?Sized + UnsafeOrd
+    {
+    }
+    unsafe impl<T> UnsafeIsomorph<T> for &'_ mut T
+    where
+        Self: UnsafeOrd,
+        T: ?Sized + UnsafeOrd
+    {
+    }
 
     macro_rules! impl_unsafe_ord_for_tuple {
         (($($T:ident $(,)?)+) $(,)?) => {
