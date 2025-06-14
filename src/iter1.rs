@@ -8,8 +8,8 @@
 use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::iter::{
-    self, Chain, Cloned, Copied, Cycle, Enumerate, Flatten, Inspect, Map, Peekable, Repeat, Rev,
-    Skip, StepBy, Take,
+    self, Chain, Cloned, Copied, Cycle, Enumerate, FlatMap, Flatten, Inspect, Map, Peekable,
+    Repeat, Rev, Skip, StepBy, Take,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -592,6 +592,23 @@ where
     {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.and_then_unchecked(I::rev) }
+    }
+
+    pub fn flatten(self) -> Iterator1<Flatten<I>>
+    where
+        I::Item: IntoIterator1,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.and_then_unchecked(I::flatten) }
+    }
+
+    pub fn flat_map<U, F>(self, f: F) -> Iterator1<FlatMap<I, U, F>>
+    where
+        F: FnMut(I::Item) -> U,
+        U: IntoIterator1,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.and_then_unchecked(|items| items.flat_map(f)) }
     }
 
     pub fn collect1<T>(self) -> T
