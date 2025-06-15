@@ -815,16 +815,18 @@ where
     where
         P: FnMut(&I::Item) -> bool,
     {
+        let item = self.items.find_or_first(predicate);
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.find_or_first(predicate).unwrap_maybe_unchecked() }
+        unsafe { item.unwrap_maybe_unchecked() }
     }
 
     pub fn find_or_last<P>(self, predicate: P) -> I::Item
     where
         P: FnMut(&I::Item) -> bool,
     {
+        let item = self.items.find_or_last(predicate);
         // SAFETY: `self` must be non-empty.
-        unsafe { self.items.find_or_last(predicate).unwrap_maybe_unchecked() }
+        unsafe { item.unwrap_maybe_unchecked() }
     }
 }
 
