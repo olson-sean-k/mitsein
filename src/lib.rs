@@ -501,7 +501,7 @@ impl<T> Error for EmptyError<T> {}
     serde(
         bound(
             deserialize = "Self: TryFrom<Serde<T>, Error = EmptyError<T>>, \
-                           T: Clone + Deserialize<'de>,",
+                           T: Deserialize<'de>,",
             serialize = "T: Clone + Serialize,",
         ),
         try_from = "Serde<T>",
