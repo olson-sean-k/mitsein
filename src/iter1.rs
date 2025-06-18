@@ -827,6 +827,24 @@ where
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.and_then_unchecked(move |items| items.unique_by(f)) }
     }
+
+    pub fn find_or_first<F>(self, f: F) -> I::Item
+    where
+        F: FnMut(&I::Item) -> bool,
+    {
+        let item = self.items.find_or_first(f);
+        // SAFETY: `self` must be non-empty.
+        unsafe { item.unwrap_maybe_unchecked() }
+    }
+
+    pub fn find_or_last<F>(self, f: F) -> I::Item
+    where
+        F: FnMut(&I::Item) -> bool,
+    {
+        let item = self.items.find_or_last(f);
+        // SAFETY: `self` must be non-empty.
+        unsafe { item.unwrap_maybe_unchecked() }
+    }
 }
 
 #[cfg(feature = "rayon")]
