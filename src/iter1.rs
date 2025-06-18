@@ -811,20 +811,20 @@ where
         unsafe { self.and_then_unchecked(move |items| items.unique_by(f)) }
     }
 
-    pub fn find_or_first<P>(self, predicate: P) -> I::Item
+    pub fn find_or_first<F>(self, f: F) -> I::Item
     where
-        P: FnMut(&I::Item) -> bool,
+        F: FnMut(&I::Item) -> bool,
     {
-        let item = self.items.find_or_first(predicate);
+        let item = self.items.find_or_first(f);
         // SAFETY: `self` must be non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
     }
 
-    pub fn find_or_last<P>(self, predicate: P) -> I::Item
+    pub fn find_or_last<F>(self, f: F) -> I::Item
     where
-        P: FnMut(&I::Item) -> bool,
+        F: FnMut(&I::Item) -> bool,
     {
-        let item = self.items.find_or_last(predicate);
+        let item = self.items.find_or_last(f);
         // SAFETY: `self` must be non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
     }
