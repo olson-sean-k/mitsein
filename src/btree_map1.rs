@@ -79,9 +79,10 @@ impl<K, V> Ranged for BTreeMap<K, V>
 where
     K: Clone + Ord,
 {
-    type Range = RelationalRange<K>;
+    type NamedIndex = K;
+    type Range<N> = RelationalRange<N>;
 
-    fn range(&self) -> Self::Range {
+    fn all(&self) -> Self::Range<Self::NamedIndex> {
         self.keys()
             .next()
             .cloned()
@@ -89,7 +90,7 @@ where
             .into()
     }
 
-    fn tail(&self) -> Self::Range {
+    fn tail(&self) -> Self::Range<Self::NamedIndex> {
         self.keys()
             .nth(1)
             .cloned()
@@ -97,7 +98,7 @@ where
             .into()
     }
 
-    fn rtail(&self) -> Self::Range {
+    fn rtail(&self) -> Self::Range<Self::NamedIndex> {
         self.keys()
             .next()
             .cloned()
@@ -1070,7 +1071,7 @@ where
     }
 }
 
-pub type Segment<'a, T> = segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>>;
+pub type Segment<'a, T, N = <T as ClosedBTreeMap>::Key> = segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, N>;
 
 impl<T, K, V> Segment<'_, T>
 where

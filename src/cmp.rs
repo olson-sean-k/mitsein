@@ -1,5 +1,12 @@
 //! Comparison and ordering extensions.
 
+// TODO: Remove this.
+pub trait Isomorph<T>: Ord
+where
+    T: Ord + ?Sized,
+{
+}
+
 /// Types that can be used in APIs where consistent total ordering is required for memory safety.
 ///
 /// # Safety
@@ -59,10 +66,18 @@ mod alloc {
     unsafe impl<T> UnsafeOrd for crate::vec_deque1::VecDeque1<T> where T: UnsafeOrd {}
 
     unsafe impl UnsafeIsomorph<str> for alloc::string::String {}
+    unsafe impl<'a> UnsafeIsomorph<&'a str> for alloc::string::String {}
+    unsafe impl<'a> UnsafeIsomorph<&'a mut str> for alloc::string::String {}
     unsafe impl<T> UnsafeIsomorph<[T]> for alloc::vec::Vec<T> where T: UnsafeOrd {}
+    unsafe impl<'a, T> UnsafeIsomorph<&'a [T]> for alloc::vec::Vec<T> where T: UnsafeOrd {}
+    unsafe impl<'a, T> UnsafeIsomorph<&'a mut [T]> for alloc::vec::Vec<T> where T: UnsafeOrd {}
 
     unsafe impl UnsafeIsomorph<crate::str1::Str1> for crate::string1::String1 {}
+    unsafe impl<'a> UnsafeIsomorph<&'a crate::str1::Str1> for crate::string1::String1 {}
+    unsafe impl<'a> UnsafeIsomorph<&'a mut crate::str1::Str1> for crate::string1::String1 {}
     unsafe impl<T> UnsafeIsomorph<crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where T: UnsafeOrd {}
+    unsafe impl<'a, T> UnsafeIsomorph<&'a crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where T: UnsafeOrd {}
+    unsafe impl<'a, T> UnsafeIsomorph<&'a mut crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where T: UnsafeOrd {}
 }
 
 #[cfg(feature = "arrayvec")]
@@ -84,7 +99,16 @@ mod array_vec {
 // `Cell` and `RefCell` are intentionally absent here and do not implement `UnsafeOrd`. Interior
 // mutability is incompatible with the safety requirements of `UnsafeOrd`.
 mod core {
-    use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
+    use core::borrow::Borrow;
+
+    use crate::cmp::{Isomorph, UnsafeIsomorph, UnsafeOrd};
+
+    impl<T, U> Isomorph<T> for U
+    where
+        U: Borrow<T> + Ord,
+        T: Ord + ?Sized,
+    {
+    }
 
     unsafe impl UnsafeOrd for () {}
     unsafe impl UnsafeOrd for bool {}
@@ -156,13 +180,13 @@ mod core {
     unsafe impl UnsafeOrd for crate::str1::Str1 {}
 
     unsafe impl<T> UnsafeIsomorph<T> for T where T: ?Sized + UnsafeOrd {}
-    unsafe impl<T> UnsafeIsomorph<T> for &'_ T
+    unsafe impl<T> UnsafeIsomorph<&'_ T> for T
     where
         Self: UnsafeOrd,
         T: ?Sized + UnsafeOrd
     {
     }
-    unsafe impl<T> UnsafeIsomorph<T> for &'_ mut T
+    unsafe impl<T> UnsafeIsomorph<&'_ mut T> for T
     where
         Self: UnsafeOrd,
         T: ?Sized + UnsafeOrd

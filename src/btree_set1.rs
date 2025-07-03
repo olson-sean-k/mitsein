@@ -9,7 +9,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::num::NonZeroUsize;
-use core::ops::{BitAnd, BitOr, BitXor, RangeBounds, Sub};
+use core::ops::{BitAnd, BitOr, BitXor, Bound, RangeBounds, Sub};
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
@@ -19,7 +19,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, Intersect, RelationalRange};
+use crate::segment::range::{self, Intersect, IntersectionExt, TrimRange, RelationalRange, Resolve};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -68,44 +68,31 @@ unsafe impl<T> MaybeEmpty for BTreeSet<T> {
     }
 }
 
-impl<T> Ranged for BTreeSet<T>
-where
-    T: Clone + Ord,
-{
-    type Range = RelationalRange<T>;
+impl<T> Ranged for BTreeSet<T> {
+    type NominalRange = TrimRange;
 
-    fn range(&self) -> Self::Range {
-        self.first().cloned().zip(self.last().cloned()).into()
+    fn all(&self) -> Self::NominalRange {
+        TrimRange::ALL
     }
 
-    fn tail(&self) -> Self::Range {
-        self.iter().nth(1).cloned().zip(self.last().cloned()).into()
+    fn tail(&self) -> Self::NominalRange {
+        TrimRange::TAIL
     }
 
-    fn rtail(&self) -> Self::Range {
-        self.first()
-            .cloned()
-            .zip(self.iter().rev().nth(1).cloned())
-            .into()
+    fn rtail(&self) -> Self::NominalRange {
+        TrimRange::RTAIL
     }
 }
 
-impl<T> Segmentation for BTreeSet<T>
-where
-    T: Clone + Ord,
-{
-    fn tail(&mut self) -> Segment<'_, Self> {
-        match Ranged::tail(self).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(self),
-        }
+impl<T> Segmentation for BTreeSet<T> {
+    type Tail = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, TrimRange> {
+        Segment::unchecked(self, TrimRange::TAIL)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        match Ranged::rtail(self).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(self),
-        }
+    fn rtail(&mut self) -> Segment<'_, Self, TrimRange> {
+        Segment::unchecked(self, TrimRange::RTAIL)
     }
 }
 
@@ -116,15 +103,14 @@ where
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
 {
+    type Range = RelationalRange<T>;
+
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect(self, &range::ordered_range_bounds(range))
+        Segment::intersect_with(self, &range::ordered_range_bounds(range), |items, all| all.resolve(items))
     }
 }
 
-impl<T> SegmentedOver for BTreeSet<T>
-where
-    T: Clone + Ord,
-{
+impl<T> SegmentedOver for BTreeSet<T> {
     type Kind = Self;
     type Target = Self;
 }
@@ -671,38 +657,40 @@ where
 
 impl<T> Segmentation for BTreeSet1<T>
 where
-    T: Clone + UnsafeOrd,
+    T: UnsafeOrd,
 {
-    fn tail(&mut self) -> Segment<'_, Self> {
-        match Ranged::tail(&self.items).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(&mut self.items),
-        }
+    type Tail = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, TrimRange> {
+        Segment::unchecked(&mut self.items, TrimRange::TAIL)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        match Ranged::rtail(&self.items).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(&mut self.items),
-        }
+    fn rtail(&mut self) -> Segment<'_, Self, TrimRange> {
+        Segment::unchecked(&mut self.items, TrimRange::RTAIL)
     }
 }
 
 impl<T, Q, R> SegmentedBy<Q, R> for BTreeSet1<T>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
-    T: Clone + UnsafeIsomorph<Q>,
+    T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
 {
+    type Range = RelationalRange<T>;
+
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_bounds(range))
+        Segment::intersect_strict_subset_with(
+            &mut self.items,
+            &range::ordered_range_bounds(range),
+            |items, all| all.resolve(items),
+        )
     }
 }
 
 impl<T> SegmentedOver for BTreeSet1<T>
 where
-    T: Clone + UnsafeOrd,
+    T: UnsafeOrd,
 {
     type Kind = Self;
     type Target = BTreeSet<T>;
@@ -795,7 +783,27 @@ where
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, BTreeSet<ItemFor<K>>>;
+pub type Segment<'a, K, R = RelationalRange<ItemFor<K>>> = segment::Segment<'a, K, BTreeSet<ItemFor<K>>, R>;
+
+impl<'a, T> Resolve<'a, BTreeSet<T>, RelationalRange<T>> for TrimRange
+where
+    T: Clone + Ord,
+{
+    fn resolve(self, items: &'a BTreeSet<T>) -> RelationalRange<T> {
+        let range: RelationalRange<&T> = self.resolve(items);
+        range.cloned()
+    }
+}
+
+impl<'a, T> Resolve<'a, BTreeSet<T>, RelationalRange<&'a T>> for TrimRange
+where
+    T: Ord,
+{
+    fn resolve(self, items: &'a BTreeSet<T>) -> RelationalRange<&'a T> {
+        let TrimRange { tail, rtail } = self;
+        items.iter().nth(tail).zip(items.iter().rev().nth(rtail)).into()
+    }
+}
 
 impl<K, T> Segment<'_, K>
 where
@@ -883,64 +891,120 @@ where
     }
 }
 
-impl<K, T> Segmentation for Segment<'_, K>
+impl<K, T> Segmentation for Segment<'_, K, RelationalRange<T>>
 where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
 {
-    fn tail(&mut self) -> Segment<'_, K> {
-        match self.range.clone().try_into_range_inclusive() {
-            Some(range) => match BTreeSet::range(self.items, range.clone()).nth(1) {
+    type Tail = RelationalRange<T>;
+
+    fn tail(&mut self) -> Segment<'_, K, Self::Tail> {
+        match &self.range {
+            RelationalRange::Empty => Segment::empty(self.items),
+            RelationalRange::NonEmpty { start, end } => match self.items.range((Bound::Included(start), Bound::Included(end))).nth(1) {
                 Some(start) => Segment::unchecked(
                     self.items,
-                    RelationalRange::unchecked(start.clone(), range.end().clone()),
+                    RelationalRange::unchecked(start.clone(), end.clone()),
                 ),
                 _ => Segment::empty(self.items),
             },
-            _ => Segment::empty(self.items),
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, K> {
-        match self.range.clone().try_into_range_inclusive() {
-            Some(range) => match BTreeSet::range(self.items, range.clone()).rev().nth(1) {
+    fn rtail(&mut self) -> Segment<'_, K, Self::Tail> {
+        match &self.range {
+            RelationalRange::Empty => Segment::empty(self.items),
+            RelationalRange::NonEmpty { start, end } => match self.items.range((Bound::Included(start), Bound::Included(end))).rev().nth(1) {
                 Some(end) => Segment::unchecked(
                     self.items,
-                    RelationalRange::unchecked(range.start().clone(), end.clone()),
+                    RelationalRange::unchecked(start.clone(), end.clone()),
                 ),
                 _ => Segment::empty(self.items),
             },
-            _ => Segment::empty(self.items),
         }
     }
 }
 
-impl<T, Q, R> SegmentedBy<Q, R> for Segment<'_, BTreeSet<T>>
+impl<K, T> Segmentation for Segment<'_, K, TrimRange>
 where
-    RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
-    T: Borrow<Q> + Clone + Ord,
-    Q: Ord + ?Sized,
-    R: RangeBounds<Q>,
+    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet<T>> {
-        Segment::intersect(self.items, &range::ordered_range_bounds(range))
+    type Tail = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, K, Self::Tail> {
+        Segment::unchecked(self.items, self.range.tail())
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K, Self::Tail> {
+        Segment::unchecked(self.items, self.range.rtail())
     }
 }
 
-impl<T, Q, R> SegmentedBy<Q, R> for Segment<'_, BTreeSet1<T>>
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet<T>, RelationalRange<T>>
 where
     RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
     T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet1<T>> {
-        Segment::intersect(self.items, &range::ordered_range_bounds(range))
+    type Range = RelationalRange<T>;
+
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet<T>, Self::Range> {
+        let range = self.range.intersect(&range::ordered_range_bounds(range)).expect_in_bounds();
+        Segment::unchecked(self.items, range)
+    }
+}
+
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet<T>, TrimRange>
+where
+    RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
+    T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+    R: RangeBounds<Q>,
+{
+    type Range = RelationalRange<T>;
+
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet<T>, Self::Range> {
+        let all: RelationalRange<T> = self.range.resolve(&*self.items);
+        let range = all.intersect(&range::ordered_range_bounds(range)).expect_in_bounds();
+        Segment::unchecked(self.items, range)
+    }
+}
+
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet1<T>, RelationalRange<T>>
+where
+    RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
+    T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+    R: RangeBounds<Q>,
+{
+    type Range = RelationalRange<T>;
+
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet1<T>, Self::Range> {
+        let range = self.range.intersect(&range::ordered_range_bounds(range)).expect_in_bounds();
+        Segment::unchecked(self.items, range)
+    }
+}
+
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet1<T>, TrimRange>
+where
+    RelationalRange<T>: Intersect<R, Output = RelationalRange<T>>,
+    T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+    R: RangeBounds<Q>,
+{
+    type Range = RelationalRange<T>;
+
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet1<T>, Self::Range> {
+        let all: RelationalRange<T> = self.range.resolve(&*self.items);
+        let range = all.intersect(&range::ordered_range_bounds(range)).expect_in_bounds();
+        Segment::unchecked(self.items, range)
     }
 }
 
 #[cfg(test)]
 pub mod harness {
+    use alloc::string::String;
     use rstest::fixture;
 
     use crate::btree_set1::BTreeSet1;
@@ -955,15 +1019,51 @@ pub mod harness {
     pub fn terminals1(#[default(0)] first: u8, #[default(9)] last: u8) -> BTreeSet1<u8> {
         BTreeSet1::from_iter1([first, last])
     }
+
+    #[fixture]
+    pub fn alphabet1() -> BTreeSet1<String> {
+        BTreeSet1::from_iter1([
+            "a".into(),
+            "b".into(),
+            "c".into(),
+            "d".into(),
+            "e".into(),
+            "f".into(),
+            "g".into(),
+            "h".into(),
+            "i".into(),
+            "j".into(),
+            "k".into(),
+            "l".into(),
+            "m".into(),
+            "n".into(),
+            "o".into(),
+            "p".into(),
+            "q".into(),
+            "r".into(),
+            "s".into(),
+            "t".into(),
+            "u".into(),
+            "v".into(),
+            "w".into(),
+            "x".into(),
+            "y".into(),
+            "z".into(),
+        ])
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::String;
+    use alloc::vec::Vec;
+    use alloc::vec;
+    use core::ops::{Bound, RangeBounds};
     use rstest::rstest;
     #[cfg(feature = "serde")]
-    use {alloc::vec::Vec, serde_test::Token};
+    use serde_test::Token;
 
-    use crate::btree_set1::harness::{self, terminals1};
+    use crate::btree_set1::harness::{self, alphabet1, terminals1};
     use crate::btree_set1::BTreeSet1;
     use crate::iter1::FromIterator1;
     use crate::Segmentation;
@@ -1012,6 +1112,21 @@ mod tests {
                 head_and_tail[..1].iter().copied()
             })
             .unwrap(),
+        );
+    }
+
+    #[rstest]
+    //#[case("w".., vec!["x", "y", "z"])]
+    #[case((Bound::Included("w"), Bound::Unbounded), vec!["x", "y", "z"])]
+    fn get_btree_set1_segment_by_isomorph_then_segment_eq(
+        #[from(alphabet1)] mut xs1: BTreeSet1<String>,
+        #[case] segment: (Bound<&'static str>, Bound<&'static str>),
+        #[case] expected: Vec<&'static str>,
+    ) {
+        let xss = xs1.segment(segment);
+        assert_eq!(
+            xss.iter().collect(),
+            expected,
         );
     }
 

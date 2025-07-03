@@ -80,7 +80,7 @@ where
 {
     type Range = PositionalRange;
 
-    fn range(&self) -> Self::Range {
+    fn all(&self) -> Self::Range {
         From::from(0..self.len())
     }
 

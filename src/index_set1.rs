@@ -81,7 +81,7 @@ unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
 impl<T, S> Ranged for IndexSet<T, S> {
     type Range = PositionalRange;
 
-    fn range(&self) -> Self::Range {
+    fn all(&self) -> Self::Range {
         From::from(0..self.len())
     }
 

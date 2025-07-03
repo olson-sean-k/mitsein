@@ -90,7 +90,7 @@ unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
 impl<T, const N: usize> Ranged for ArrayVec<T, N> {
     type Range = PositionalRange;
 
-    fn range(&self) -> Self::Range {
+    fn all(&self) -> Self::Range {
         From::from(0..self.len())
     }
 

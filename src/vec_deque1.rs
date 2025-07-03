@@ -71,17 +71,17 @@ unsafe impl<T> MaybeEmpty for VecDeque<T> {
 }
 
 impl<T> Ranged for VecDeque<T> {
-    type Range = PositionalRange;
+    type NominalRange = PositionalRange;
 
-    fn range(&self) -> Self::Range {
+    fn all(&self) -> Self::NominalRange {
         From::from(0..self.len())
     }
 
-    fn tail(&self) -> Self::Range {
+    fn tail(&self) -> Self::NominalRange {
         From::from(1..self.len())
     }
 
-    fn rtail(&self) -> Self::Range {
+    fn rtail(&self) -> Self::NominalRange {
         From::from(0..self.len().saturating_sub(1))
     }
 }
@@ -100,6 +100,8 @@ impl<T, R> SegmentedBy<usize, R> for VecDeque<T>
 where
     R: RangeBounds<usize>,
 {
+    type Range = PositionalRange;
+
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
@@ -601,6 +603,8 @@ impl<T, R> SegmentedBy<usize, R> for VecDeque1<T>
 where
     R: RangeBounds<usize>,
 {
+    type Range = PositionalRange;
+
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
@@ -646,7 +650,7 @@ impl Write for VecDeque1<u8> {
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, VecDeque<ItemFor<K>>>;
+pub type Segment<'a, K> = segment::Segment<'a, K, VecDeque<ItemFor<K>>, PositionalRange>;
 
 impl<K, T> Segment<'_, K>
 where
@@ -863,6 +867,8 @@ where
     K: ClosedVecDeque<Item = T> + SegmentedBy<usize, R> + SegmentedOver<Target = VecDeque<T>>,
     R: RangeBounds<usize>,
 {
+    type Range = PositionalRange;
+
     fn segment(&mut self, range: R) -> Segment<'_, K> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)

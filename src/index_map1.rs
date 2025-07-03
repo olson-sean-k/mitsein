@@ -86,7 +86,7 @@ unsafe impl<K, V, S> MaybeEmpty for IndexMap<K, V, S> {
 impl<K, V, S> Ranged for IndexMap<K, V, S> {
     type Range = PositionalRange;
 
-    fn range(&self) -> Self::Range {
+    fn all(&self) -> Self::Range {
         From::from(0..self.len())
     }
 

@@ -72,17 +72,17 @@ unsafe impl<T> MaybeEmpty for Vec<T> {
 }
 
 impl<T> Ranged for Vec<T> {
-    type Range = PositionalRange;
+    type NominalRange = PositionalRange;
 
-    fn range(&self) -> Self::Range {
+    fn all(&self) -> Self::NominalRange {
         From::from(0..self.len())
     }
 
-    fn tail(&self) -> Self::Range {
+    fn tail(&self) -> Self::NominalRange {
         From::from(1..self.len())
     }
 
-    fn rtail(&self) -> Self::Range {
+    fn rtail(&self) -> Self::NominalRange {
         From::from(0..self.len().saturating_sub(1))
     }
 }
@@ -101,6 +101,8 @@ impl<T, R> SegmentedBy<usize, R> for Vec<T>
 where
     R: RangeBounds<usize>,
 {
+    type Range = PositionalRange;
+
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect(self, &range::ordered_range_offsets(range))
     }
@@ -756,6 +758,8 @@ impl<T, R> SegmentedBy<usize, R> for Vec1<T>
 where
     R: RangeBounds<usize>,
 {
+    type Range = PositionalRange;
+
     fn segment(&mut self, range: R) -> Segment<'_, Self> {
         Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
     }
@@ -897,7 +901,7 @@ impl<T> Iterator for SwapDrainSegment<'_, T> {
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, Vec<ItemFor<K>>>;
+pub type Segment<'a, K> = segment::Segment<'a, K, Vec<ItemFor<K>>, PositionalRange>;
 
 impl<T> Segment<'_, Vec<T>> {
     pub fn drain<R>(&mut self, range: R) -> DrainSegment<'_, T>
@@ -1254,6 +1258,8 @@ where
     K: ClosedVec<Item = T> + SegmentedBy<usize, R> + SegmentedOver<Target = Vec<T>>,
     R: RangeBounds<usize>,
 {
+    type Range = PositionalRange;
+
     fn segment(&mut self, range: R) -> Segment<'_, K> {
         let range = self.project(&range::ordered_range_offsets(range));
         Segment::intersect(self.items, &range)
