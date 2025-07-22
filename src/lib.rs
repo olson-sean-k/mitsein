@@ -470,7 +470,7 @@ impl<T> EmptyError<T> {
 impl<T> EmptyError<&'_ T> {
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-    pub fn into_owned(self) -> EmptyError<T::Owned>
+    pub fn into_owning(self) -> EmptyError<T::Owned>
     where
         T: ToOwned,
     {
