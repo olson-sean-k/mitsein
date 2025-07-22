@@ -71,12 +71,7 @@ impl PositionalRange {
     }
 
     pub fn ordered(start: usize, end: usize) -> Self {
-        assert!(
-            start <= end,
-            "segment starts at {} but ends at {}",
-            start,
-            end
-        );
+        assert!(start <= end, "segment starts at {start} but ends at {end}");
         PositionalRange::unchecked(start, end)
     }
 
@@ -662,12 +657,7 @@ where
         },
     };
 
-    assert!(
-        start <= end,
-        "segment starts at {} but ends at {}",
-        start,
-        end
-    );
+    assert!(start <= end, "segment starts at {start} but ends at {end}");
     range
 }
 

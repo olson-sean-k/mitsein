@@ -167,8 +167,8 @@ impl<T> Debug for CardinalityError<T> {
 impl<T> Display for CardinalityError<T> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         match self {
-            CardinalityError::Empty(ref error) => write!(formatter, "{}", error),
-            CardinalityError::Capacity(ref error) => write!(formatter, "{}", error),
+            CardinalityError::Empty(ref error) => write!(formatter, "{error}"),
+            CardinalityError::Capacity(ref error) => write!(formatter, "{error}"),
         }
     }
 }

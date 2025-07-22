@@ -486,7 +486,7 @@ impl<T> Debug for EmptyError<T> {
 
 impl<T> Display for EmptyError<T> {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", EMPTY_ERROR_MESSAGE)
+        write!(formatter, "{EMPTY_ERROR_MESSAGE}")
     }
 }
 
