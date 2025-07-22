@@ -9,7 +9,7 @@ use alloc::borrow::{Borrow, BorrowMut, Cow};
 use alloc::string::{FromUtf16Error, FromUtf8Error, String};
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
-use core::fmt::{self, Debug, Formatter, Write};
+use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
@@ -345,6 +345,12 @@ impl Deref for String1 {
 impl DerefMut for String1 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_str1()
+    }
+}
+
+impl Display for String1 {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", &self.items)
     }
 }
 

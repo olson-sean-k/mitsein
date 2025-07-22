@@ -2,7 +2,7 @@
 
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
-use core::fmt::{self, Debug, Formatter};
+use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
@@ -283,7 +283,7 @@ impl AsMut<str> for Str1 {
 
 impl Debug for Str1 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{:?}", self.as_str())
+        write!(formatter, "{:?}", &self.items)
     }
 }
 
@@ -298,6 +298,12 @@ impl Deref for Str1 {
 impl DerefMut for Str1 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_str()
+    }
+}
+
+impl Display for Str1 {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", &self.items)
     }
 }
 
