@@ -136,7 +136,7 @@ impl String1 {
             .map(|items| unsafe { String1::from_string_unchecked(items) })
     }
 
-    pub fn from_utf8_lossy(items: &Slice1<u8>) -> CowStr1 {
+    pub fn from_utf8_lossy(items: &Slice1<u8>) -> CowStr1<'_> {
         // SAFETY: `items` is non-empty and `String::from_utf8_lossy` checks for valid UTF-8 or
         //         introduces replacement characters, so there must be one or more code points.
         unsafe {
