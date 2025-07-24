@@ -22,7 +22,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, Intersect, RelationalRange};
+use crate::segment::range::{self, Intersect, ItemRange};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -80,7 +80,7 @@ where
     K: Clone + Ord,
 {
     type NamedIndex = K;
-    type Range<N> = RelationalRange<N>;
+    type Range<N> = ItemRange<N>;
 
     fn all(&self) -> Self::Range<Self::NamedIndex> {
         self.keys()
@@ -128,7 +128,7 @@ where
 
 impl<K, V, Q, R> SegmentedBy<Q, R> for BTreeMap<K, V>
 where
-    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    ItemRange<K>: Intersect<R, Output = ItemRange<K>>,
     K: Borrow<Q> + Clone + Ord,
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
@@ -989,7 +989,7 @@ where
 
 impl<K, V, Q, R> SegmentedBy<Q, R> for BTreeMap1<K, V>
 where
-    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    ItemRange<K>: Intersect<R, Output = ItemRange<K>>,
     K: Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
@@ -1071,7 +1071,8 @@ where
     }
 }
 
-pub type Segment<'a, T, N = <T as ClosedBTreeMap>::Key> = segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, N>;
+pub type Segment<'a, T, N = <T as ClosedBTreeMap>::Key> =
+    segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, N>;
 
 impl<T, K, V> Segment<'_, T>
 where
@@ -1095,7 +1096,7 @@ where
     }
 
     pub fn append_in_range(&mut self, other: &mut BTreeMap<K, V>) {
-        if let RelationalRange::NonEmpty { ref start, ref end } = self.range {
+        if let ItemRange::NonEmpty { ref start, ref end } = self.range {
             let low = other;
             let mut middle = low.split_off(start);
             let mut high = middle.split_off(end);
@@ -1137,8 +1138,8 @@ where
 
     pub fn first_key_value(&self) -> Option<(&K, &V)> {
         match self.range {
-            RelationalRange::Empty => None,
-            RelationalRange::NonEmpty { ref start, .. } => {
+            ItemRange::Empty => None,
+            ItemRange::NonEmpty { ref start, .. } => {
                 self.items.get(start).map(|first| (start, first))
             },
         }
@@ -1146,10 +1147,8 @@ where
 
     pub fn last_key_value(&self) -> Option<(&K, &V)> {
         match self.range {
-            RelationalRange::Empty => None,
-            RelationalRange::NonEmpty { ref end, .. } => {
-                self.items.get(end).map(|last| (end, last))
-            },
+            ItemRange::Empty => None,
+            ItemRange::NonEmpty { ref end, .. } => self.items.get(end).map(|last| (end, last)),
         }
     }
 
@@ -1168,7 +1167,7 @@ where
             Some(range) => match BTreeMap::range(self.items, range.clone()).nth(1) {
                 Some((start, _)) => Segment::unchecked(
                     self.items,
-                    RelationalRange::unchecked(start.clone(), range.end().clone()),
+                    ItemRange::unchecked(start.clone(), range.end().clone()),
                 ),
                 _ => Segment::empty(self.items),
             },
@@ -1181,7 +1180,7 @@ where
             Some(range) => match BTreeMap::range(self.items, range.clone()).rev().nth(1) {
                 Some((end, _)) => Segment::unchecked(
                     self.items,
-                    RelationalRange::unchecked(range.start().clone(), end.clone()),
+                    ItemRange::unchecked(range.start().clone(), end.clone()),
                 ),
                 _ => Segment::empty(self.items),
             },
@@ -1192,7 +1191,7 @@ where
 
 impl<K, V, Q, R> SegmentedBy<Q, R> for Segment<'_, BTreeMap<K, V>>
 where
-    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    ItemRange<K>: Intersect<R, Output = ItemRange<K>>,
     K: Borrow<Q> + Clone + Ord,
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
@@ -1204,7 +1203,7 @@ where
 
 impl<K, V, Q, R> SegmentedBy<Q, R> for Segment<'_, BTreeMap1<K, V>>
 where
-    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
+    ItemRange<K>: Intersect<R, Output = ItemRange<K>>,
     K: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,

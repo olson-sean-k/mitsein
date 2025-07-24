@@ -76,8 +76,14 @@ mod alloc {
     unsafe impl<'a> UnsafeIsomorph<&'a crate::str1::Str1> for crate::string1::String1 {}
     unsafe impl<'a> UnsafeIsomorph<&'a mut crate::str1::Str1> for crate::string1::String1 {}
     unsafe impl<T> UnsafeIsomorph<crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where T: UnsafeOrd {}
-    unsafe impl<'a, T> UnsafeIsomorph<&'a crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where T: UnsafeOrd {}
-    unsafe impl<'a, T> UnsafeIsomorph<&'a mut crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where T: UnsafeOrd {}
+    unsafe impl<'a, T> UnsafeIsomorph<&'a crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where
+        T: UnsafeOrd
+    {
+    }
+    unsafe impl<'a, T> UnsafeIsomorph<&'a mut crate::slice1::Slice1<T>> for crate::vec1::Vec1<T> where
+        T: UnsafeOrd
+    {
+    }
 }
 
 #[cfg(feature = "arrayvec")]
@@ -183,13 +189,13 @@ mod core {
     unsafe impl<T> UnsafeIsomorph<&'_ T> for T
     where
         Self: UnsafeOrd,
-        T: ?Sized + UnsafeOrd
+        T: ?Sized + UnsafeOrd,
     {
     }
     unsafe impl<T> UnsafeIsomorph<&'_ mut T> for T
     where
         Self: UnsafeOrd,
-        T: ?Sized + UnsafeOrd
+        T: ?Sized + UnsafeOrd,
     {
     }
 

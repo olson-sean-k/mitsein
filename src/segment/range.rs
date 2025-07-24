@@ -46,7 +46,11 @@ where
         Segment::intersect_strict_subset_with(items, range, |_, all| all)
     }
 
-    pub(crate) fn intersect_strict_subset_with<Q, F>(items: &'a mut K::Target, range: &Q, f: F) -> Self
+    pub(crate) fn intersect_strict_subset_with<Q, F>(
+        items: &'a mut K::Target,
+        range: &Q,
+        f: F,
+    ) -> Self
     where
         R: Intersect<Q, Output = R> + IsStrictSubset<R>,
         F: FnOnce(&T, T::NominalRange) -> R,
@@ -61,11 +65,50 @@ where
         }
     }
 
+    pub(crate) fn map_range<Q, F>(self, f: F) -> Segment<'a, K, T, Q>
+    where
+        F: FnOnce(R) -> Q,
+    {
+        let Segment { items, range } = self;
+        Segment {
+            items,
+            range: f(range),
+        }
+    }
+
     pub(crate) fn project<Q>(&self, range: &Q) -> <R as Project<Q>>::Output
     where
         R: Project<Q>,
     {
         self.range.project(range).expect_in_bounds()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<'a, K, T, N> Segment<'a, K, T, ItemRange<N>>
+where
+    K: SegmentedOver<Target = T> + ?Sized,
+    T: Ranged + ?Sized,
+{
+    pub(crate) fn empty(items: &'a mut K::Target) -> Self {
+        Segment::unchecked(items, ItemRange::Empty)
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl<'a, K, T, N> Segment<'a, K, T, ItemRange<&'_ N>>
+where
+    K: SegmentedOver<Target = T>,
+    T: Ranged + ?Sized,
+    N: ?Sized + ToOwned,
+{
+    pub fn into_owning_range(self) -> Segment<'a, K, T, ItemRange<N::Owned>> {
+        let Segment { items, range } = self;
+        Segment {
+            items,
+            range: range.into_owning(),
+        }
     }
 }
 
@@ -76,23 +119,188 @@ where
     T: Ranged + ?Sized,
 {
     pub(crate) fn empty(items: &'a mut K::Target) -> Self {
-        Segment::unchecked(items, RelationalRange::Empty)
+        Segment::unchecked(items, RelationalRange::from(ItemRange::Empty))
     }
 }
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-impl<'a, K, T, N> Segment<'a, K, T, RelationalRange<&'_ N>>
+impl<'a, K, T, N> From<Segment<'a, K, T, ItemRange<N>>> for Segment<'a, K, T, RelationalRange<N>>
 where
     K: SegmentedOver<Target = T>,
     T: Ranged + ?Sized,
-    N: ?Sized + ToOwned,
 {
-    pub fn into_owning_range(self) -> Segment<'a, K, T, RelationalRange<N::Owned>> {
-        let Segment { items, range } = self;
+    fn from(segment: Segment<'a, K, T, ItemRange<N>>) -> Self {
+        let Segment { items, range } = segment;
         Segment {
             items,
-            range: range.into_owning(),
+            range: range.into(),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl<'a, K, T, N> From<Segment<'a, K, T, TrimRange>> for Segment<'a, K, T, RelationalRange<N>>
+where
+    TrimRange: Resolve<'a, T, RelationalRange<N>>,
+    K: SegmentedOver<Target = T>,
+    T: Ranged + ?Sized,
+{
+    fn from(segment: Segment<'a, K, T, TrimRange>) -> Self {
+        let Segment { items, range } = segment;
+        let range = range.resolve(items);
+        Segment {
+            items,
+            range,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ItemRange<N> {
+    Empty,
+    NonEmpty { start: N, end: N },
+}
+
+impl<N> ItemRange<N> {
+    pub fn unchecked(start: N, end: N) -> Self {
+        ItemRange::NonEmpty { start, end }
+    }
+
+    pub fn try_into_range_inclusive(self) -> Option<RangeInclusive<N>> {
+        match self {
+            ItemRange::Empty => None,
+            ItemRange::NonEmpty { start, end } => Some(RangeInclusive::new(start, end)),
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn retain_in_range<'a, F>(&'a self, mut f: F) -> impl 'a + FnMut(&N) -> bool
+    where
+        N: Ord,
+        F: 'a + FnMut(&N) -> bool,
+    {
+        let mut by_key_value = self.retain_key_value_in_range(move |key, _| f(key));
+        move |item| by_key_value(item, &mut ())
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn retain_key_value_in_range<'a, M, F>(
+        &'a self,
+        mut f: F,
+    ) -> impl 'a + FnMut(&N, &mut M) -> bool
+    where
+        N: Ord,
+        F: 'a + FnMut(&N, &mut M) -> bool,
+    {
+        move |key, value| {
+            // Always retain items that are **not** contained by the range, otherwise apply the
+            // given predicate.
+            if self.contains(key) {
+                f(key, value)
+            }
+            else {
+                true
+            }
+        }
+    }
+
+    pub fn as_ref(&self) -> ItemRange<&N> {
+        match self {
+            ItemRange::Empty => ItemRange::Empty,
+            ItemRange::NonEmpty { start, end } => ItemRange::NonEmpty { start, end },
+        }
+    }
+
+    pub fn borrow<T>(&self) -> ItemRange<&T>
+    where
+        N: Borrow<T>,
+        T: ?Sized,
+    {
+        match self {
+            ItemRange::Empty => ItemRange::Empty,
+            ItemRange::NonEmpty { start, end } => ItemRange::NonEmpty {
+                start: start.borrow(),
+                end: end.borrow(),
+            },
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    pub fn contains<Q>(&self, key: &Q) -> bool
+    where
+        //N: PartialOrd<Q>,
+        //Q: PartialOrd<N> + ?Sized,
+        N: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        match self {
+            ItemRange::Empty => false,
+            ItemRange::NonEmpty { start, end } => start.borrow() <= key && end.borrow() >= key,
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    pub fn is_empty(&self) -> bool {
+        matches!(self, ItemRange::Empty)
+    }
+}
+
+impl<N> ItemRange<N>
+where
+    N: Ord,
+{
+    #[cfg(feature = "alloc")]
+    pub fn ordered(start: N, end: N) -> Self {
+        assert!(start <= end, "segment starts after it ends");
+        ItemRange::unchecked(start, end)
+    }
+}
+
+impl<'n, N> ItemRange<&'n N>
+where
+    N: Clone,
+{
+    pub fn cloned(self) -> ItemRange<N> {
+        match self {
+            ItemRange::Empty => ItemRange::Empty,
+            ItemRange::NonEmpty { start, end } => ItemRange::NonEmpty {
+                start: start.clone(),
+                end: end.clone(),
+            },
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl<'n, N> ItemRange<&'n N>
+where
+    N: ?Sized + ToOwned,
+{
+    pub fn into_owning(self) -> ItemRange<N::Owned> {
+        match self {
+            ItemRange::Empty => ItemRange::Empty,
+            ItemRange::NonEmpty { start, end } => ItemRange::NonEmpty {
+                start: start.to_owned(),
+                end: end.to_owned(),
+            },
+        }
+    }
+}
+
+impl<N> Default for ItemRange<N> {
+    fn default() -> Self {
+        ItemRange::Empty
+    }
+}
+
+impl<N> From<Option<(N, N)>> for ItemRange<N> {
+    fn from(range: Option<(N, N)>) -> Self {
+        match range {
+            Some((start, end)) => ItemRange::NonEmpty { start, end },
+            _ => ItemRange::Empty,
         }
     }
 }
@@ -308,134 +516,46 @@ impl RangeBounds<usize> for PositionalRange {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RelationalRange<N> {
-    Empty,
-    NonEmpty { start: N, end: N },
+    Item(ItemRange<N>),
+    Trim(TrimRange),
 }
 
 impl<N> RelationalRange<N> {
-    pub fn unchecked(start: N, end: N) -> Self {
-        RelationalRange::NonEmpty { start, end }
-    }
-
-    pub fn try_into_range_inclusive(self) -> Option<RangeInclusive<N>> {
-        match self {
-            RelationalRange::Empty => None,
-            RelationalRange::NonEmpty { start, end } => Some(RangeInclusive::new(start, end)),
-        }
-    }
-
-    #[cfg(feature = "alloc")]
-    pub(crate) fn retain_in_range<'a, F>(&'a self, mut f: F) -> impl 'a + FnMut(&N) -> bool
+    pub fn resolve_and_get<'a, T>(&mut self, items: &'a T) -> &ItemRange<N>
     where
-        N: Ord,
-        F: 'a + FnMut(&N) -> bool,
-    {
-        let mut by_key_value = self.retain_key_value_in_range(move |key, _| f(key));
-        move |item| by_key_value(item, &mut ())
-    }
-
-    #[cfg(feature = "alloc")]
-    pub(crate) fn retain_key_value_in_range<'a, M, F>(
-        &'a self,
-        mut f: F,
-    ) -> impl 'a + FnMut(&N, &mut M) -> bool
-    where
-        N: Ord,
-        F: 'a + FnMut(&N, &mut M) -> bool,
-    {
-        move |key, value| {
-            // Always retain items that are **not** contained by the range, otherwise apply the
-            // given predicate.
-            if self.contains(key) {
-                f(key, value)
-            }
-            else {
-                true
-            }
-        }
-    }
-
-    pub fn as_ref(&self) -> RelationalRange<&N> {
-        match self {
-            RelationalRange::Empty => RelationalRange::Empty,
-            RelationalRange::NonEmpty { start, end } => RelationalRange::NonEmpty { start, end }
-        }
-    }
-
-    pub fn borrow<T>(&self) -> RelationalRange<&T>
-    where
-        N: Borrow<T>,
-        T: ?Sized,
+        TrimRange: Resolve<'a, T, ItemRange<N>>,
     {
         match self {
-            RelationalRange::Empty => RelationalRange::Empty,
-            RelationalRange::NonEmpty { start, end } => RelationalRange::NonEmpty { start: start.borrow(), end: end.borrow() }
-        }
-    }
-
-    #[cfg(feature = "alloc")]
-    pub fn contains<Q>(&self, key: &Q) -> bool
-    where
-        N: PartialOrd<Q>,
-        Q: PartialOrd<N> + ?Sized,
-    {
-        match self {
-            RelationalRange::Empty => false,
-            RelationalRange::NonEmpty { start, end } => start <= key && end >= key,
-        }
-    }
-
-    #[cfg(feature = "alloc")]
-    pub fn is_empty(&self) -> bool {
-        matches!(self, RelationalRange::Empty)
-    }
-}
-
-impl<N> RelationalRange<N>
-where
-    N: Ord,
-{
-    #[cfg(feature = "alloc")]
-    pub fn ordered(start: N, end: N) -> Self {
-        assert!(start <= end, "segment starts after it ends");
-        RelationalRange::unchecked(start, end)
-    }
-}
-
-impl<'n, N> RelationalRange<&'n N>
-where
-    N: Clone,
-{
-    pub fn cloned(self) -> RelationalRange<N> {
-        match self {
-            RelationalRange::Empty => RelationalRange::Empty,
-            RelationalRange::NonEmpty { start, end } => RelationalRange::NonEmpty { start: start.clone(), end: end.clone() },
+            RelationalRange::Item(range) => range,
+            RelationalRange::Trim(range) => {
+                let range = (*range).resolve(items);
+                *self = RelationalRange::Item(range);
+                match self {
+                    RelationalRange::Item(range) => range,
+                    _ => unreachable!(),
+                }
+            },
         }
     }
 }
 
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-impl<'n, N> RelationalRange<&'n N>
-where
-    N: ?Sized + ToOwned,
-{
-    pub fn into_owning(self) -> RelationalRange<N::Owned> {
-        match self {
-            RelationalRange::Empty => RelationalRange::Empty,
-            RelationalRange::NonEmpty { start, end } => RelationalRange::NonEmpty { start: start.to_owned(), end: end.to_owned() },
-        }
+impl<N> Default for RelationalRange<N> {
+    fn default() -> Self {
+        RelationalRange::Item(ItemRange::default())
     }
 }
 
-impl<N> From<Option<(N, N)>> for RelationalRange<N> {
-    fn from(range: Option<(N, N)>) -> Self {
-        match range {
-            Some((start, end)) => RelationalRange::NonEmpty { start, end },
-            _ => RelationalRange::Empty,
-        }
+impl<N> From<ItemRange<N>> for RelationalRange<N> {
+    fn from(range: ItemRange<N>) -> Self {
+        RelationalRange::Item(range)
+    }
+}
+
+impl<N> From<TrimRange> for RelationalRange<N> {
+    fn from(range: TrimRange) -> Self {
+        RelationalRange::Trim(range)
     }
 }
 
@@ -446,18 +566,9 @@ pub struct TrimRange {
 }
 
 impl TrimRange {
-    pub const ALL: Self = TrimRange {
-        tail: 0,
-        rtail: 0,
-    };
-    pub const TAIL: Self = TrimRange {
-        tail: 1,
-        rtail: 0,
-    };
-    pub const RTAIL: Self = TrimRange {
-        tail: 0,
-        rtail: 1,
-    };
+    pub const ALL: Self = TrimRange { tail: 0, rtail: 0 };
+    pub const TAIL: Self = TrimRange { tail: 1, rtail: 0 };
+    pub const RTAIL: Self = TrimRange { tail: 0, rtail: 1 };
 
     pub const fn tail(self) -> Self {
         let TrimRange { tail, rtail } = self;
@@ -486,7 +597,11 @@ impl TrimRange {
     }
 }
 
-pub trait Resolve<'a, T, R> {
+pub trait Resolve<'a, T, R>
+where
+    T: ?Sized,
+{
+    #[must_use]
     fn resolve(self, items: &'a T) -> R;
 }
 
@@ -650,48 +765,48 @@ where
     }
 }
 
-impl<N, M> Intersect<(Bound<M>, Bound<M>)> for RelationalRange<N>
+impl<N, M> Intersect<(Bound<M>, Bound<M>)> for ItemRange<N>
 where
     N: Borrow<M> + Ord,
     M: Clone + Ord,
 {
-    type Output = RelationalRange<M>;
+    type Output = ItemRange<M>;
 
     fn intersect(&self, range: &(Bound<M>, Bound<M>)) -> Intersection<Self::Output> {
         todo!()
     }
 }
 
-impl<N, M> Intersect<RelationalRange<M>> for RelationalRange<N>
+impl<N, M> Intersect<ItemRange<M>> for ItemRange<N>
 where
     N: Borrow<M> + Ord,
     M: Clone + Ord,
 {
-    type Output = RelationalRange<M>;
+    type Output = ItemRange<M>;
 
-    fn intersect(&self, range: &RelationalRange<M>) -> Intersection<Self::Output> {
+    fn intersect(&self, range: &ItemRange<M>) -> Intersection<Self::Output> {
         match range.clone().try_into_range_inclusive() {
             Some(range) => self.intersect(&range),
             // Accept empty input ranges.
-            _ => Some(RelationalRange::Empty),
+            _ => Some(ItemRange::Empty),
         }
     }
 }
 
-impl<N, M> Intersect<RangeFrom<M>> for RelationalRange<N>
+impl<N, M> Intersect<RangeFrom<M>> for ItemRange<N>
 where
     N: Borrow<M> + Ord,
     M: Clone + Ord,
 {
-    type Output = RelationalRange<M>;
+    type Output = ItemRange<M>;
 
     fn intersect(&self, range: &RangeFrom<M>) -> Intersection<Self::Output> {
         match self {
             // Accept empty input ranges.
-            RelationalRange::Empty => Some(RelationalRange::Empty),
-            RelationalRange::NonEmpty { start, end } => {
+            ItemRange::Empty => Some(ItemRange::Empty),
+            ItemRange::NonEmpty { start, end } => {
                 if end.borrow() >= &range.start {
-                    Some(RelationalRange::unchecked(
+                    Some(ItemRange::unchecked(
                         cmp::max(start.borrow(), &range.start).clone(),
                         end.borrow().clone(),
                     ))
@@ -704,20 +819,20 @@ where
     }
 }
 
-impl<N, M> Intersect<RangeInclusive<M>> for RelationalRange<N>
+impl<N, M> Intersect<RangeInclusive<M>> for ItemRange<N>
 where
     N: Borrow<M> + Ord,
     M: Clone + Ord,
 {
-    type Output = RelationalRange<M>;
+    type Output = ItemRange<M>;
 
     fn intersect(&self, range: &RangeInclusive<M>) -> Intersection<Self::Output> {
         match self {
             // Accept empty input ranges.
-            RelationalRange::Empty => Some(RelationalRange::Empty),
-            RelationalRange::NonEmpty { start, end } => {
+            ItemRange::Empty => Some(ItemRange::Empty),
+            ItemRange::NonEmpty { start, end } => {
                 if start.borrow() <= range.end() && end.borrow() >= range.start() {
-                    Some(RelationalRange::unchecked(
+                    Some(ItemRange::unchecked(
                         cmp::max(start.borrow(), range.start()).clone(),
                         cmp::min(end.borrow(), range.end()).clone(),
                     ))
@@ -730,20 +845,20 @@ where
     }
 }
 
-impl<N, M> Intersect<RangeToInclusive<M>> for RelationalRange<N>
+impl<N, M> Intersect<RangeToInclusive<M>> for ItemRange<N>
 where
     N: Borrow<M> + Ord,
     M: Clone + Ord,
 {
-    type Output = RelationalRange<M>;
+    type Output = ItemRange<M>;
 
     fn intersect(&self, range: &RangeToInclusive<M>) -> Intersection<Self::Output> {
         match self {
             // Accept empty input ranges.
-            RelationalRange::Empty => Some(RelationalRange::Empty),
-            RelationalRange::NonEmpty { start, end } => {
+            ItemRange::Empty => Some(ItemRange::Empty),
+            ItemRange::NonEmpty { start, end } => {
                 if start.borrow() <= &range.end {
-                    Some(RelationalRange::unchecked(
+                    Some(ItemRange::unchecked(
                         start.borrow().clone(),
                         cmp::min(end.borrow(), &range.end).clone(),
                     ))
@@ -766,13 +881,13 @@ impl IsStrictSubset<Self> for PositionalRange {
     }
 }
 
-impl<N, M> IsStrictSubset<RelationalRange<M>> for RelationalRange<N>
+impl<N, M> IsStrictSubset<ItemRange<M>> for ItemRange<N>
 where
     N: Borrow<M> + Ord,
     M: Ord,
 {
-    fn is_strict_subset(&self, other: &RelationalRange<M>) -> bool {
-        use RelationalRange::{Empty, NonEmpty};
+    fn is_strict_subset(&self, other: &ItemRange<M>) -> bool {
+        use ItemRange::{Empty, NonEmpty};
 
         match (self, other) {
             (Empty, Empty) | (NonEmpty { .. }, Empty) => false,

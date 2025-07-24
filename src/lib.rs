@@ -301,7 +301,7 @@ pub mod array1;
 pub mod array_vec1;
 pub mod borrow1;
 pub mod boxed1;
-pub mod btree_map1;
+//pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
 pub mod index_map1;
