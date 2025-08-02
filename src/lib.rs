@@ -99,6 +99,8 @@
 //! - [`BoxedStr1`]
 //! - [`CowSlice1`]
 //! - [`CowStr1`]
+//! - [`RcSlice1`]
+//! - [`RcStr1`]
 //!
 //! Each of these type definitions has an accompanying extension trait for operations and
 //! conversions that take advantage of the non-empty guarantee. For example, [`ArcSlice1Ext`]
@@ -215,6 +217,8 @@
 //! [`itertools`]: https://crates.io/crates/itertools
 //! [`ParallelIterator1`]: crate::iter1::ParallelIterator1
 //! [`rayon`]: https://crates.io/crates/rayon
+//! [`RcSlice1`]: crate::rc1::RcSlice1
+//! [`RcStr1`]: crate::rc1::RcStr1
 //! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`smallvec`]: https://crates.io/crates/smallvec
@@ -307,6 +311,7 @@ pub mod cmp;
 pub mod index_map1;
 pub mod index_set1;
 pub mod iter1;
+pub mod rc1;
 pub mod slice1;
 pub mod small_vec1;
 pub mod str1;
@@ -354,6 +359,7 @@ pub mod prelude {
         crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
         crate::boxed1::{BoxedSlice1Ext as _, BoxedStr1Ext as _},
         crate::btree_map1::OrOnlyEntryExt as _,
+        crate::rc1::{RcSlice1Ext as _, RcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _},
         crate::string1::String1,
         crate::vec1::{vec1, Vec1},
     };
