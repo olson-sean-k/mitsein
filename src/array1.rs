@@ -8,7 +8,7 @@ use crate::slice1::Slice1;
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 use crate::sync1::ArcSlice1;
 #[cfg(feature = "alloc")]
-use crate::vec1::Vec1;
+use {crate::rc1::RcSlice1, crate::vec1::Vec1};
 
 #[diagnostic::on_unimplemented(
     note = "a non-empty size, length, or capacity parameter may be zero",
@@ -27,6 +27,10 @@ pub trait Array1:
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     #[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", target_has_atomic = "ptr"))))]
     fn into_arc_slice1(self) -> ArcSlice1<Self::Item>;
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    fn into_rc_slice1(self) -> RcSlice1<Self::Item>;
 
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
@@ -69,6 +73,14 @@ macro_rules! impl_array1_for_array {
                 use $crate::sync1::ArcSlice1Ext as _;
 
                 $crate::sync1::ArcSlice1::from_array1(self)
+            }
+
+            #[cfg(feature = "alloc")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+            fn into_rc_slice1(self) -> $crate::rc1::RcSlice1<Self::Item> {
+                use $crate::rc1::RcSlice1Ext as _;
+
+                $crate::rc1::RcSlice1::from_array1(self)
             }
 
             fn as_slice1(&self) -> &$crate::slice1::Slice1<T> {

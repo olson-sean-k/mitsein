@@ -5,6 +5,7 @@
 
 use alloc::borrow::{Cow, ToOwned};
 
+use crate::rc1::{RcSlice1, RcSlice1Ext as _, RcStr1, RcStr1Ext as _};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::string1::String1;
@@ -23,6 +24,8 @@ where
     fn into_arc_slice1(self) -> ArcSlice1<T>;
 
     fn into_cow_slice(self) -> Cow<'a, [T]>;
+
+    fn into_rc_slice1(self) -> RcSlice1<T>;
 }
 
 impl<'a, T> CowSlice1Ext<'a, T> for CowSlice1<'a, T>
@@ -40,6 +43,10 @@ where
             Cow::Borrowed(borrowed) => Cow::Borrowed(borrowed),
             Cow::Owned(owned) => Cow::Owned(owned.into_vec()),
         }
+    }
+
+    fn into_rc_slice1(self) -> RcSlice1<T> {
+        RcSlice1::from_cow_slice1(self)
     }
 }
 
@@ -88,6 +95,8 @@ pub trait CowStr1Ext<'a> {
     fn into_arc_str1(self) -> ArcStr1;
 
     fn into_cow_str(self) -> Cow<'a, str>;
+
+    fn into_rc_str1(self) -> RcStr1;
 }
 
 impl<'a> CowStr1Ext<'a> for CowStr1<'a> {
@@ -102,6 +111,10 @@ impl<'a> CowStr1Ext<'a> for CowStr1<'a> {
             Cow::Borrowed(borrowed) => Cow::Borrowed(borrowed),
             Cow::Owned(owned) => Cow::Owned(owned.into_string()),
         }
+    }
+
+    fn into_rc_str1(self) -> RcStr1 {
+        RcStr1::from_cow_str1(self)
     }
 }
 

@@ -11,6 +11,7 @@ use core::slice;
 
 use crate::array1::Array1;
 use crate::iter1::{IntoIterator1, Iterator1};
+use crate::rc1::{RcSlice1, RcSlice1Ext as _};
 #[cfg(feature = "serde")]
 use crate::serde::Serde;
 use crate::slice1::Slice1;
@@ -42,6 +43,8 @@ pub trait BoxedSlice1Ext<T>: Sized {
     fn into_arc_slice1(self) -> ArcSlice1<T>;
 
     fn into_boxed_slice(self) -> Box<[T]>;
+
+    fn into_rc_slice1(self) -> RcSlice1<T>;
 
     fn into_vec1(self) -> Vec1<T>;
 
@@ -93,6 +96,10 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
         //         only requires that the memory location and layout are the same when
         //         deallocating, so dropping the transmuted `Box` is sound.
         unsafe { Box::from_raw(items as *mut [T]) }
+    }
+
+    fn into_rc_slice1(self) -> RcSlice1<T> {
+        RcSlice1::from_boxed_slice1(self)
     }
 
     fn into_vec1(self) -> Vec1<T> {
