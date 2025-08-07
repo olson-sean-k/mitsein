@@ -1,12 +1,5 @@
 //! Comparison and ordering extensions.
 
-// TODO: Remove this.
-pub trait Isomorph<T>: Ord
-where
-    T: Ord + ?Sized,
-{
-}
-
 /// Types that can be used in APIs where consistent total ordering is required for memory safety.
 ///
 /// # Safety
@@ -105,16 +98,7 @@ mod array_vec {
 // `Cell` and `RefCell` are intentionally absent here and do not implement `UnsafeOrd`. Interior
 // mutability is incompatible with the safety requirements of `UnsafeOrd`.
 mod core {
-    use core::borrow::Borrow;
-
-    use crate::cmp::{Isomorph, UnsafeIsomorph, UnsafeOrd};
-
-    impl<T, U> Isomorph<T> for U
-    where
-        U: Borrow<T> + Ord,
-        T: Ord + ?Sized,
-    {
-    }
+    use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
 
     unsafe impl UnsafeOrd for () {}
     unsafe impl UnsafeOrd for bool {}

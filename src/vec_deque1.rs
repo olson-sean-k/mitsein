@@ -87,6 +87,8 @@ impl<T> Ranged for VecDeque<T> {
 }
 
 impl<T> Segmentation for VecDeque<T> {
+    type Tail = PositionalRange;
+
     fn tail(&mut self) -> Segment<'_, Self> {
         Segment::intersect(self, &Ranged::tail(self))
     }
@@ -588,6 +590,8 @@ crate::impl_partial_eq_for_non_empty!([for U in Vec<U>] <= [for T in VecDeque1<T
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in VecDeque<T>]);
 
 impl<T> Segmentation for VecDeque1<T> {
+    type Tail = PositionalRange;
+
     fn tail(&mut self) -> Segment<'_, Self> {
         let range = Ranged::tail(&self.items);
         Segment::intersect_strict_subset(&mut self.items, &range)
@@ -850,6 +854,8 @@ impl<K, T> Segmentation for Segment<'_, K>
 where
     K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
 {
+    type Tail = PositionalRange;
+
     fn tail(&mut self) -> Segment<'_, K> {
         let range = self.project(&(1..));
         Segment::intersect(self.items, &range)

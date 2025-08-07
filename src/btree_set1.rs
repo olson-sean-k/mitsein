@@ -19,9 +19,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{
-    self, Intersect, IntersectionExt, ItemRange, RelationalRange, Resolve, TrimRange,
-};
+use crate::segment::range::{self, Intersect, IntersectionExt, ItemRange, Resolve, TrimRange};
 use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -78,23 +76,23 @@ impl<T> Ranged for BTreeSet<T> {
     }
 
     fn tail(&self) -> Self::NominalRange {
-        TrimRange::TAIL
+        TrimRange::TAIL1
     }
 
     fn rtail(&self) -> Self::NominalRange {
-        TrimRange::RTAIL
+        TrimRange::RTAIL1
     }
 }
 
 impl<T> Segmentation for BTreeSet<T> {
-    type Tail = RelationalRange<T>;
+    type Tail = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
-        Segment::unchecked(self, TrimRange::TAIL.into())
+    fn tail(&mut self) -> Segment<'_, Self, Self::Tail> {
+        Segment::unchecked(self, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        Segment::unchecked(self, TrimRange::RTAIL.into())
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Tail> {
+        Segment::unchecked(self, TrimRange::RTAIL1)
     }
 }
 
@@ -105,12 +103,14 @@ where
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
 {
-    type Range = RelationalRange<T>;
+    type Range = ItemRange<T>;
 
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        segment::Segment::<_, _, ItemRange<T>>::intersect_with(self, &range::ordered_range_bounds(range), |items, all: TrimRange| {
-            all.resolve(items)
-        }).map_range(RelationalRange::from)
+    fn segment(&mut self, range: R) -> Segment<'_, Self, Self::Range> {
+        segment::Segment::<_, _, ItemRange<T>>::intersect_with(
+            self,
+            &range::ordered_range_bounds(range),
+            |items, all: TrimRange| all.resolve(items),
+        )
     }
 }
 
@@ -663,14 +663,14 @@ impl<T> Segmentation for BTreeSet1<T>
 where
     T: UnsafeOrd,
 {
-    type Tail = RelationalRange<T>;
+    type Tail = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
-        Segment::unchecked(&mut self.items, TrimRange::TAIL.into())
+    fn tail(&mut self) -> Segment<'_, Self, Self::Tail> {
+        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        Segment::unchecked(&mut self.items, TrimRange::RTAIL.into())
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Tail> {
+        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
     }
 }
 
@@ -681,15 +681,14 @@ where
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
 {
-    type Range = RelationalRange<T>;
+    type Range = ItemRange<T>;
 
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
+    fn segment(&mut self, range: R) -> Segment<'_, Self, Self::Range> {
         segment::Segment::<_, _, ItemRange<T>>::intersect_strict_subset_with(
             &mut self.items,
             &range::ordered_range_bounds(range),
             |items, all: TrimRange| all.resolve(items),
         )
-        .map_range(RelationalRange::from)
     }
 }
 
@@ -788,8 +787,9 @@ where
     }
 }
 
-pub type Segment<'a, K> =
-    segment::Segment<'a, K, BTreeSet<ItemFor<K>>, RelationalRange<ItemFor<K>>>;
+//pub type Segment<'a, K> =
+//    segment::Segment<'a, K, BTreeSet<ItemFor<K>>, RelationalRange<ItemFor<K>>>;
+pub type Segment<'a, K, R> = segment::Segment<'a, K, BTreeSet<ItemFor<K>>, R>;
 
 impl<'a, T> Resolve<'a, BTreeSet<T>, ItemRange<T>> for TrimRange
 where
@@ -815,7 +815,7 @@ where
     }
 }
 
-impl<K, T> Segment<'_, K>
+impl<K, T> Segment<'_, K, ItemRange<T>>
 where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Ord,
@@ -840,29 +840,12 @@ where
             None
         }
     }
-}
 
-impl<K, T> Segment<'_, K>
-where
-    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
-    T: Ord,
-{
-    pub fn retain<F>(&mut self, mut f: F)
+    pub fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&T) -> bool,
     {
-        match &self.range {
-            RelationalRange::Item(range) => self.items.retain(range.retain_in_range(f)),
-            RelationalRange::Trim(TrimRange { tail, rtail }) => {
-                let rtail = self.items.len().saturating_sub(*rtail);
-                let mut index = 0usize;
-                self.items.retain(|item| {
-                    let is_in_range = index > *tail || index < rtail;
-                    index = index.checked_add(1).expect("overflow computing item index");
-                    (!is_in_range) || f(item)
-                });
-            },
-        }
+        self.items.retain(self.range.retain_in_range(f))
     }
 
     pub fn insert_in_range(&mut self, item: T) -> Result<bool, T> {
@@ -874,11 +857,8 @@ where
         }
     }
 
-    pub fn append_in_range(&mut self, other: &mut BTreeSet<T>)
-    where
-        T: Clone,
-    {
-        if let ItemRange::NonEmpty { start, end } = self.range.resolve_and_get(self.items) {
+    pub fn append_in_range(&mut self, other: &mut BTreeSet<T>) {
+        if let ItemRange::NonEmpty { start, end } = &self.range {
             let low = other;
             let mut middle = low.split_off(start);
             let mut high = middle.split_off(end);
@@ -899,36 +879,25 @@ where
         T: Borrow<Q>,
         Q: Ord + ?Sized,
     {
-        match &self.range {
-            RelationalRange::Item(range) => {
-                if range.contains(key) {
-                    self.items.get(key)
-                }
-                else {
-                    None
-                }
-            },
-            RelationalRange::Trim(range) => self::get_in_trim_range(self.items, key, range),
+        if self.range.contains(key) {
+            self.items.get(key)
+        }
+        else {
+            None
         }
     }
 
     pub fn first(&self) -> Option<&T> {
         match &self.range {
-            RelationalRange::Item(range) => match range {
-                ItemRange::Empty => None,
-                ItemRange::NonEmpty { start, .. } => self.items.get(start),
-            },
-            RelationalRange::Trim(TrimRange { tail, .. }) => self.items.iter().nth(*tail),
+            ItemRange::Empty => None,
+            ItemRange::NonEmpty { start, .. } => self.items.get(start),
         }
     }
 
     pub fn last(&self) -> Option<&T> {
         match &self.range {
-            RelationalRange::Item(range) => match range {
-                ItemRange::Empty => None,
-                ItemRange::NonEmpty { end, .. } => self.items.get(end),
-            },
-            RelationalRange::Trim(TrimRange { rtail, .. }) => self.items.iter().rev().nth(*rtail),
+            ItemRange::Empty => None,
+            ItemRange::NonEmpty { end, .. } => self.items.get(end),
         }
     }
 
@@ -937,16 +906,11 @@ where
         T: Borrow<Q>,
         Q: Ord + ?Sized,
     {
-        match &self.range {
-            RelationalRange::Item(range) => range.contains(key) && self.items.contains(key),
-            RelationalRange::Trim(range) => {
-                self::get_in_trim_range(self.items, key, range).is_some()
-            },
-        }
+        self.range.contains(key) && self.items.contains(key)
     }
 }
 
-impl<T> Segment<'_, BTreeSet<T>>
+impl<T> Segment<'_, BTreeSet<T>, ItemRange<T>>
 where
     T: Ord,
 {
@@ -967,7 +931,7 @@ where
     }
 }
 
-impl<T> Segment<'_, BTreeSet1<T>>
+impl<T> Segment<'_, BTreeSet1<T>, ItemRange<T>>
 where
     T: UnsafeOrd,
 {
@@ -988,88 +952,269 @@ where
     }
 }
 
-impl<K, T> Segmentation for Segment<'_, K>
+impl<K, T> Segment<'_, K, TrimRange>
+where
+    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    T: Ord,
+{
+    fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.take_isomorph_unchecked(key).is_some()
+    }
+
+    fn take_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        if self.contains(key) {
+            self.items.take(key)
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let TrimRange { tail, rtail } = self.range;
+        let rtail = self.items.len().saturating_sub(rtail);
+        let mut index = 0usize;
+        self.items.retain(|item| {
+            let is_in_range = index > tail || index < rtail;
+            index = index.checked_add(1).expect("overflow computing item index");
+            (!is_in_range) || f(item)
+        });
+    }
+
+    pub fn insert_in_range(&mut self, item: T) -> Result<bool, T> {
+        if self.contains(&item) {
+            Ok(self.items.insert(item))
+        }
+        else {
+            Err(item)
+        }
+    }
+
+    pub fn append_in_range(&mut self, other: &mut BTreeSet<T>)
+    where
+        T: Clone,
+    {
+        let range: ItemRange<_> = self.range.resolve(self.items);
+        if let ItemRange::NonEmpty { start, end } = range.cloned() {
+            let low = other;
+            let mut middle = low.split_off(&start);
+            let mut high = middle.split_off(&end);
+            self.items.append(&mut middle);
+            if let Some(first) = high.take(&end) {
+                self.items.insert(first);
+            }
+            low.append(&mut high);
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.retain(|_| false)
+    }
+
+    pub fn get<Q>(&self, key: &Q) -> Option<&T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self::get_in_trim_range(self.items, key, &self.range)
+    }
+
+    pub fn first(&self) -> Option<&T> {
+        self.items.iter().nth(self.range.tail)
+    }
+
+    pub fn last(&self) -> Option<&T> {
+        self.items.iter().rev().nth(self.range.rtail)
+    }
+
+    pub fn contains<Q>(&self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self::get_in_trim_range(self.items, key, &self.range).is_some()
+    }
+}
+
+impl<T> Segment<'_, BTreeSet<T>, TrimRange>
+where
+    T: Ord,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+
+    pub fn take<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.take_isomorph_unchecked(key)
+    }
+}
+
+impl<T> Segment<'_, BTreeSet1<T>, TrimRange>
+where
+    T: UnsafeOrd,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+
+    pub fn take<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.take_isomorph_unchecked(key)
+    }
+}
+
+impl<K, T> Segmentation for Segment<'_, K, ItemRange<T>>
 where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
 {
-    type Tail = RelationalRange<T>;
+    type Tail = ItemRange<T>;
 
-    fn tail(&mut self) -> Segment<'_, K> {
+    fn tail(&mut self) -> Segment<'_, K, Self::Tail> {
         match &self.range {
-            RelationalRange::Item(range) => match range {
-                ItemRange::Empty => Segment::empty(self.items),
-                ItemRange::NonEmpty { start, end } => match self
-                    .items
-                    .range((Bound::Included(start), Bound::Included(end)))
-                    .nth(1)
-                {
-                    Some(start) => {
-                        Segment::unchecked(self.items, ItemRange::unchecked(start.clone(), end.clone()).into())
-                    },
-                    _ => Segment::empty(self.items),
-                },
+            ItemRange::Empty => Segment::empty(self.items),
+            ItemRange::NonEmpty { start, end } => match self
+                .items
+                .range((Bound::Included(start), Bound::Included(end)))
+                .nth(1)
+            {
+                Some(start) => Segment::unchecked(
+                    self.items,
+                    ItemRange::unchecked(start.clone(), end.clone()).into(),
+                ),
+                _ => Segment::empty(self.items),
             },
-            RelationalRange::Trim(range) => Segment::unchecked(self.items, range.tail().into()),
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, K> {
+    fn rtail(&mut self) -> Segment<'_, K, Self::Tail> {
         match &self.range {
-            RelationalRange::Item(range) => match range {
-                ItemRange::Empty => Segment::empty(self.items),
-                ItemRange::NonEmpty { start, end } => match self
-                    .items
-                    .range((Bound::Included(start), Bound::Included(end)))
-                    .rev()
-                    .nth(1)
-                {
-                    Some(end) => {
-                        Segment::unchecked(self.items, ItemRange::unchecked(start.clone(), end.clone()).into())
-                    },
-                    _ => Segment::empty(self.items),
-                },
+            ItemRange::Empty => Segment::empty(self.items),
+            ItemRange::NonEmpty { start, end } => match self
+                .items
+                .range((Bound::Included(start), Bound::Included(end)))
+                .rev()
+                .nth(1)
+            {
+                Some(end) => Segment::unchecked(
+                    self.items,
+                    ItemRange::unchecked(start.clone(), end.clone()).into(),
+                ),
+                _ => Segment::empty(self.items),
             },
-            RelationalRange::Trim(range) => Segment::unchecked(self.items, range.rtail().into()),
         }
     }
 }
 
-impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet<T>>
+impl<K, T> Segmentation for Segment<'_, K, TrimRange>
+where
+    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    T: Clone + Ord,
+{
+    type Tail = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, K, Self::Tail> {
+        Segment::unchecked(self.items, self.range.tail())
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K, Self::Tail> {
+        Segment::unchecked(self.items, self.range.rtail())
+    }
+}
+
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet<T>, ItemRange<T>>
 where
     ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + Ord,
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
 {
-    type Range = RelationalRange<T>;
+    type Range = ItemRange<T>;
 
-    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet<T>> {
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet<T>, Self::Range> {
         let range = self
             .range
-            .resolve_and_get(self.items)
             .intersect(&range::ordered_range_bounds(range))
             .expect_in_bounds();
-        Segment::unchecked(self.items, range.into())
+        Segment::unchecked(self.items, range)
     }
 }
 
-impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet1<T>>
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet1<T>, ItemRange<T>>
 where
     ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
 {
-    type Range = RelationalRange<T>;
+    type Range = ItemRange<T>;
 
-    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet1<T>> {
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet1<T>, Self::Range> {
         let range = self
             .range
-            .resolve_and_get(self.items)
             .intersect(&range::ordered_range_bounds(range))
             .expect_in_bounds();
-        Segment::unchecked(self.items, range.into())
+        Segment::unchecked(self.items, range)
+    }
+}
+
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet<T>, TrimRange>
+where
+    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    T: Borrow<Q> + Clone + Ord,
+    Q: Ord + ?Sized,
+    R: RangeBounds<Q>,
+{
+    type Range = ItemRange<T>;
+
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet<T>, Self::Range> {
+        let range = Resolve::<_, ItemRange<_>>::resolve(self.range, self.items)
+            .intersect(&range::ordered_range_bounds(range))
+            .expect_in_bounds();
+        Segment::unchecked(self.items, range)
+    }
+}
+
+impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet1<T>, TrimRange>
+where
+    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+    R: RangeBounds<Q>,
+{
+    type Range = ItemRange<T>;
+
+    fn segment(&mut self, range: R) -> Segment<'_, BTreeSet1<T>, Self::Range> {
+        let range = Resolve::<_, ItemRange<_>>::resolve(self.range, self.items)
+            .intersect(&range::ordered_range_bounds(range))
+            .expect_in_bounds();
+        Segment::unchecked(self.items, range)
     }
 }
 

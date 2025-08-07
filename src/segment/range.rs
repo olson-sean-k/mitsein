@@ -113,17 +113,6 @@ where
 }
 
 #[cfg(feature = "alloc")]
-impl<'a, K, T, N> Segment<'a, K, T, RelationalRange<N>>
-where
-    K: SegmentedOver<Target = T> + ?Sized,
-    T: Ranged + ?Sized,
-{
-    pub(crate) fn empty(items: &'a mut K::Target) -> Self {
-        Segment::unchecked(items, RelationalRange::from(ItemRange::Empty))
-    }
-}
-
-#[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl<'a, K, T, N> From<Segment<'a, K, T, ItemRange<N>>> for Segment<'a, K, T, RelationalRange<N>>
 where
@@ -139,23 +128,23 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-impl<'a, K, T, N> From<Segment<'a, K, T, TrimRange>> for Segment<'a, K, T, RelationalRange<N>>
-where
-    TrimRange: Resolve<'a, T, RelationalRange<N>>,
-    K: SegmentedOver<Target = T>,
-    T: Ranged + ?Sized,
-{
-    fn from(segment: Segment<'a, K, T, TrimRange>) -> Self {
-        let Segment { items, range } = segment;
-        let range = range.resolve(items);
-        Segment {
-            items,
-            range,
-        }
-    }
-}
+//#[cfg(feature = "alloc")]
+//#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+//impl<'a, K, T, N> From<Segment<'a, K, T, TrimRange>> for Segment<'a, K, T, RelationalRange<N>>
+//where
+//    TrimRange: Resolve<'a, T, RelationalRange<N>>,
+//    K: SegmentedOver<Target = T>,
+//    T: Ranged + ?Sized,
+//{
+//    fn from(segment: Segment<'a, K, T, TrimRange>) -> Self {
+//        let Segment { items, range } = segment;
+//        let range = range.resolve(items);
+//        Segment {
+//            items,
+//            range,
+//        }
+//    }
+//}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ItemRange<N> {
@@ -567,8 +556,8 @@ pub struct TrimRange {
 
 impl TrimRange {
     pub const ALL: Self = TrimRange { tail: 0, rtail: 0 };
-    pub const TAIL: Self = TrimRange { tail: 1, rtail: 0 };
-    pub const RTAIL: Self = TrimRange { tail: 0, rtail: 1 };
+    pub const TAIL1: Self = TrimRange { tail: 1, rtail: 0 };
+    pub const RTAIL1: Self = TrimRange { tail: 0, rtail: 1 };
 
     pub const fn tail(self) -> Self {
         let TrimRange { tail, rtail } = self;
@@ -765,17 +754,57 @@ where
     }
 }
 
-impl<N, M> Intersect<(Bound<M>, Bound<M>)> for ItemRange<N>
-where
-    N: Borrow<M> + Ord,
-    M: Clone + Ord,
-{
-    type Output = ItemRange<M>;
+//impl<R, N, M> Intersect<R> for ItemRange<N>
+//where
+//    R: RangeBounds<M>,
+//    N: Borrow<M> + Ord,
+//    M: Clone + Ord,
+//{
+//    type Output = ItemRange<M>;
+//
+//    fn intersect(&self, range: &(Bound<M>, Bound<M>)) -> Intersection<Self::Output> {
+//        match self {
+//            ItemRange::Empty => Some(ItemRange::Empty),
+//            ItemRange::NonEmpty { start, end } => {
+//                let start = match range.0 {
+//                    Bound::Unbounded => start.borrow().clone(),
+//                    _ => todo!(),
+//                };
+//                let end = match range.1 {
+//                    Bound::Unbounded => end.borrow().clone(),
+//                    _ => todo!(),
+//                };
+//                Some(ItemRange::NonEmpty { start, end })
+//            },
+//        }
+//    }
+//}
 
-    fn intersect(&self, range: &(Bound<M>, Bound<M>)) -> Intersection<Self::Output> {
-        todo!()
-    }
-}
+//impl<N, M> Intersect<(Bound<M>, Bound<M>)> for ItemRange<N>
+//where
+//    (Bound<M>, Bound<M>): RangeBounds<M>, // Implied?
+//    N: Borrow<M> + Ord,
+//    M: Clone + Ord,
+//{
+//    type Output = ItemRange<M>;
+//
+//    fn intersect(&self, range: &(Bound<M>, Bound<M>)) -> Intersection<Self::Output> {
+//        match self {
+//            ItemRange::Empty => Some(ItemRange::Empty),
+//            ItemRange::NonEmpty { start, end } => {
+//                let start = match range.0 {
+//                    Bound::Unbounded => start.borrow().clone(),
+//                    _ => todo!(),
+//                };
+//                let end = match range.1 {
+//                    Bound::Unbounded => end.borrow().clone(),
+//                    _ => todo!(),
+//                };
+//                Some(ItemRange::NonEmpty { start, end })
+//            },
+//        }
+//    }
+//}
 
 impl<N, M> Intersect<ItemRange<M>> for ItemRange<N>
 where

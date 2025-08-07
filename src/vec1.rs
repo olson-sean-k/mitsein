@@ -88,6 +88,8 @@ impl<T> Ranged for Vec<T> {
 }
 
 impl<T> Segmentation for Vec<T> {
+    type Tail = PositionalRange;
+
     fn tail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::tail(self))
     }
@@ -745,6 +747,8 @@ crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &Slice1<T>
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &mut Slice1<T>]);
 
 impl<T> Segmentation for Vec1<T> {
+    type Tail = PositionalRange;
+
     fn tail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::tail(&self.items))
     }
@@ -1241,6 +1245,8 @@ impl<K, T> Segmentation for Segment<'_, K>
 where
     K: ClosedVec<Item = T> + SegmentedOver<Target = Vec<T>>,
 {
+    type Tail = PositionalRange;
+
     fn tail(&mut self) -> Segment<'_, K> {
         let range = self.project(&(1..));
         Segment::intersect(self.items, &range)
