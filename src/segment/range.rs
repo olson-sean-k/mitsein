@@ -21,38 +21,46 @@ where
         Segment { items, range }
     }
 
-    pub(crate) fn intersect<Q>(items: &'a mut K::Target, range: &Q) -> Self
+    pub(crate) fn intersect<Q, S>(items: &'a mut K::Target, range: &S) -> Self
     where
         T: Ranged<NominalRange = R>,
-        R: Intersect<Q, Output = R>,
+        R: Intersect<Q, S, Output = R>,
+        Q: ?Sized,
+        S: RangeBounds<Q>,
     {
         Segment::intersect_with(items, range, |_, all| all)
     }
 
-    pub(crate) fn intersect_with<Q, F>(items: &'a mut K::Target, range: &Q, f: F) -> Self
+    pub(crate) fn intersect_with<Q, S, F>(items: &'a mut K::Target, range: &S, f: F) -> Self
     where
-        R: Intersect<Q, Output = R>,
+        R: Intersect<Q, S, Output = R>,
+        Q: ?Sized,
+        S: RangeBounds<Q>,
         F: FnOnce(&T, T::NominalRange) -> R,
     {
         let range = f(&*items, items.all()).intersect(range).expect_in_bounds();
         Segment::unchecked(items, range)
     }
 
-    pub(crate) fn intersect_strict_subset<Q>(items: &'a mut K::Target, range: &Q) -> Self
+    pub(crate) fn intersect_strict_subset<Q, S>(items: &'a mut K::Target, range: &S) -> Self
     where
         T: Ranged<NominalRange = R>,
-        R: Intersect<Q, Output = R> + IsStrictSubset<R>,
+        R: Intersect<Q, S, Output = R> + IsStrictSubset<R>,
+        Q: ?Sized,
+        S: RangeBounds<Q>,
     {
         Segment::intersect_strict_subset_with(items, range, |_, all| all)
     }
 
-    pub(crate) fn intersect_strict_subset_with<Q, F>(
+    pub(crate) fn intersect_strict_subset_with<Q, S, F>(
         items: &'a mut K::Target,
-        range: &Q,
+        range: &S,
         f: F,
     ) -> Self
     where
-        R: Intersect<Q, Output = R> + IsStrictSubset<R>,
+        R: Intersect<Q, S, Output = R> + IsStrictSubset<R>,
+        Q: ?Sized,
+        S: RangeBounds<Q>,
         F: FnOnce(&T, T::NominalRange) -> R,
     {
         let all = f(&*items, items.all());
@@ -712,13 +720,16 @@ impl<R> IntersectionExt<R> for Intersection<R> {
     }
 }
 
-pub trait Intersect<R>: Sized {
+pub trait Intersect<N, R>: Sized
+where
+    N: ?Sized,
+{
     type Output;
 
     fn intersect(&self, range: &R) -> Intersection<Self::Output>;
 }
 
-impl<R> Intersect<R> for PositionalRange
+impl<R> Intersect<usize, R> for PositionalRange
 where
     R: RangeBounds<usize>,
 {
@@ -754,151 +765,144 @@ where
     }
 }
 
-//impl<R, N, M> Intersect<R> for ItemRange<N>
+#[cfg(feature = "alloc")]
+impl<N, M, R> Intersect<M, R> for ItemRange<N>
+where
+    N: Borrow<M> + Ord,
+    M: Ord + ?Sized + ToOwned<Owned = N>,
+    R: RangeBounds<M>,
+{
+    type Output = ItemRange<N>;
+
+    // TODO: This is very broken! XD See commented out implementations below; intersection isn't
+    //       that simple!
+    fn intersect(&self, range: &R) -> Intersection<Self::Output> {
+        match self {
+            ItemRange::Empty => Some(ItemRange::Empty),
+            ItemRange::NonEmpty { start, end } => {
+                let start = match range.start_bound() {
+                    Bound::Excluded(bound) | Bound::Included(bound) => {
+                        if start.borrow() > bound {
+                            start.borrow().to_owned()
+                        }
+                        else {
+                            bound.to_owned()
+                        }
+                    },
+                    Bound::Unbounded => start.borrow().to_owned(),
+                };
+                let end = match range.end_bound() {
+                    Bound::Excluded(bound) | Bound::Included(bound) => {
+                        if end.borrow() < bound {
+                            end.borrow().to_owned()
+                        }
+                        else {
+                            bound.to_owned()
+                        }
+                    },
+                    Bound::Unbounded => end.borrow().to_owned(),
+                };
+                Some(ItemRange::NonEmpty { start, end })
+            },
+        }
+    }
+}
+
+//#[cfg(feature = "alloc")]
+//impl<N, M> Intersect<M, ItemRange<M>> for ItemRange<N>
 //where
-//    R: RangeBounds<M>,
+//    N: Borrow<M> + Ord,
+//    M: Ord + ?Sized + ToOwned<Owned = N>,
+//{
+//    type Output = ItemRange<M>;
+//
+//    fn intersect(&self, range: &ItemRange<M>) -> Intersection<Self::Output> {
+//        todo!()
+//        //match range.clone().try_into_range_inclusive() {
+//        //    Some(range) => self.intersect(&range),
+//        //    // Accept empty input ranges.
+//        //    _ => Some(ItemRange::Empty),
+//        //}
+//    }
+//}
+
+//impl<N, M> Intersect<RangeFrom<M>> for ItemRange<N>
+//where
 //    N: Borrow<M> + Ord,
 //    M: Clone + Ord,
 //{
 //    type Output = ItemRange<M>;
 //
-//    fn intersect(&self, range: &(Bound<M>, Bound<M>)) -> Intersection<Self::Output> {
+//    fn intersect(&self, range: &RangeFrom<M>) -> Intersection<Self::Output> {
 //        match self {
+//            // Accept empty input ranges.
 //            ItemRange::Empty => Some(ItemRange::Empty),
 //            ItemRange::NonEmpty { start, end } => {
-//                let start = match range.0 {
-//                    Bound::Unbounded => start.borrow().clone(),
-//                    _ => todo!(),
-//                };
-//                let end = match range.1 {
-//                    Bound::Unbounded => end.borrow().clone(),
-//                    _ => todo!(),
-//                };
-//                Some(ItemRange::NonEmpty { start, end })
+//                if end.borrow() >= &range.start {
+//                    Some(ItemRange::unchecked(
+//                        cmp::max(start.borrow(), &range.start).clone(),
+//                        end.borrow().clone(),
+//                    ))
+//                }
+//                else {
+//                    None
+//                }
 //            },
 //        }
 //    }
 //}
 
-//impl<N, M> Intersect<(Bound<M>, Bound<M>)> for ItemRange<N>
+//impl<N, M> Intersect<RangeInclusive<M>> for ItemRange<N>
 //where
-//    (Bound<M>, Bound<M>): RangeBounds<M>, // Implied?
 //    N: Borrow<M> + Ord,
 //    M: Clone + Ord,
 //{
 //    type Output = ItemRange<M>;
 //
-//    fn intersect(&self, range: &(Bound<M>, Bound<M>)) -> Intersection<Self::Output> {
+//    fn intersect(&self, range: &RangeInclusive<M>) -> Intersection<Self::Output> {
 //        match self {
+//            // Accept empty input ranges.
 //            ItemRange::Empty => Some(ItemRange::Empty),
 //            ItemRange::NonEmpty { start, end } => {
-//                let start = match range.0 {
-//                    Bound::Unbounded => start.borrow().clone(),
-//                    _ => todo!(),
-//                };
-//                let end = match range.1 {
-//                    Bound::Unbounded => end.borrow().clone(),
-//                    _ => todo!(),
-//                };
-//                Some(ItemRange::NonEmpty { start, end })
+//                if start.borrow() <= range.end() && end.borrow() >= range.start() {
+//                    Some(ItemRange::unchecked(
+//                        cmp::max(start.borrow(), range.start()).clone(),
+//                        cmp::min(end.borrow(), range.end()).clone(),
+//                    ))
+//                }
+//                else {
+//                    None
+//                }
 //            },
 //        }
 //    }
 //}
 
-impl<N, M> Intersect<ItemRange<M>> for ItemRange<N>
-where
-    N: Borrow<M> + Ord,
-    M: Clone + Ord,
-{
-    type Output = ItemRange<M>;
-
-    fn intersect(&self, range: &ItemRange<M>) -> Intersection<Self::Output> {
-        match range.clone().try_into_range_inclusive() {
-            Some(range) => self.intersect(&range),
-            // Accept empty input ranges.
-            _ => Some(ItemRange::Empty),
-        }
-    }
-}
-
-impl<N, M> Intersect<RangeFrom<M>> for ItemRange<N>
-where
-    N: Borrow<M> + Ord,
-    M: Clone + Ord,
-{
-    type Output = ItemRange<M>;
-
-    fn intersect(&self, range: &RangeFrom<M>) -> Intersection<Self::Output> {
-        match self {
-            // Accept empty input ranges.
-            ItemRange::Empty => Some(ItemRange::Empty),
-            ItemRange::NonEmpty { start, end } => {
-                if end.borrow() >= &range.start {
-                    Some(ItemRange::unchecked(
-                        cmp::max(start.borrow(), &range.start).clone(),
-                        end.borrow().clone(),
-                    ))
-                }
-                else {
-                    None
-                }
-            },
-        }
-    }
-}
-
-impl<N, M> Intersect<RangeInclusive<M>> for ItemRange<N>
-where
-    N: Borrow<M> + Ord,
-    M: Clone + Ord,
-{
-    type Output = ItemRange<M>;
-
-    fn intersect(&self, range: &RangeInclusive<M>) -> Intersection<Self::Output> {
-        match self {
-            // Accept empty input ranges.
-            ItemRange::Empty => Some(ItemRange::Empty),
-            ItemRange::NonEmpty { start, end } => {
-                if start.borrow() <= range.end() && end.borrow() >= range.start() {
-                    Some(ItemRange::unchecked(
-                        cmp::max(start.borrow(), range.start()).clone(),
-                        cmp::min(end.borrow(), range.end()).clone(),
-                    ))
-                }
-                else {
-                    None
-                }
-            },
-        }
-    }
-}
-
-impl<N, M> Intersect<RangeToInclusive<M>> for ItemRange<N>
-where
-    N: Borrow<M> + Ord,
-    M: Clone + Ord,
-{
-    type Output = ItemRange<M>;
-
-    fn intersect(&self, range: &RangeToInclusive<M>) -> Intersection<Self::Output> {
-        match self {
-            // Accept empty input ranges.
-            ItemRange::Empty => Some(ItemRange::Empty),
-            ItemRange::NonEmpty { start, end } => {
-                if start.borrow() <= &range.end {
-                    Some(ItemRange::unchecked(
-                        start.borrow().clone(),
-                        cmp::min(end.borrow(), &range.end).clone(),
-                    ))
-                }
-                else {
-                    None
-                }
-            },
-        }
-    }
-}
+//impl<N, M> Intersect<RangeToInclusive<M>> for ItemRange<N>
+//where
+//    N: Borrow<M> + Ord,
+//    M: Clone + Ord,
+//{
+//    type Output = ItemRange<M>;
+//
+//    fn intersect(&self, range: &RangeToInclusive<M>) -> Intersection<Self::Output> {
+//        match self {
+//            // Accept empty input ranges.
+//            ItemRange::Empty => Some(ItemRange::Empty),
+//            ItemRange::NonEmpty { start, end } => {
+//                if start.borrow() <= &range.end {
+//                    Some(ItemRange::unchecked(
+//                        start.borrow().clone(),
+//                        cmp::min(end.borrow(), &range.end).clone(),
+//                    ))
+//                }
+//                else {
+//                    None
+//                }
+//            },
+//        }
+//    }
+//}
 
 pub trait IsStrictSubset<R> {
     fn is_strict_subset(&self, other: &R) -> bool;

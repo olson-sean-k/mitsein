@@ -98,7 +98,7 @@ impl<T> Segmentation for BTreeSet<T> {
 
 impl<T, Q, R> SegmentedBy<Q, R> for BTreeSet<T>
 where
-    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    ItemRange<T>: Intersect<Q, R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + Ord,
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
@@ -676,7 +676,7 @@ where
 
 impl<T, Q, R> SegmentedBy<Q, R> for BTreeSet1<T>
 where
-    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    ItemRange<T>: Intersect<Q, R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
@@ -901,6 +901,10 @@ where
         }
     }
 
+    pub fn iter(&self) -> impl '_ + Iterator<Item = &T> {
+        self.items.iter().filter(|item| self.range.contains(item))
+    }
+
     pub fn contains<Q>(&self, key: &Q) -> bool
     where
         T: Borrow<Q>,
@@ -1038,6 +1042,20 @@ where
         self.items.iter().rev().nth(self.range.rtail)
     }
 
+    pub fn iter(&self) -> impl '_ + Iterator<Item = &T> {
+        let n = self
+            .items
+            .len()
+            .checked_sub(
+                self.range
+                    .tail
+                    .checked_add(self.range.rtail)
+                    .expect("overflow computing range"),
+            )
+            .expect("underflow computing range");
+        self.items.iter().skip(self.range.tail).take(n)
+    }
+
     pub fn contains<Q>(&self, key: &Q) -> bool
     where
         T: Borrow<Q>,
@@ -1150,7 +1168,7 @@ where
 
 impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet<T>, ItemRange<T>>
 where
-    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    ItemRange<T>: Intersect<Q, R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + Ord,
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
@@ -1168,7 +1186,7 @@ where
 
 impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet1<T>, ItemRange<T>>
 where
-    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    ItemRange<T>: Intersect<Q, R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
@@ -1186,7 +1204,7 @@ where
 
 impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet<T>, TrimRange>
 where
-    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    ItemRange<T>: Intersect<Q, R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + Ord,
     Q: Ord + ?Sized,
     R: RangeBounds<Q>,
@@ -1203,7 +1221,7 @@ where
 
 impl<'a, T, Q, R> SegmentedBy<Q, R> for Segment<'a, BTreeSet1<T>, TrimRange>
 where
-    ItemRange<T>: Intersect<R, Output = ItemRange<T>>,
+    ItemRange<T>: Intersect<Q, R, Output = ItemRange<T>>,
     T: Borrow<Q> + Clone + UnsafeIsomorph<Q>,
     Q: ?Sized + UnsafeOrd,
     R: RangeBounds<Q>,
@@ -1287,7 +1305,7 @@ mod tests {
     use alloc::string::String;
     use alloc::vec;
     use alloc::vec::Vec;
-    use core::ops::Bound;
+    use core::ops::{Bound, RangeBounds};
     use rstest::rstest;
     #[cfg(feature = "serde")]
     use serde_test::Token;
@@ -1345,15 +1363,14 @@ mod tests {
     }
 
     #[rstest]
-    //#[case("w".., vec!["x", "y", "z"])]
-    #[case((Bound::Included("w"), Bound::Unbounded), vec!["x", "y", "z"])]
+    #[case((Bound::Excluded("w"), Bound::Unbounded), vec!["x", "y", "z"])]
     fn get_btree_set1_segment_by_isomorph_then_segment_eq(
         #[from(alphabet1)] mut xs1: BTreeSet1<String>,
-        #[case] segment: (Bound<&'static str>, Bound<&'static str>),
+        #[case] segment: impl RangeBounds<str>,
         #[case] expected: Vec<&'static str>,
     ) {
         let xss = xs1.segment(segment);
-        assert_eq!(xss.iter().collect(), expected,);
+        assert_eq!(xss.iter().collect::<Vec<_>>(), expected);
     }
 
     #[rstest]
