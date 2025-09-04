@@ -15,7 +15,7 @@ use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::SliceIndex;
 
-use crate::borrow1::CowStr1;
+use crate::borrow1::{CowStr1, CowStr1Ext as _};
 use crate::boxed1::{BoxedStr1, BoxedStr1Ext as _};
 use crate::iter1::{Extend1, FromIterator1, IntoIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
@@ -24,6 +24,24 @@ use crate::str1::Str1;
 use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+
+impl<'a> Extend<&'a Str1> for String {
+    fn extend<I>(&mut self, items: I)
+    where
+        I: IntoIterator<Item = &'a Str1>,
+    {
+        self.extend(items.into_iter().map(Str1::as_str))
+    }
+}
+
+impl Extend<String1> for String {
+    fn extend<I>(&mut self, items: I)
+    where
+        I: IntoIterator<Item = String1>,
+    {
+        self.extend(items.into_iter().map(String1::into_string))
+    }
+}
 
 impl Extend1<char> for String {
     fn extend_non_empty<I>(mut self, items: I) -> String1
@@ -155,8 +173,8 @@ impl String1 {
     }
 
     pub fn from_utf16_lossy(items: &Slice1<u16>) -> String1 {
-        // SAFETY: `items` is non-empty and `String::from_utf16` checks for valid UTF-16, so there
-        //         must be one or more code points.
+        // SAFETY: `items` is non-empty and `String::from_utf16_lossy` checks for valid UTF-16 or
+        //         introduces replacement characters, so there must be one or more code points.
         unsafe { String1::from_string_unchecked(String::from_utf16_lossy(items.as_slice())) }
     }
 
@@ -354,6 +372,9 @@ impl Display for String1 {
     }
 }
 
+// This unfortunately cannot support extending from `CowStr1`s, because `Extend<CowStr1<'_>>`
+// cannot be implemented for `String` in this crate. It cannot be implemented directly for
+// `String1` either, because it conflicts with this implementation.
 impl<T> Extend<T> for String1
 where
     String: Extend<T>,
@@ -370,6 +391,13 @@ impl From<BoxedStr1> for String1 {
     fn from(items: BoxedStr1) -> Self {
         // SAFETY: `items` must be non-empty.
         unsafe { String1::from_string_unchecked(String::from(items.into_boxed_str())) }
+    }
+}
+
+impl From<char> for String1 {
+    fn from(point: char) -> Self {
+        // SAFETY: The `From<char>` implementation for `String` never constructs an empty `String`.
+        unsafe { String1::from_string_unchecked(String::from(point)) }
     }
 }
 
@@ -404,8 +432,53 @@ impl FromIterator1<char> for String1 {
     where
         I: IntoIterator1<Item = char>,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty and each item (`char`) is intrinsically non-empty. A
+        //         `String` constructed from one or more `char`s is never empty.
         unsafe { String1::from_string_unchecked(items.into_iter().collect()) }
+    }
+}
+
+impl<'a> FromIterator1<&'a char> for String1 {
+    fn from_iter1<I>(items: I) -> Self
+    where
+        I: IntoIterator1<Item = &'a char>,
+    {
+        String1::from_iter1(items.into_iter1().cloned())
+    }
+}
+
+impl<'a> FromIterator1<CowStr1<'a>> for String1 {
+    fn from_iter1<I>(items: I) -> Self
+    where
+        I: IntoIterator1<Item = CowStr1<'a>>,
+    {
+        let (head, tail) = items.into_iter1().into_head_and_tail();
+        let mut head = head.into_owned();
+        head.items.extend(tail.map(CowStr1::into_cow_str));
+        head
+    }
+}
+
+impl<'a> FromIterator1<&'a Str1> for String1 {
+    fn from_iter1<I>(items: I) -> Self
+    where
+        I: IntoIterator1<Item = &'a Str1>,
+    {
+        let (head, tail) = items.into_iter1().into_head_and_tail();
+        let mut head = String1::from(head);
+        head.extend(tail);
+        head
+    }
+}
+
+impl FromIterator1<String1> for String1 {
+    fn from_iter1<I>(items: I) -> Self
+    where
+        I: IntoIterator1<Item = String1>,
+    {
+        let (mut head, tail) = items.into_iter1().into_head_and_tail();
+        head.extend(tail);
+        head
     }
 }
 
@@ -458,6 +531,14 @@ impl TryFrom<String> for String1 {
 
     fn try_from(items: String) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl TryFrom<Vec1<u8>> for String1 {
+    type Error = FromUtf8Error;
+
+    fn try_from(items: Vec1<u8>) -> Result<Self, Self::Error> {
+        String1::from_utf8(items)
     }
 }
 

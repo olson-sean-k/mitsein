@@ -10,12 +10,13 @@ use alloc::vec::{self, Vec};
 use core::slice;
 
 use crate::array1::Array1;
-use crate::iter1::{IntoIterator1, Iterator1};
+use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 use crate::rc1::{RcSlice1, RcSlice1Ext as _};
 #[cfg(feature = "serde")]
 use crate::serde::Serde;
 use crate::slice1::Slice1;
 use crate::str1::Str1;
+use crate::string1::String1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::vec1::Vec1;
@@ -272,5 +273,17 @@ impl BoxedStr1Ext for BoxedStr1 {
         //         requires that the memory location and layout are the same when deallocating, so
         //         dropping the transmuted `Box` is sound.
         unsafe { Box::from_raw(items as *mut str) }
+    }
+}
+
+impl<T> FromIterator1<T> for BoxedStr1
+where
+    String1: FromIterator1<T>,
+{
+    fn from_iter1<I>(items: I) -> Self
+    where
+        I: IntoIterator1<Item = T>,
+    {
+        String1::from_iter1(items).into_boxed_str1()
     }
 }
