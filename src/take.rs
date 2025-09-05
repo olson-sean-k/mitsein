@@ -77,7 +77,7 @@ where
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("TakeOr")
+            .debug_struct("Take")
             .field("items", &self.items)
             .field("index", &self.index)
             .field("many", &self.many)
