@@ -16,6 +16,11 @@ use core::slice;
 use smallvec::{Array, SmallVec};
 #[cfg(feature = "std")]
 use std::io::{self, IoSlice, Write};
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
@@ -701,6 +706,35 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl<A, T> JsonSchema for SmallVec1<A>
+where
+    A: Array<Item = T>,
+    T: JsonSchema,
+{
+    fn schema_name() -> Cow<'static, str> {
+        SmallVec::<A>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<SmallVec<A>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        SmallVec::<A>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        SmallVec::<A>::schema_id()
+    }
+}
+
 impl<A> Segmentation for SmallVec1<A>
 where
     A: Array,
@@ -1078,6 +1112,8 @@ mod tests {
     use rstest::rstest;
 
     use crate::iter1::FromIterator1;
+    #[cfg(feature = "schemars")]
+    use crate::schemars;
     use crate::small_vec1::SmallVec1;
 
     #[rstest]
@@ -1088,5 +1124,13 @@ mod tests {
     fn small_vec1_with_zero_sized_buf_spills_and_is_non_empty(#[case] xs1: SmallVec1<[u8; 0]>) {
         assert_eq!(xs1.inline_size(), 0);
         assert!(!xs1.as_small_vec().is_empty());
+    }
+
+    #[cfg(feature = "schemars")]
+    #[rstest]
+    fn small_vec1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<SmallVec1<[u8; 5]>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+        );
     }
 }

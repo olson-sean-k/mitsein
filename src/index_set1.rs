@@ -21,6 +21,11 @@ use indexmap::{Equivalent, TryReserveError};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "std")]
 use std::hash::RandomState;
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 
 #[cfg(feature = "std")]
 use crate::array1::Array1;
@@ -1122,6 +1127,34 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl<T, S> JsonSchema for IndexSet1<T, S>
+where
+    T: JsonSchema,
+{
+    fn schema_name() -> Cow<'static, str> {
+        IndexSet::<T, S>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<IndexSet<T, S>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        IndexSet::<T, S>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        IndexSet::<T, S>::schema_id()
+    }
+}
+
 impl<T, S> Segmentation for IndexSet1<T, S> {
     fn tail(&mut self) -> Segment<'_, Self> {
         Segmentation::segment(self, Ranged::tail(&self.items))
@@ -1298,5 +1331,17 @@ pub mod harness {
     }
 }
 
-#[cfg(test)]
-mod tests {}
+#[cfg(all(test, feature = "schemars", feature = "std"))]
+mod tests {
+    use rstest::rstest;
+
+    use crate::index_set1::IndexSet1;
+    use crate::schemars;
+
+    #[rstest]
+    fn index_set1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<IndexSet1<u8>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+        );
+    }
+}

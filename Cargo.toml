@@ -40,16 +40,25 @@ arbitrary = [
     "indexmap?/arbitrary",
     "std",
 ]
-arrayvec = ["dep:arrayvec"]
+arrayvec = [
+    "dep:arrayvec",
+    "schemars?/arrayvec07",
+]
 indexmap = [
     "dep:indexmap",
     "alloc",
+    "schemars?/indexmap2",
 ]
 itertools = ["dep:itertools"]
 rayon = [
     "dep:rayon",
     "indexmap?/rayon",
     "std",
+]
+schemars = [
+    "dep:schemars",
+    "dep:serde_json",
+    "alloc",
 ]
 serde = [
     "dep:serde",
@@ -61,11 +70,13 @@ serde = [
 smallvec = [
     "dep:smallvec",
     "alloc",
+    "schemars?/smallvec1",
 ]
 std = [
     "alloc",
     "indexmap?/std",
     "itertools?/use_std",
+    "schemars?/std",
     "serde?/std",
     "smallvec?/write",
 ]
@@ -97,12 +108,22 @@ version = "^1.10.0"
 default-features = false
 optional = true
 
+[dependencies.schemars]
+version = "^1.0.0"
+default-features = false
+optional = true
+
 [dependencies.serde]
 version = "1.0"
 default-features = false
 optional = true
 
 [dependencies.serde_derive]
+version = "1.0"
+default-features = false
+optional = true
+
+[dependencies.serde_json]
 version = "1.0"
 default-features = false
 optional = true

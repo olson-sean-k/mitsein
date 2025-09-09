@@ -18,6 +18,11 @@ use core::slice;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 #[cfg(feature = "std")]
 use std::io::{self, IoSlice, Write};
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 
 use crate::array1::Array1;
 use crate::borrow1::CowSlice1;
@@ -729,6 +734,34 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl<T> JsonSchema for Vec1<T>
+where
+    T: JsonSchema,
+{
+    fn schema_name() -> Cow<'static, str> {
+        Vec::<T>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<Vec<T>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        Vec::<T>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        Vec::<T>::schema_id()
+    }
+}
+
 crate::impl_partial_eq_for_non_empty!([for U, const N: usize in [U; N]] <= [for T in Vec1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U, const N: usize in &[U; N]] <= [for T in Vec1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in [U]] <= [for T in Vec1<T>]);
@@ -1342,6 +1375,8 @@ mod tests {
     use {alloc::vec::Vec, serde_test::Token};
 
     use crate::iter1::IntoIterator1;
+    #[cfg(feature = "schemars")]
+    use crate::schemars;
     use crate::segment::range::{PositionalRange, Project};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
@@ -1530,6 +1565,14 @@ mod tests {
         let mut segment = xs1.segment(segment);
         mem::forget(segment.swap_drain(drain));
         assert_eq!(xs1.as_slice1(), expected);
+    }
+
+    #[cfg(feature = "schemars")]
+    #[rstest]
+    fn vec1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<Vec1<u8>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+        );
     }
 
     #[cfg(feature = "serde")]

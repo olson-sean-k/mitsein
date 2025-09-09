@@ -7,6 +7,11 @@ use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::{self, Chunks, ChunksMut, RChunks, RChunksMut};
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::vec::Vec};
 
@@ -337,6 +342,34 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl<T> JsonSchema for Slice1<T>
+where
+    T: JsonSchema,
+{
+    fn schema_name() -> Cow<'static, str> {
+        <[T]>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<[T]>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        <[T]>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        <[T]>::schema_id()
+    }
+}
+
 crate::impl_partial_eq_for_non_empty!([for U in [U]] <= [for T in Slice1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in Slice1<U>] => [for T in [T]]);
 
@@ -388,3 +421,18 @@ macro_rules! slice1 {
     }};
 }
 pub use slice1;
+
+#[cfg(all(test, feature = "schemars"))]
+mod tests {
+    use rstest::rstest;
+
+    use crate::schemars;
+    use crate::slice1::Slice1;
+
+    #[rstest]
+    fn slice1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<Slice1<u8>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+        );
+    }
+}

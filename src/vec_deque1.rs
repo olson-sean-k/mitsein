@@ -19,6 +19,11 @@ use rayon::iter::{
 };
 #[cfg(feature = "std")]
 use std::io::{self, IoSlice, Write};
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
@@ -577,6 +582,34 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl<T> JsonSchema for VecDeque1<T>
+where
+    T: JsonSchema,
+{
+    fn schema_name() -> Cow<'static, str> {
+        VecDeque::<T>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<VecDeque<T>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        VecDeque::<T>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        VecDeque::<T>::schema_id()
+    }
+}
+
 crate::impl_partial_eq_for_non_empty!([for U, const N: usize in [U; N]] <= [for T in VecDeque1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U, const N: usize in &[U; N]] <= [for T in VecDeque1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U, const N: usize in &mut [U; N]] <= [for T in VecDeque1<T>]);
@@ -891,6 +924,8 @@ mod tests {
     use {alloc::vec::Vec, serde_test::Token};
 
     use crate::iter1::IntoIterator1;
+    #[cfg(feature = "schemars")]
+    use crate::schemars;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{slice1, Slice1};
@@ -1035,6 +1070,14 @@ mod tests {
             else {
                 &head_and_tail[..1]
             }
+        );
+    }
+
+    #[cfg(feature = "schemars")]
+    #[rstest]
+    fn vec_deque1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<VecDeque1<u8>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
         );
     }
 

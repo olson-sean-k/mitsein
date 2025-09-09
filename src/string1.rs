@@ -14,6 +14,8 @@ use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::slice::SliceIndex;
+#[cfg(feature = "schemars")]
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 
 use crate::borrow1::{CowStr1, CowStr1Ext as _};
 use crate::boxed1::{BoxedStr1, BoxedStr1Ext as _};
@@ -502,6 +504,31 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl JsonSchema for String1 {
+    fn schema_name() -> Cow<'static, str> {
+        String::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<String>(
+            schemars::NON_EMPTY_KEY_STRING,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        String::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        String::schema_id()
+    }
+}
+
 crate::impl_partial_eq_for_non_empty!([in str] <= [in String1]);
 crate::impl_partial_eq_for_non_empty!([in &str] <= [in String1]);
 crate::impl_partial_eq_for_non_empty!([in &Str1] == [in String1]);
@@ -571,5 +598,17 @@ pub mod harness {
     }
 }
 
-#[cfg(test)]
-mod tests {}
+#[cfg(all(test, feature = "schemars"))]
+mod tests {
+    use rstest::rstest;
+
+    use crate::schemars;
+    use crate::string1::String1;
+
+    #[rstest]
+    fn string1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<String1>(
+            schemars::NON_EMPTY_KEY_STRING,
+        );
+    }
+}

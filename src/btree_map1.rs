@@ -15,6 +15,11 @@ use core::ops::RangeBounds;
 use rayon::iter::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 
 use crate::array1::Array1;
 use crate::cmp::UnsafeOrd;
@@ -966,6 +971,35 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl<K, V> JsonSchema for BTreeMap1<K, V>
+where
+    K: JsonSchema,
+    V: JsonSchema,
+{
+    fn schema_name() -> Cow<'static, str> {
+        BTreeMap::<K, V>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<BTreeMap<K, V>>(
+            schemars::NON_EMPTY_KEY_OBJECT,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        BTreeMap::<K, V>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        BTreeMap::<K, V>::schema_id()
+    }
+}
+
 impl<K, V> Segmentation for BTreeMap1<K, V>
 where
     K: Clone + UnsafeOrd,
@@ -1229,6 +1263,8 @@ mod tests {
     use crate::btree_map1::BTreeMap1;
     use crate::harness::KeyValueRef;
     use crate::iter1::FromIterator1;
+    #[cfg(feature = "schemars")]
+    use crate::schemars;
     use crate::Segmentation;
     #[cfg(feature = "serde")]
     use crate::{
@@ -1291,6 +1327,14 @@ mod tests {
     ) {
         let mut segment = xs1.segment(from..);
         assert_eq!(segment.insert_in_range(key, VALUE), expected);
+    }
+
+    #[cfg(feature = "schemars")]
+    #[rstest]
+    fn btree_map1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<BTreeMap1<u8, char>>(
+            schemars::NON_EMPTY_KEY_OBJECT,
+        );
     }
 
     #[cfg(feature = "serde")]

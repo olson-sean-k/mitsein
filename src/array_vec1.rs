@@ -14,6 +14,11 @@ use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 use core::slice;
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 #[cfg(feature = "std")]
 use {
     core::cmp,
@@ -656,6 +661,35 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl<T, const N: usize> JsonSchema for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    T: JsonSchema,
+{
+    fn schema_name() -> Cow<'static, str> {
+        ArrayVec::<T, N>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<ArrayVec<T, N>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        ArrayVec::<T, N>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        ArrayVec::<T, N>::schema_id()
+    }
+}
+
 impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
 where
     [T; N]: Array1,
@@ -996,6 +1030,8 @@ mod tests {
 
     use crate::array_vec1::harness::{self, CAPACITY};
     use crate::array_vec1::ArrayVec1;
+    #[cfg(feature = "schemars")]
+    use crate::schemars;
     use crate::Segmentation;
     #[cfg(feature = "serde")]
     use crate::{
@@ -1041,6 +1077,14 @@ mod tests {
             else {
                 &head_and_tail[..1]
             }
+        );
+    }
+
+    #[cfg(feature = "schemars")]
+    #[rstest]
+    fn array_vec1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<ArrayVec1<u8, 5>>(
+            schemars::NON_EMPTY_KEY_ARRAY,
         );
     }
 

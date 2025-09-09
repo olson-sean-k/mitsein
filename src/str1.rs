@@ -13,6 +13,11 @@ use core::str::{
 };
 #[cfg(feature = "rayon")]
 use rayon::str::ParallelString;
+#[cfg(feature = "schemars")]
+use {
+    alloc::borrow::Cow,
+    schemars::{JsonSchema, Schema, SchemaGenerator},
+};
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::string::String};
 
@@ -347,6 +352,31 @@ where
     }
 }
 
+#[cfg(feature = "schemars")]
+#[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
+impl JsonSchema for Str1 {
+    fn schema_name() -> Cow<'static, str> {
+        <str>::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        use crate::schemars;
+
+        schemars::json_subschema_with_non_empty_property_for::<str>(
+            schemars::NON_EMPTY_KEY_STRING,
+            generator,
+        )
+    }
+
+    fn inline_schema() -> bool {
+        <str>::inline_schema()
+    }
+
+    fn schema_id() -> Cow<'static, str> {
+        <str>::schema_id()
+    }
+}
+
 crate::impl_partial_eq_for_non_empty!([in str] <= [in Str1]);
 crate::impl_partial_eq_for_non_empty!([in Str1] => [in str]);
 
@@ -396,5 +426,20 @@ pub fn from_utf8_mut(items: &mut Slice1<u8>) -> Result<&mut Str1, Utf8Error> {
         //         there must be one or more code points.
         Ok(items) => Ok(unsafe { Str1::from_mut_str_unchecked(items) }),
         Err(error) => Err(error),
+    }
+}
+
+#[cfg(all(test, feature = "schemars"))]
+mod tests {
+    use rstest::rstest;
+
+    use crate::schemars;
+    use crate::str1::Str1;
+
+    #[rstest]
+    fn str1_json_schema_has_non_empty_property() {
+        schemars::harness::assert_json_schema_has_non_empty_property::<Str1>(
+            schemars::NON_EMPTY_KEY_STRING,
+        );
     }
 }

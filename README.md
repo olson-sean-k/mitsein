@@ -189,17 +189,18 @@ nomenclature "maybe unchecked", such as `unwrap_maybe_unchecked`.
 Mitsein provides some optional features and integrations via the following
 feature flags.
 
-| Feature     | Default | Primary Dependency | Description                                               |
-|-------------|---------|--------------------|-----------------------------------------------------------|
-| `alloc`     | No      | `alloc`            | Non-empty collections that allocate, like `Vec1`.         |
-| `arbitrary` | No      | [`arbitrary`]      | Construction of arbitrary non-empty collections.          |
-| `arrayvec`  | No      | [`arrayvec`]       | Non-empty implementations of [`arrayvec`] types.          |
-| `indexmap`  | No      | [`indexmap`]       | Non-empty implementations of [`indexmap`] types.          |
-| `itertools` | No      | [`itertools`]      | Combinators from [`itertools`] for `Iterator1`.           |
-| `rayon`     | No      | [`rayon`]          | Parallel operations for non-empty types.                  |
-| `serde`     | No      | [`serde`]          | De/serialization of non-empty collections with [`serde`]. |
-| `smallvec`  | No      | [`smallvec`]       | Non-empty implementations of [`smallvec`] types.          |
-| `std`       | Yes     | `std`              | Integrations with `std::io`.                              |
+| Feature     | Also Enables | Default | Crate         | Description                                               |
+|-------------|--------------|---------|---------------|-----------------------------------------------------------|
+| `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.         |
+| `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.          |
+| `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.          |
+| `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.          |
+| `itertools` |              | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.           |
+| `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                  |
+| `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.               |
+| `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`]. |
+| `smallvec`  | `alloc`      | No      | [`smallvec`]  | Non-empty implementations of [`smallvec`] types.          |
+| `std`       | `alloc`      | Yes     | `std`         | Integrations with `std::io`.                              |
 
 [`arbitrary`]: https://crates.io/crates/arbitrary
 [`arrayvec`]: https://crates.io/crates/arrayvec
@@ -209,6 +210,7 @@ feature flags.
 [`nonempty`]: https://crates.io/crates/nonempty
 [`nunny`]: https://crates.io/crates/nunny
 [`rayon`]: https://crates.io/crates/rayon
+[`schemars`]: https://crates.io/crates/schemars
 [`serde`]: https://crates.io/crates/serde
 [`smallvec`]: https://crates.io/crates/smallvec
 [`vec1`]: https://crates.io/crates/vec1
