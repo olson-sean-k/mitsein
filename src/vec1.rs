@@ -1298,8 +1298,9 @@ macro_rules! vec1 {
     ($($item:expr $(,)?)+) => {{
         extern crate alloc;
 
+        let items = alloc::vec![$($item,)+];
         // SAFETY: There must be one or more `item` metavariables in the repetition.
-        unsafe { $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$($item,)+]) }
+        unsafe { $crate::vec1::Vec1::from_vec_unchecked(items) }
     }};
     ($item:expr ; $N:literal) => {{
         extern crate alloc;
@@ -1310,8 +1311,9 @@ macro_rules! vec1 {
         {}
         non_zero_usize_capacity::<$N>();
 
+        let items = alloc::vec![$item; $N];
         // SAFETY: The literal `$N` is non-zero.
-        unsafe { $crate::vec1::Vec1::from_vec_unchecked(alloc::vec![$item; $N]) }
+        unsafe { $crate::vec1::Vec1::from_vec_unchecked(items) }
     }};
 }
 pub use vec1;
@@ -1331,6 +1333,7 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use core::iter;
     use core::mem;
     use core::ops::RangeBounds;
@@ -1346,6 +1349,19 @@ mod tests {
     use crate::vec1::harness::{self, xs1};
     use crate::vec1::Vec1;
     use crate::Segmentation;
+
+    #[rstest]
+    fn vec1_from_vec_macro_eq_vec1_from_vec1_macro_by_rep_expr() {
+        assert_eq!(
+            Vec1::try_from(vec![0u8, 1, 2, 3]).unwrap(),
+            vec1![0u8, 1, 2, 3],
+        );
+    }
+
+    #[rstest]
+    fn vec1_from_vec_macro_eq_vec1_from_vec1_macro_by_expr_literal() {
+        assert_eq!(Vec1::try_from(vec![0u8; 4]).unwrap(), vec1![0u8; 4]);
+    }
 
     #[rstest]
     fn pop_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
