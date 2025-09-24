@@ -440,6 +440,15 @@ where
         (head, self.items)
     }
 
+    pub fn into_tail_and_head(mut self) -> (I, I::Item)
+    where
+        I: DoubleEndedIterator,
+    {
+        // SAFETY: `self` must be non-empty.
+        let head = unsafe { self.items.next_back().unwrap_maybe_unchecked() };
+        (self.items, head)
+    }
+
     pub fn min_by<F>(self, f: F) -> I::Item
     where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
