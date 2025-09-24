@@ -143,8 +143,7 @@ Non-empty collection APIs that exhibit different behavior from their
 counterparts are distinct in Mitsein. For example, functions that take items out
 of collections like `Vec1::pop` return a proxy type rather than an `Option`.
 This leads to more explicit and distinct expressions like
-`xs.pop().or_get_only()`, `xs.pop().or_none()`,
-`xs.remove(1).or_else_replace_only(|| 0)`, etc.
+`xs.pop().or_get_only()` and `xs.remove(1).or_else_replace_only(|| 0)`.
 
 Similarly, operations that have additional constraints or otherwise cannot be
 directly supported by non-empty collections are separated into [segmentation
@@ -152,16 +151,21 @@ APIs](#separation-of-concerns), such as `vec1::Segment::swap_drain`.
 
 ### Comprehensiveness
 
-Mitsein provides comprehensive coverage of **ordered** collections and container
+Mitsein provides comprehensive coverage of ordered collections and container
 APIs in `core` and `alloc`. This notably includes `slice`, `str`, `BTreeMap`,
 `BTreeSet`, `Box`, and `Arc`. Non-empty types also implement standard traits
 like their counterparts. The [`nonempty`] and [`vec1`] crates lack support for
 primitive types like `slice` and collections other than `Vec`.
 
+Non-empty counterparts for iterators and many standard conversions, such as
+between `Vec1` and `Arc1`, are also provided. These are crucial for maintaining
+the non-empty invariant when manipulating non-empty types.
+
 Mitsein is a `no_std` library and both `alloc` and `std` are optional.
 **Non-empty slices, iterators, and arrays can be used in contexts where OS
 features or allocation are not available.** This also includes the integration
-with [`arrayvec`][`arrayvec`].
+with [`arrayvec`]. There are also optional integrations with foundational and
+popular crates like [`itertools`], [`rayon`], and [`serde`].
 
 ## Memory Safety
 
@@ -169,20 +173,20 @@ with [`arrayvec`][`arrayvec`].
 `repr(transparent)` and other unsafe conversions, but most is used to avoid
 unnecessary branching. For example, given the non-empty guarantee, it
 _shouldn't_ be necessary for the `Slice1::first` function to check that a first
-item is actually present. Omitting this code is great, but it also means that
-there are opportunities for undefined behavior and unsound APIs in Mitsein. Of
-course, the authors strive to prevent this; issues and pull requests are
-welcome!
+item is actually present. Omitting this check when unnecessary is great, but it
+also means that there are opportunities for undefined behavior and unsound APIs
+in Mitsein. Of course, the authors strive to prevent this; issues and pull
+requests are welcome!
 
 The nature of unsafe code is also somewhat unusual in Mitsein. The overwhelming
 majority of unsafe code is uninteresting and **not responsible for maintaining
 invariants**. Audits are best focused on **safe** code that affects non-empty
 invariants instead.
 
-Branching is toggled in the `safety` module. The presence of items in non-empty
-types is asserted when executing tests, though not in the context of
-[Miri][`miri`]. APIs that interact with these  conditional checks use the
-nomenclature "maybe unchecked", such as `unwrap_maybe_unchecked`.
+Checking is toggled in the `safety` module. The presence of items in non-empty
+types is asserted in tests builds, but not in non-test builds (nor in the
+context of [Miri][`miri`]). APIs that interact with these  conditional checks
+use the nomenclature "maybe unchecked", such as `unwrap_maybe_unchecked`.
 
 ## Integrations and Feature Flags
 

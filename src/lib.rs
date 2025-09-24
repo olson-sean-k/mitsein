@@ -90,8 +90,8 @@
 //!
 //! ## Containers
 //!
-//! This crate provides the following non-empty containers for slices (depending on which [Cargo
-//! features](#integrations-and-cargo-features) are enabled):
+//! This crate provides the following non-empty containers for slices and strings (depending on
+//! which [feature flags](#integrations-and-feature-flags) are enabled):
 //!
 //! - [`ArcSlice1`]
 //! - [`ArcStr1`]
@@ -109,13 +109,22 @@
 //!
 //! ## Iterators
 //!
-//! Non-empty iterators are provided by the [`Iterator1`] type constructor. [`Iterator1`] types can
-//! be fallibly constructed from [`Iterator`] types and support many infallible constructions from
-//! non-empty collections and views as well as combinators that cannot reduce cardinality to zero
-//! (e.g., [`map`][`Iterator1::map`]).
+//! Non-empty iterators are provided by the [`Iterator1`] type constructor and directly support
+//! combinators that never reduce cardinality to zero (e.g., [`map`][`Iterator1::map`]). Non-empty
+//! collections and views naturally support iteration, collection, etc. via [`Iterator1`].
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let xs = vec1![0i32, 1, 2];
+//! let ys: Vec1<_> = xs.iter1().copied().map(|x| x + 1).collect1();
+//!
+//! assert_eq!(ys.as_slice(), &[1, 2, 3]);
+#![doc = "```"]
 //!
 //! Supporting traits are re-exported in the [`prelude`] module and provide methods for bridging
-//! between non-empty [`Iterator1`] types and [`Iterator`] types.
+//! between non-empty [`Iterator1`] types and maybe-empty [`Iterator`] types.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]
 #![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
@@ -123,6 +132,8 @@
 //! use mitsein::prelude::*;
 //!
 //! let xs = iter1::head_and_tail(0i32, [1, 2]);
+//! // `Iterator1` does not support `skip`, so `xs` is converted into an `Iterator` and then into a
+//! // different `Iterator1` via `or_non_empty`.
 //! let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
 //!
 //! let ys = Vec::new();
@@ -132,9 +143,8 @@
 //! assert_eq!(ys.as_slice(), &[0]);
 #![doc = "```"]
 //!
-//! Non-empty collections and views naturally support iteration, collection, etc. via
-//! [`Iterator1`]. When the `rayon` feature is enabled, the [`ParallelIterator1`] type implements
-//! parallel and non-empty iterators.
+//! When the `rayon` feature is enabled, the [`ParallelIterator1`] type implements parallel and
+//! non-empty iterators.
 //!
 //! See the [`iter1`] module.
 //!
