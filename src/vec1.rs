@@ -1325,7 +1325,6 @@ impl DrainRange {
     }
 }
 
-// TODO: Test that empty constructions do not build.
 #[macro_export]
 macro_rules! vec1 {
     ($($item:expr $(,)?)+) => {{
@@ -1591,4 +1590,18 @@ mod tests {
     ) {
         serde::harness::assert_deserialize_error_eq_empty_error::<Vec1<u8>, Vec<_>>(sequence)
     }
+}
+
+mod _compile_fail_tests {
+    /// ```compile_fail,E0277
+    /// let xs = mitsein::vec1![];
+    /// ```
+    #[doc(hidden)]
+    const fn _empty_rep_expr_metaparameters_then_vec1_compilation_fails() {}
+
+    /// ```compile_fail,E0277
+    /// let xs = mitsein::vec1![0u8; 0];
+    /// ```
+    #[doc(hidden)]
+    const fn _empty_expr_literal_metaparameters_then_vec1_compilation_fails() {}
 }
