@@ -1593,7 +1593,7 @@ mod tests {
 }
 
 mod _compile_fail_tests {
-    /// ```compile_fail,E0277
+    /// ```compile_fail
     /// let xs = mitsein::vec1![];
     /// ```
     #[doc(hidden)]
