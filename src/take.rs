@@ -6,23 +6,23 @@ use core::fmt::{self, Debug, Formatter};
 use crate::{Cardinality, MaybeEmpty, NonEmpty};
 
 #[must_use]
-pub struct Take<'a, T, U, N = ()> {
+pub struct TakeIfMany<'a, T, U, N = ()> {
     items: &'a mut NonEmpty<T>,
     index: N,
     many: fn(&mut NonEmpty<T>, N) -> U,
 }
 
-impl<'a, T, U, N> Take<'a, T, U, N> {
+impl<'a, T, U, N> TakeIfMany<'a, T, U, N> {
     pub(crate) fn with(
         items: &'a mut NonEmpty<T>,
         index: N,
         many: fn(&mut NonEmpty<T>, N) -> U,
     ) -> Self {
-        Take { items, index, many }
+        TakeIfMany { items, index, many }
     }
 }
 
-impl<'a, T, U, N> Take<'a, T, U, N>
+impl<'a, T, U, N> TakeIfMany<'a, T, U, N>
 where
     T: MaybeEmpty,
 {
@@ -30,7 +30,7 @@ where
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> E,
     {
-        let Take { items, index, many } = self;
+        let TakeIfMany { items, index, many } = self;
         match items.cardinality() {
             Cardinality::One(_) => Err(one(items, index)),
             Cardinality::Many(_) => Ok((many)(items, index)),
@@ -53,7 +53,7 @@ where
     }
 }
 
-impl<'a, T, U, N> Take<'a, T, Option<U>, N>
+impl<'a, T, U, N> TakeIfMany<'a, T, Option<U>, N>
 where
     T: MaybeEmpty,
 {
@@ -62,7 +62,7 @@ where
     where
         F: FnOnce(&'a mut NonEmpty<T>, N) -> Option<E>,
     {
-        let Take { items, index, many } = self;
+        let TakeIfMany { items, index, many } = self;
         match items.cardinality() {
             Cardinality::One(_) => one(items, index).map(Err),
             Cardinality::Many(_) => (many)(items, index).map(Ok),
@@ -70,14 +70,14 @@ where
     }
 }
 
-impl<T, U, N> Debug for Take<'_, T, U, N>
+impl<T, U, N> Debug for TakeIfMany<'_, T, U, N>
 where
     NonEmpty<T>: Debug,
     N: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("Take")
+            .debug_struct("TakeIfMany")
             .field("items", &self.items)
             .field("index", &self.index)
             .field("many", &self.many)

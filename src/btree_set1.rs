@@ -133,15 +133,15 @@ where
     type Target = Self;
 }
 
-type Take<'a, T, U, N = ()> = take::Take<'a, BTreeSet<T>, U, N>;
+type TakeIfMany<'a, T, U, N = ()> = take::TakeIfMany<'a, BTreeSet<T>, U, N>;
 
-pub type Pop<'a, K> = Take<'a, ItemFor<K>, ItemFor<K>>;
+pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, ItemFor<K>>;
 
-pub type DropRemove<'a, 'q, K, Q> = Take<'a, ItemFor<K>, bool, &'q Q>;
+pub type DropRemoveIfMany<'a, 'q, K, Q> = TakeIfMany<'a, ItemFor<K>, bool, &'q Q>;
 
-pub type TakeRemove<'a, 'q, K, Q> = Take<'a, ItemFor<K>, Option<ItemFor<K>>, &'q Q>;
+pub type TakeRemoveIfMany<'a, 'q, K, Q> = TakeIfMany<'a, ItemFor<K>, Option<ItemFor<K>>, &'q Q>;
 
-impl<'a, T, U, N> Take<'a, T, U, N>
+impl<'a, T, U, N> TakeIfMany<'a, T, U, N>
 where
     T: Ord,
 {
@@ -150,7 +150,7 @@ where
     }
 }
 
-impl<'a, T, Q> Take<'a, T, bool, &'_ Q>
+impl<'a, T, Q> TakeIfMany<'a, T, bool, &'_ Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -160,7 +160,7 @@ where
     }
 }
 
-impl<'a, T, Q> Take<'a, T, Option<T>, &'_ Q>
+impl<'a, T, Q> TakeIfMany<'a, T, Option<T>, &'_ Q>
 where
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
@@ -245,12 +245,12 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first(&mut self) -> Pop<'_, Self>
+    pub fn pop_first_if_many(&mut self) -> PopIfMany<'_, Self>
     where
         T: Ord,
     {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, _| unsafe {
+        TakeIfMany::with(self, (), |items, _| unsafe {
             items.items.pop_first().unwrap_maybe_unchecked()
         })
     }
@@ -262,12 +262,12 @@ impl<T> BTreeSet1<T> {
         PopFirstUntilOnly { items: self }
     }
 
-    pub fn pop_last(&mut self) -> Pop<'_, Self>
+    pub fn pop_last_if_many(&mut self) -> PopIfMany<'_, Self>
     where
         T: Ord,
     {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, _| unsafe {
+        TakeIfMany::with(self, (), |items, _| unsafe {
             items.items.pop_last().unwrap_maybe_unchecked()
         })
     }
@@ -279,20 +279,23 @@ impl<T> BTreeSet1<T> {
         PopLastUntilOnly { items: self }
     }
 
-    pub fn remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemove<'a, 'q, Self, Q>
+    pub fn remove_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> DropRemoveIfMany<'a, 'q, Self, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        Take::with(self, query, |items, query| items.items.remove(query))
+        TakeIfMany::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn take<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemove<'a, 'q, Self, Q>
+    pub fn take_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveIfMany<'a, 'q, Self, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        Take::with(self, query, |items, query| items.items.take(query))
+        TakeIfMany::with(self, query, |items, query| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>
@@ -794,7 +797,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_first().or_none()
+        self.items.pop_first_if_many().or_none()
     }
 }
 
@@ -822,7 +825,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_last().or_none()
+        self.items.pop_last_if_many().or_none()
     }
 }
 

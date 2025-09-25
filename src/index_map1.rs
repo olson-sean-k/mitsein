@@ -567,17 +567,17 @@ impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrIndexedOnlyEntry<'a, V, K, V> {
     }
 }
 
-type Take<'a, K, V, S, U, N = ()> = take::Take<'a, IndexMap<K, V, S>, U, N>;
+type TakeIfMany<'a, K, V, S, U, N = ()> = take::TakeIfMany<'a, IndexMap<K, V, S>, U, N>;
 
-pub type Pop<'a, T> = Take<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, EntryFor<T>>;
+pub type PopIfMany<'a, T> = TakeIfMany<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, EntryFor<T>>;
 
-pub type Remove<'a, 'q, T, Q> =
-    Take<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<ValueFor<T>>, &'q Q>;
+pub type RemoveIfMany<'a, 'q, T, Q> =
+    TakeIfMany<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<ValueFor<T>>, &'q Q>;
 
-pub type RemoveEntry<'a, 'q, T, Q> =
-    Take<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<EntryFor<T>>, &'q Q>;
+pub type RemoveEntryIfMany<'a, 'q, T, Q> =
+    TakeIfMany<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<EntryFor<T>>, &'q Q>;
 
-impl<'a, K, V, S, U, N> Take<'a, K, V, S, U, N>
+impl<'a, K, V, S, U, N> TakeIfMany<'a, K, V, S, U, N>
 where
     S: BuildHasher,
 {
@@ -597,7 +597,7 @@ where
     }
 }
 
-impl<'a, K, V, S, U, Q> Take<'a, K, V, S, Option<U>, &'_ Q>
+impl<'a, K, V, S, U, Q> TakeIfMany<'a, K, V, S, Option<U>, &'_ Q>
 where
     S: BuildHasher,
     Q: Equivalent<K> + Hash + ?Sized,
@@ -914,41 +914,53 @@ impl<K, V, S> IndexMap1<K, V, S>
 where
     S: BuildHasher,
 {
-    pub fn pop(&mut self) -> Pop<'_, Self> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, _| unsafe {
+        TakeIfMany::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn shift_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> Remove<'a, 'q, Self, Q>
+    pub fn shift_remove_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> RemoveIfMany<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| items.items.shift_remove(query))
+        TakeIfMany::with(self, query, |items, query| items.items.shift_remove(query))
     }
 
-    pub fn swap_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> Remove<'a, 'q, Self, Q>
+    pub fn swap_remove_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> RemoveIfMany<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| items.items.swap_remove(query))
+        TakeIfMany::with(self, query, |items, query| items.items.swap_remove(query))
     }
 
-    pub fn shift_remove_entry<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveEntry<'a, 'q, Self, Q>
+    pub fn shift_remove_entry_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> RemoveEntryIfMany<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| {
+        TakeIfMany::with(self, query, |items, query| {
             items.items.shift_remove_entry(query)
         })
     }
 
-    pub fn swap_remove_entry<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveEntry<'a, 'q, Self, Q>
+    pub fn swap_remove_entry_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> RemoveEntryIfMany<'a, 'q, Self, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| {
+        TakeIfMany::with(self, query, |items, query| {
             items.items.swap_remove_entry(query)
         })
     }

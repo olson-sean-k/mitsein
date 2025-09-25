@@ -115,13 +115,13 @@ impl<T> SegmentedOver for VecDeque<T> {
     type Kind = Self;
 }
 
-type Take<'a, T, U, N = ()> = take::Take<'a, VecDeque<T>, U, N>;
+type TakeIfMany<'a, T, U, N = ()> = take::TakeIfMany<'a, VecDeque<T>, U, N>;
 
-pub type Pop<'a, K> = Take<'a, ItemFor<K>, ItemFor<K>, ()>;
+pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, ItemFor<K>, ()>;
 
-pub type Remove<'a, K> = Take<'a, ItemFor<K>, Option<ItemFor<K>>, usize>;
+pub type RemoveIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, Option<ItemFor<K>>, usize>;
 
-impl<'a, T, N> Take<'a, T, T, N> {
+impl<'a, T, N> TakeIfMany<'a, T, T, N> {
     pub fn or_get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.front())
     }
@@ -138,7 +138,7 @@ impl<'a, T, N> Take<'a, T, T, N> {
     }
 }
 
-impl<'a, T> Take<'a, T, Option<T>, usize> {
+impl<'a, T> TakeIfMany<'a, T, Option<T>, usize> {
     pub fn or_get(self) -> Option<Result<T, &'a T>> {
         self.try_take_or_else(|items, index| items.get(index))
     }
@@ -249,16 +249,16 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front(&mut self) -> Pop<'_, Self> {
+    pub fn pop_front_if_many(&mut self) -> PopIfMany<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, ()| unsafe {
+        TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop_front().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn pop_back(&mut self) -> Pop<'_, Self> {
+    pub fn pop_back_if_many(&mut self) -> PopIfMany<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, ()| unsafe {
+        TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop_back().unwrap_maybe_unchecked()
         })
     }
@@ -267,18 +267,18 @@ impl<T> VecDeque1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove(&mut self, index: usize) -> Remove<'_, Self> {
-        Take::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_front(&mut self, index: usize) -> Remove<'_, Self> {
-        Take::with(self, index, |items, index| {
+    pub fn swap_remove_front_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| {
             items.items.swap_remove_front(index)
         })
     }
 
-    pub fn swap_remove_back(&mut self, index: usize) -> Remove<'_, Self> {
-        Take::with(self, index, |items, index| {
+    pub fn swap_remove_back_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| {
             items.items.swap_remove_back(index)
         })
     }

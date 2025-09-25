@@ -63,13 +63,13 @@ unsafe impl MaybeEmpty for String {
     }
 }
 
-type Take<'a, N = ()> = take::Take<'a, String, char, N>;
+type TakeIfMany<'a, N = ()> = take::TakeIfMany<'a, String, char, N>;
 
-pub type Pop<'a> = Take<'a, ()>;
+pub type PopIfMany<'a> = TakeIfMany<'a, ()>;
 
-pub type Remove<'a> = Take<'a, usize>;
+pub type RemoveIfMany<'a> = TakeIfMany<'a, usize>;
 
-impl<N> Take<'_, N> {
+impl<N> TakeIfMany<'_, N> {
     pub fn or_get_only(self) -> Result<char, char> {
         self.take_or_else(|items, _| items.first())
     }
@@ -91,7 +91,7 @@ impl<N> Take<'_, N> {
     }
 }
 
-impl Take<'_, usize> {
+impl TakeIfMany<'_, usize> {
     pub fn or_get(self) -> Result<char, char> {
         self.take_or_else(|items, index| {
             if items.is_char_boundary(index) {
@@ -231,9 +231,9 @@ impl String1 {
         self.items.push_str(items)
     }
 
-    pub fn pop(&mut self) -> Pop<'_> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, ()| unsafe {
+        TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -242,8 +242,8 @@ impl String1 {
         self.items.insert(index, item)
     }
 
-    pub fn remove(&mut self, index: usize) -> Remove<'_> {
-        Take::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_> {
+        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
     pub fn len(&self) -> NonZeroUsize {

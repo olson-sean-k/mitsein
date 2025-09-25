@@ -192,15 +192,17 @@ impl<T> From<EmptyError<T>> for CardinalityError<T> {
 
 impl<T> Error for CardinalityError<T> {}
 
-type Take<'a, T, U, M, const N: usize> = take::Take<'a, ArrayVec<T, N>, U, M>;
+type TakeIfMany<'a, T, U, M, const N: usize> = take::TakeIfMany<'a, ArrayVec<T, N>, U, M>;
 
-pub type Pop<'a, K, const N: usize> = Take<'a, ItemFor<K, N>, ItemFor<K, N>, (), N>;
+pub type PopIfMany<'a, K, const N: usize> = TakeIfMany<'a, ItemFor<K, N>, ItemFor<K, N>, (), N>;
 
-pub type SwapPop<'a, K, const N: usize> = Take<'a, ItemFor<K, N>, Option<ItemFor<K, N>>, usize, N>;
+pub type SwapPopIfMany<'a, K, const N: usize> =
+    TakeIfMany<'a, ItemFor<K, N>, Option<ItemFor<K, N>>, usize, N>;
 
-pub type Remove<'a, K, const N: usize> = Take<'a, ItemFor<K, N>, ItemFor<K, N>, usize, N>;
+pub type RemoveIfMany<'a, K, const N: usize> =
+    TakeIfMany<'a, ItemFor<K, N>, ItemFor<K, N>, usize, N>;
 
-impl<'a, T, M, const N: usize> Take<'a, T, T, M, N>
+impl<'a, T, M, const N: usize> TakeIfMany<'a, T, T, M, N>
 where
     [T; N]: Array1,
 {
@@ -220,7 +222,7 @@ where
     }
 }
 
-impl<'a, T, const N: usize> Take<'a, T, T, usize, N>
+impl<'a, T, const N: usize> TakeIfMany<'a, T, T, usize, N>
 where
     [T; N]: Array1,
 {
@@ -240,7 +242,7 @@ where
     }
 }
 
-impl<'a, T, const N: usize> Take<'a, T, Option<T>, usize, N>
+impl<'a, T, const N: usize> TakeIfMany<'a, T, Option<T>, usize, N>
 where
     [T; N]: Array1,
 {
@@ -358,15 +360,15 @@ where
         self.items.push_unchecked(item)
     }
 
-    pub fn pop(&mut self) -> Pop<'_, Self, N> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self, N> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, _| unsafe {
+        TakeIfMany::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn swap_pop(&mut self, index: usize) -> SwapPop<'_, Self, N> {
-        Take::with(self, index, |items, index| items.items.swap_pop(index))
+    pub fn swap_pop_if_many(&mut self, index: usize) -> SwapPopIfMany<'_, Self, N> {
+        TakeIfMany::with(self, index, |items, index| items.items.swap_pop(index))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -377,12 +379,12 @@ where
         self.items.try_insert(index, item)
     }
 
-    pub fn remove(&mut self, index: usize) -> Remove<'_, Self, N> {
-        Take::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self, N> {
+        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove(&mut self, index: usize) -> Remove<'_, Self, N> {
-        Take::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self, N> {
+        TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub const fn len(&self) -> NonZeroUsize {

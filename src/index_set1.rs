@@ -123,24 +123,25 @@ impl<T, S> SegmentedOver for IndexSet<T, S> {
     type Target = Self;
 }
 
-type Take<'a, T, S, U, N = ()> = take::Take<'a, IndexSet<T, S>, U, N>;
+type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, IndexSet<T, S>, U, N>;
 
-pub type Pop<'a, K> = Take<'a, ItemFor<K>, StateFor<K>, ItemFor<K>>;
+pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, StateFor<K>, ItemFor<K>>;
 
-pub type DropRemove<'a, 'q, K, Q> = Take<'a, ItemFor<K>, StateFor<K>, bool, &'q Q>;
+pub type DropRemoveIfMany<'a, 'q, K, Q> = TakeIfMany<'a, ItemFor<K>, StateFor<K>, bool, &'q Q>;
 
-pub type TakeRemove<'a, K, N = usize> = Take<'a, ItemFor<K>, StateFor<K>, Option<ItemFor<K>>, N>;
+pub type TakeRemoveIfMany<'a, K, N = usize> =
+    TakeIfMany<'a, ItemFor<K>, StateFor<K>, Option<ItemFor<K>>, N>;
 
-pub type TakeRemoveFull<'a, 'q, K, Q> =
-    Take<'a, ItemFor<K>, StateFor<K>, Option<(usize, ItemFor<K>)>, &'q Q>;
+pub type TakeRemoveFullIfMany<'a, 'q, K, Q> =
+    TakeIfMany<'a, ItemFor<K>, StateFor<K>, Option<(usize, ItemFor<K>)>, &'q Q>;
 
-impl<'a, T, S, U, N> Take<'a, T, S, U, N> {
+impl<'a, T, S, U, N> TakeIfMany<'a, T, S, U, N> {
     pub fn or_get_only(self) -> Result<U, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
 }
 
-impl<'a, T, S> Take<'a, T, S, Option<T>, usize>
+impl<'a, T, S> TakeIfMany<'a, T, S, Option<T>, usize>
 where
     S: BuildHasher,
 {
@@ -149,7 +150,7 @@ where
     }
 }
 
-impl<'a, T, S, Q> Take<'a, T, S, bool, &'_ Q>
+impl<'a, T, S, Q> TakeIfMany<'a, T, S, bool, &'_ Q>
 where
     T: Borrow<Q>,
     S: BuildHasher,
@@ -160,7 +161,7 @@ where
     }
 }
 
-impl<'a, T, S, Q> Take<'a, T, S, Option<T>, &'_ Q>
+impl<'a, T, S, Q> TakeIfMany<'a, T, S, Option<T>, &'_ Q>
 where
     T: Borrow<Q>,
     S: BuildHasher,
@@ -353,24 +354,24 @@ impl<T, S> IndexSet1<T, S> {
         self.items.swap_indices(a, b)
     }
 
-    pub fn pop(&mut self) -> Pop<'_, Self>
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self>
     where
         T: Eq + Hash,
     {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, _| unsafe {
+        TakeIfMany::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn shift_remove_index(&mut self, index: usize) -> TakeRemove<'_, Self> {
-        Take::with(self, index, |items, index| {
+    pub fn shift_remove_index_if_many(&mut self, index: usize) -> TakeRemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| {
             items.items.shift_remove_index(index)
         })
     }
 
-    pub fn swap_remove_index(&mut self, index: usize) -> TakeRemove<'_, Self> {
-        Take::with(self, index, |items, index| {
+    pub fn swap_remove_index_if_many(&mut self, index: usize) -> TakeRemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| {
             items.items.swap_remove_index(index)
         })
     }
@@ -466,62 +467,74 @@ where
         self.items.get(query)
     }
 
-    pub fn shift_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemove<'a, 'q, Self, Q>
-    where
-        T: Borrow<Q>,
-        Q: Equivalent<T> + Hash + ?Sized,
-    {
-        Take::with(self, query, |items, query| items.items.shift_remove(query))
-    }
-
-    pub fn swap_remove<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemove<'a, 'q, Self, Q>
-    where
-        T: Borrow<Q>,
-        Q: Equivalent<T> + Hash + ?Sized,
-    {
-        Take::with(self, query, |items, query| items.items.swap_remove(query))
-    }
-
-    pub fn shift_remove_full<'a, 'q, Q>(
+    pub fn shift_remove_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> TakeRemoveFull<'a, 'q, Self, Q>
+    ) -> DropRemoveIfMany<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| {
+        TakeIfMany::with(self, query, |items, query| items.items.shift_remove(query))
+    }
+
+    pub fn swap_remove_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> DropRemoveIfMany<'a, 'q, Self, Q>
+    where
+        T: Borrow<Q>,
+        Q: Equivalent<T> + Hash + ?Sized,
+    {
+        TakeIfMany::with(self, query, |items, query| items.items.swap_remove(query))
+    }
+
+    pub fn shift_remove_full_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> TakeRemoveFullIfMany<'a, 'q, Self, Q>
+    where
+        T: Borrow<Q>,
+        Q: Equivalent<T> + Hash + ?Sized,
+    {
+        TakeIfMany::with(self, query, |items, query| {
             items.items.shift_remove_full(query)
         })
     }
 
-    pub fn swap_remove_full<'a, 'q, Q>(
+    pub fn swap_remove_full_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> TakeRemoveFull<'a, 'q, Self, Q>
+    ) -> TakeRemoveFullIfMany<'a, 'q, Self, Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| {
+        TakeIfMany::with(self, query, |items, query| {
             items.items.swap_remove_full(query)
         })
     }
 
-    pub fn shift_take<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemove<'a, Self, &'q Q>
+    pub fn shift_take_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> TakeRemoveIfMany<'a, Self, &'q Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| items.items.shift_take(query))
+        TakeIfMany::with(self, query, |items, query| items.items.shift_take(query))
     }
 
-    pub fn swap_take<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemove<'a, Self, &'q Q>
+    pub fn swap_take_if_many<'a, 'q, Q>(
+        &'a mut self,
+        query: &'q Q,
+    ) -> TakeRemoveIfMany<'a, Self, &'q Q>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        Take::with(self, query, |items, query| items.items.swap_take(query))
+        TakeIfMany::with(self, query, |items, query| items.items.swap_take(query))
     }
 
     pub fn contains<Q>(&self, item: &Q) -> bool

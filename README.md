@@ -51,7 +51,7 @@ Removing items from a `Vec1`:
 use mitsein::prelude::*;
 
 let mut xs = Vec1::from([0i32, 1, 2]);
-while let Ok(item) = xs.pop().or_get_only() { ... }
+while let Ok(item) = xs.pop_if_many().or_get_only() { ... }
 
 let mut xs = Vec1::from([0i32, 1, 2]);
 xs.tail().clear();
@@ -141,9 +141,10 @@ the same as its counterpart. For example, `Vec1<T>` is a type definition for
 
 Non-empty collection APIs that exhibit different behavior from their
 counterparts are distinct in Mitsein. For example, functions that take items out
-of collections like `Vec1::pop` return a proxy type rather than an `Option`.
-This leads to more explicit and distinct expressions like
-`xs.pop().or_get_only()` and `xs.remove(1).or_else_replace_only(|| 0)`.
+of collections like `Vec1::pop_if_many` have a `_if_many` suffix and  return a
+proxy type rather than an `Option`. This leads to more explicit and distinct
+expressions like `xs.pop_if_many().or_get_only()` and
+`xs.remove_if_many(1).or_else_replace_only(|| 0)`.
 
 Similarly, operations that have additional constraints or otherwise cannot be
 directly supported by non-empty collections are separated into [segmentation

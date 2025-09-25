@@ -116,13 +116,13 @@ impl<T> SegmentedOver for Vec<T> {
     type Kind = Self;
 }
 
-type Take<'a, T, N = ()> = take::Take<'a, Vec<T>, T, N>;
+type TakeIfMany<'a, T, N = ()> = take::TakeIfMany<'a, Vec<T>, T, N>;
 
-pub type Pop<'a, K> = Take<'a, ItemFor<K>, ()>;
+pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, ()>;
 
-pub type Remove<'a, K> = Take<'a, ItemFor<K>, usize>;
+pub type RemoveIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, usize>;
 
-impl<'a, T, N> Take<'a, T, N> {
+impl<'a, T, N> TakeIfMany<'a, T, N> {
     pub fn or_get_only(self) -> Result<T, &'a T> {
         self.take_or_else(|items, _| items.first())
     }
@@ -139,7 +139,7 @@ impl<'a, T, N> Take<'a, T, N> {
     }
 }
 
-impl<'a, T> Take<'a, T, usize> {
+impl<'a, T> TakeIfMany<'a, T, usize> {
     pub fn or_get(self) -> Result<T, &'a T> {
         self.take_or_else(|items, index| &items[index])
     }
@@ -273,9 +273,9 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop(&mut self) -> Pop<'_, Self> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, ()| unsafe {
+        TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -284,12 +284,12 @@ impl<T> Vec1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove(&mut self, index: usize) -> Remove<'_, Self> {
-        Take::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove(&mut self, index: usize) -> Remove<'_, Self> {
-        Take::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub fn dedup(&mut self)
@@ -1398,14 +1398,14 @@ mod tests {
     }
 
     #[rstest]
-    fn pop_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
+    fn pop_if_many_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
         let first = *xs1.first();
         let mut tail = xs1.as_slice()[1..].to_vec();
-        while let Ok(item) = xs1.pop().or_get_only() {
+        while let Ok(item) = xs1.pop_if_many().or_get_only() {
             assert_eq!(tail.pop().unwrap(), item);
         }
         for _ in 0..3 {
-            assert_eq!(xs1.pop().or_get_only(), Err(&first));
+            assert_eq!(xs1.pop_if_many().or_get_only(), Err(&first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
     }

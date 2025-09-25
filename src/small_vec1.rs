@@ -129,13 +129,13 @@ where
     type Kind = Self;
 }
 
-type Take<'a, A, T, N = ()> = take::Take<'a, SmallVec<A>, T, N>;
+type TakeIfMany<'a, A, T, N = ()> = take::TakeIfMany<'a, SmallVec<A>, T, N>;
 
-pub type Pop<'a, K> = Take<'a, ArrayFor<K>, ItemFor<K>, ()>;
+pub type PopIfMany<'a, K> = TakeIfMany<'a, ArrayFor<K>, ItemFor<K>, ()>;
 
-pub type Remove<'a, K> = Take<'a, ArrayFor<K>, ItemFor<K>, usize>;
+pub type RemoveIfMany<'a, K> = TakeIfMany<'a, ArrayFor<K>, ItemFor<K>, usize>;
 
-impl<'a, A, T, N> Take<'a, A, T, N>
+impl<'a, A, T, N> TakeIfMany<'a, A, T, N>
 where
     A: Array<Item = T>,
 {
@@ -155,7 +155,7 @@ where
     }
 }
 
-impl<'a, A, T> Take<'a, A, T, usize>
+impl<'a, A, T> TakeIfMany<'a, A, T, usize>
 where
     A: Array<Item = T>,
 {
@@ -281,9 +281,9 @@ where
         self.items.push(item)
     }
 
-    pub fn pop(&mut self) -> Pop<'_, Self> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        Take::with(self, (), |items, ()| unsafe {
+        TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
@@ -299,12 +299,12 @@ where
         self.items.insert_from_slice(index, items)
     }
 
-    pub fn remove(&mut self, index: usize) -> Remove<'_, Self> {
-        Take::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove(&mut self, index: usize) -> Remove<'_, Self> {
-        Take::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+        TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
     pub fn dedup(&mut self)
