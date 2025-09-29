@@ -55,7 +55,6 @@ macro_rules! with_non_zero_array_size_literals {
         );
     };
 }
-pub(crate) use with_non_zero_array_size_literals;
 
 /// # Safety
 ///
