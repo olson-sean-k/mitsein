@@ -280,6 +280,13 @@ impl<T> Vec1<T> {
         })
     }
 
+    pub fn pop_if_many_and<F>(&mut self, f: F) -> Option<T>
+    where
+        F: FnOnce(&mut T) -> bool,
+    {
+        self.pop_if_many().take_if(|items| f(items.last_mut()))
+    }
+
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
@@ -1408,6 +1415,44 @@ mod tests {
             assert_eq!(xs1.pop_if_many().or_get_only(), Err(&first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
+    }
+
+    // SAFETY: The `FnOnce`s constructed in cases (the parameter `f`) must not stash or otherwise
+    //         allow access to the parameter beyond the scope of their bodies. (This is difficult
+    //         to achieve in this context.)
+    #[rstest]
+    #[case::ignore_and_pop(|_| true, (Some(4), slice1![0, 1, 2, 3]))]
+    #[case::ignore_and_do_not_pop(|_| false, (None, slice1![0, 1, 2, 3, 4]))]
+    #[case::compare_and_pop(|x: *mut _| unsafe { *x > 1 }, (Some(4), slice1![0, 1, 2, 3]))]
+    #[case::compare_and_do_not_pop(|x: *mut _| unsafe { *x < 1 }, (None, slice1![0, 1, 2, 3, 4]))]
+    #[case::mutate_and_pop(
+        |x: *mut _| unsafe {
+            *x = 42;
+            true
+        },
+        (Some(42), slice1![0, 1, 2, 3]),
+    )]
+    #[case::mutate_and_do_not_pop(
+        |x: *mut _| unsafe {
+            *x = 42;
+            false
+        },
+        (None, slice1![0, 1, 2, 3, 42]),
+    )]
+    fn pop_if_many_and_from_vec1_then_popped_and_vec1_eq<F>(
+        mut xs1: Vec1<u8>,
+        #[case] f: F,
+        #[case] expected: (Option<u8>, &Slice1<u8>),
+    ) where
+        F: FnOnce(*mut u8) -> bool,
+    {
+        // TODO: The type parameter `F` must be a `FnOnce` over `*mut u8` instead of `&mut u8`
+        //       here, because `rstest` constructs the case in a way that the `&mut u8` has a
+        //       lifetime that is too specific and too long (it would borrow the item beyond
+        //       `pop_if_many_and`). Is there a way to prevent this without introducing `*mut u8`
+        //       and unsafe code in cases for `f`? If so, do that instead!
+        let x = xs1.pop_if_many_and(|x| f(x as *mut u8));
+        assert_eq!((x, xs1.as_slice1()), expected);
     }
 
     #[rstest]

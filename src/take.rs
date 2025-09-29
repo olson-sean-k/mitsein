@@ -37,6 +37,30 @@ where
         }
     }
 
+    // It is tempting to use this function to implement `and_if` functions. However, this requires
+    // knowledge of the position of the target item in its collection. For example, an `and_if`
+    // function would not have enough information if implemented for `vec_deque1::PopIfMany`, since
+    // items can be popped from both ends. Instead, this function is used to implement counterparts
+    // to standard APIs like `Vec::pop_if` with bespoke functions on non-empty types, like
+    // `Vec1::pop_if_many_and`.
+    pub(crate) fn take_if<F>(self, f: F) -> Option<U>
+    where
+        F: FnOnce(&mut NonEmpty<T>) -> bool,
+    {
+        let TakeIfMany { items, index, many } = self;
+        match items.cardinality() {
+            Cardinality::One(_) => None,
+            Cardinality::Many(_) => {
+                if f(items) {
+                    Some((many)(items, index))
+                }
+                else {
+                    None
+                }
+            },
+        }
+    }
+
     pub fn or_else<E, F>(self, f: F) -> Result<U, E>
     where
         F: FnOnce() -> E,
