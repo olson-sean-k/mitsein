@@ -37,7 +37,7 @@
 //! ## Collections
 //!
 //! This crate provides the following non-empty collections and supporting APIs (depending on which
-//! [Cargo features](#integrations-and-cargo-features) are enabled):
+//! [feature flags](#integrations-and-feature-flags) are enabled):
 //!
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
