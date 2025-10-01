@@ -30,7 +30,8 @@ rustdoc-args = [
 ]
 
 [features]
-default = ["std"]
+# TODO: Re-enable `std` by default.
+default = []
 alloc = [
     "itertools?/use_alloc",
     "serde?/alloc",

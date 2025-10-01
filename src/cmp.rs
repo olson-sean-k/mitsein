@@ -23,6 +23,8 @@ pub unsafe trait UnsafeOrd: Ord {}
 //         `UnsafeOrd`. Moreover, these `Ord` implementations are very unlikely to change and are
 //         even less likely to change in such a way that they are non-conformant with `UnsafeOrd`.
 
+// TODO: Re-enable implementations for `BTreeSet1`.
+// TODO: Implement `UnsafeOrd` for all applicable non-empty types. For example, `String1`.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod alloc {
@@ -38,7 +40,7 @@ mod alloc {
     unsafe impl<T> UnsafeOrd for alloc::vec::Vec<T> where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for alloc::collections::vec_deque::VecDeque<T> where T: UnsafeOrd {}
 
-    unsafe impl<T> UnsafeOrd for crate::btree_set1::BTreeSet1<T> where T: UnsafeOrd {}
+    //unsafe impl<T> UnsafeOrd for crate::btree_set1::BTreeSet1<T> where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for crate::vec1::Vec1<T> where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for crate::vec_deque1::VecDeque1<T> where T: UnsafeOrd {}
 }

@@ -310,9 +310,10 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+// TODO: Re-enable modules that integrate with `segment`.
+
 mod safety;
 mod schemars;
-mod segment;
 mod serde;
 mod take;
 
@@ -320,13 +321,14 @@ pub mod array1;
 pub mod array_vec1;
 pub mod borrow1;
 pub mod boxed1;
-pub mod btree_map1;
-pub mod btree_set1;
+//pub mod btree_map1;
+//pub mod btree_set1;
 pub mod cmp;
 pub mod index_map1;
 pub mod index_set1;
 pub mod iter1;
 pub mod rc1;
+pub mod segment;
 pub mod slice1;
 pub mod small_vec1;
 pub mod str1;
@@ -353,33 +355,33 @@ use crate::sealed::*;
 pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
 
-    pub use crate::array1::Array1;
-    #[cfg(feature = "indexmap")]
-    pub use crate::index_map1::OrOnlyEntryExt as _;
-    #[cfg(feature = "either")]
-    pub use crate::iter1::EitherExt as _;
-    pub use crate::iter1::{
-        Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
-    };
-    #[cfg(feature = "rayon")]
-    pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
-    pub use crate::slice1::{slice1, Slice1};
-    pub use crate::str1::Str1;
-    #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
-    pub use crate::sync1::{
-        ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
-    };
-    #[cfg(any(feature = "arrayvec", feature = "alloc"))]
-    pub use crate::Segmentation;
-    #[cfg(feature = "alloc")]
-    pub use {
-        crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
-        crate::boxed1::{BoxedSlice1Ext as _, BoxedStr1Ext as _},
-        crate::btree_map1::OrOnlyEntryExt as _,
-        crate::rc1::{RcSlice1Ext as _, RcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _},
-        crate::string1::String1,
-        crate::vec1::{vec1, Vec1},
-    };
+    //pub use crate::array1::Array1;
+    //#[cfg(feature = "indexmap")]
+    //pub use crate::index_map1::OrOnlyEntryExt as _;
+    //#[cfg(feature = "either")]
+    //pub use crate::iter1::EitherExt as _;
+    //pub use crate::iter1::{
+    //    Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
+    //};
+    //#[cfg(feature = "rayon")]
+    //pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
+    //pub use crate::slice1::{slice1, Slice1};
+    //pub use crate::str1::Str1;
+    //#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
+    //pub use crate::sync1::{
+    //    ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
+    //};
+    //#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+    //pub use crate::segment::{Segmentation, Tail};
+    //#[cfg(feature = "alloc")]
+    //pub use {
+    //    crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
+    //    crate::boxed1::{BoxedSlice1Ext as _, BoxedStr1Ext as _},
+    //    crate::btree_map1::OrOnlyEntryExt as _,
+    //    crate::rc1::{RcSlice1Ext as _, RcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _},
+    //    crate::string1::String1,
+    //    crate::vec1::{vec1, Vec1},
+    //};
 }
 
 #[cfg(feature = "serde")]
@@ -395,8 +397,6 @@ use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
 use crate::serde::Serde;
 
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeIfMany;
 

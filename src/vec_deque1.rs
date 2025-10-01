@@ -30,8 +30,8 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
-use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
+use crate::segment::range::{self, IndexRange, Project, RangeError};
+use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::vec1::Vec1;
@@ -75,44 +75,38 @@ unsafe impl<T> MaybeEmpty for VecDeque<T> {
     }
 }
 
-impl<T> Ranged for VecDeque<T> {
-    type Range = PositionalRange;
+impl<T> Segmentation for VecDeque<T> {}
 
-    fn range(&self) -> Self::Range {
-        From::from(0..self.len())
-    }
-
-    fn tail(&self) -> Self::Range {
-        From::from(1..self.len())
-    }
-
-    fn rtail(&self) -> Self::Range {
-        From::from(0..self.len().saturating_sub(1))
-    }
-}
-
-impl<T> Segmentation for VecDeque<T> {
-    fn tail(&mut self) -> Segment<'_, Self> {
-        Segment::intersect(self, &Ranged::tail(self))
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        Segment::intersect(self, &Ranged::rtail(self))
-    }
-}
-
-impl<T, R> SegmentedBy<R> for VecDeque<T>
+impl<T, R> SegmentedBy<usize, R> for VecDeque<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect(self, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
     }
 }
 
 impl<T> SegmentedOver for VecDeque<T> {
-    type Target = Self;
     type Kind = Self;
+    type Target = Self;
+}
+
+impl<T> Tail for VecDeque<T> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
+    }
 }
 
 type TakeIfMany<'a, T, U, N = ()> = take::TakeIfMany<'a, VecDeque<T>, U, N>;
@@ -638,30 +632,36 @@ crate::impl_partial_eq_for_non_empty!([for U in &mut [U]] <= [for T in VecDeque1
 crate::impl_partial_eq_for_non_empty!([for U in Vec<U>] <= [for T in VecDeque1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in VecDeque<T>]);
 
-impl<T> Segmentation for VecDeque1<T> {
-    fn tail(&mut self) -> Segment<'_, Self> {
-        let range = Ranged::tail(&self.items);
-        Segment::intersect_strict_subset(&mut self.items, &range)
-    }
+impl<T> Segmentation for VecDeque1<T> {}
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        let range = Ranged::rtail(&self.items);
-        Segment::intersect_strict_subset(&mut self.items, &range)
-    }
-}
-
-impl<T, R> SegmentedBy<R> for VecDeque1<T>
+impl<T, R> SegmentedBy<usize, R> for VecDeque1<T>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
 impl<T> SegmentedOver for VecDeque1<T> {
-    type Target = VecDeque<T>;
     type Kind = Self;
+    type Target = VecDeque<T>;
+}
+
+impl<T> Tail for VecDeque1<T> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        self.items.rtail().rekind()
+    }
 }
 
 impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
@@ -699,15 +699,18 @@ impl Write for VecDeque1<u8> {
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, VecDeque<ItemFor<K>>>;
+pub type Segment<'a, K> = segment::Segment<'a, K, VecDeque<ItemFor<K>>, IndexRange>;
 
 impl<K, T> Segment<'_, K>
 where
     K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
 {
     pub fn split_off(&mut self, at: usize) -> VecDeque<T> {
-        let at = self.range.project(&at).expect_in_bounds();
-        let range = From::from(at..self.range.end);
+        let at = self
+            .range
+            .project(at)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+        let range = IndexRange::unchecked(at, self.range.end());
         let items = self.items.drain(range).collect();
         self.range = range;
         items
@@ -756,23 +759,26 @@ where
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
-        let index = self.range.project(&index).expect_in_bounds();
+        let index = self
+            .range
+            .project(index)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         self.items.insert(index, item);
         self.range.put_from_end(1);
     }
 
     pub fn insert_front(&mut self, item: T) {
-        self.items.insert(self.range.start, item);
+        self.items.insert(self.range.start(), item);
         self.range.put_from_end(1);
     }
 
     pub fn insert_back(&mut self, item: T) {
-        self.items.insert(self.range.end, item);
+        self.items.insert(self.range.end(), item);
         self.range.put_from_end(1);
     }
 
     pub fn remove(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(&index).ok()?;
+        let index = self.range.project(index).ok()?;
         self.items
             .remove(index)
             .inspect(|_| self.range.take_from_end(1))
@@ -784,7 +790,7 @@ where
         }
         else {
             self.items
-                .remove(self.range.start)
+                .remove(self.range.start())
                 .inspect(|_| self.range.take_from_end(1))
         }
     }
@@ -795,22 +801,22 @@ where
         }
         else {
             self.items
-                .remove(self.range.end - 1)
+                .remove(self.range.end() - 1)
                 .inspect(|_| self.range.take_from_end(1))
         }
     }
 
     pub fn swap_remove_front(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(&index).ok()?;
-        self.items.swap(index, self.range.start);
+        let index = self.range.project(index).ok()?;
+        self.items.swap(index, self.range.start());
         self.items
-            .remove(self.range.start)
+            .remove(self.range.start())
             .inspect(|_| self.range.take_from_end(1))
     }
 
     pub fn swap_remove_back(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(&index).ok()?;
-        let swapped = self.range.end - 1;
+        let index = self.range.project(index).ok()?;
+        let swapped = self.range.end() - 1;
         self.items.swap(index, swapped);
         self.items
             .remove(swapped)
@@ -857,7 +863,7 @@ where
         // Split off the remainder beyond the segment to avoid spurious inserts and copying. This
         // comes at the cost of a necessary allocation and bulk copy, which isn't great when
         // extending from a small number of items with a small remainder.
-        let tail = self.items.split_off(self.range.end);
+        let tail = self.items.split_off(self.range.end());
         self.items.extend(items);
         self.items.extend(tail);
         let n = self.items.len() - n;
@@ -895,30 +901,38 @@ where
     }
 }
 
-impl<K, T> Segmentation for Segment<'_, K>
-where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+impl<K, T> Segmentation for Segment<'_, K> where
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>
 {
-    fn tail(&mut self) -> Segment<'_, K> {
-        let range = self.project(&(1..));
-        Segment::intersect(self.items, &range)
-    }
+}
 
-    fn rtail(&mut self) -> Segment<'_, K> {
-        let range = self.project(&(..self.len().saturating_sub(1)));
-        Segment::intersect(self.items, &range)
+impl<K, T, R> SegmentedBy<usize, R> for Segment<'_, K>
+where
+    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+        self.project_and_intersect(range)
     }
 }
 
-impl<K, T, R> SegmentedBy<R> for Segment<'_, K>
+impl<K, T> Tail for Segment<'_, K>
 where
-    PositionalRange: Project<R, Output = PositionalRange>,
-    K: ClosedVecDeque<Item = T> + SegmentedBy<R> + SegmentedOver<Target = VecDeque<T>>,
-    R: RangeBounds<usize>,
+    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, K> {
-        let range = self.project(&range::ordered_range_offsets(range));
-        Segment::intersect(self.items, &range)
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, K> {
+        self.project_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K> {
+        let n = self.len();
+        self.project_rtail_range(n)
     }
 }
 
@@ -946,13 +960,13 @@ mod tests {
     use crate::iter1::IntoIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
+    use crate::segment::{Segmentation, Tail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{slice1, Slice1};
     use crate::vec_deque1::harness;
     use crate::vec_deque1::harness::xs1;
     use crate::vec_deque1::VecDeque1;
-    use crate::Segmentation;
 
     #[rstest]
     #[case::one_into_empty_front(0..0, [42], slice1![42, 0, 1, 2, 3, 4])]
@@ -972,7 +986,7 @@ mod tests {
         S: RangeBounds<usize>,
         T: IntoIterator1<Item = u8>,
     {
-        let mut segment = xs1.segment(segment);
+        let mut segment = xs1.segment(segment).unwrap();
         for item in items {
             segment.insert_front(item);
         }
@@ -997,7 +1011,7 @@ mod tests {
         S: RangeBounds<usize>,
         T: IntoIterator1<Item = u8>,
     {
-        let mut segment = xs1.segment(segment);
+        let mut segment = xs1.segment(segment).unwrap();
         for item in items {
             segment.insert_back(item);
         }
@@ -1048,7 +1062,7 @@ mod tests {
     ) where
         S: RangeBounds<usize>,
     {
-        xs1.segment(segment).retain(|_| false);
+        xs1.segment(segment).unwrap().retain(|_| false);
         assert_eq!(xs1.make_contiguous(), expected);
     }
 
