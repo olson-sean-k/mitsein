@@ -23,6 +23,7 @@ pub unsafe trait UnsafeOrd: Ord {}
 //         `UnsafeOrd`. Moreover, these `Ord` implementations are very unlikely to change and are
 //         even less likely to change in such a way that they are non-conformant with `UnsafeOrd`.
 
+// TODO: Implement `UnsafeOrd` for all applicable non-empty types. For example, `String1`.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod alloc {

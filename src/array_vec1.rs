@@ -21,15 +21,15 @@ use {
 };
 #[cfg(feature = "std")]
 use {
-    core::cmp,
+    std::cmp,
     std::io::{self, Write},
 };
 
 use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
-use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
-use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
+use crate::segment::range::{self, IndexRange, Project, RangeError};
+use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -92,44 +92,38 @@ unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
     }
 }
 
-impl<T, const N: usize> Ranged for ArrayVec<T, N> {
-    type Range = PositionalRange;
+impl<T, const N: usize> Segmentation for ArrayVec<T, N> {}
 
-    fn range(&self) -> Self::Range {
-        From::from(0..self.len())
-    }
-
-    fn tail(&self) -> Self::Range {
-        From::from(1..self.len())
-    }
-
-    fn rtail(&self) -> Self::Range {
-        From::from(0..self.len().saturating_sub(1))
-    }
-}
-
-impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
-    fn tail(&mut self) -> Segment<'_, Self, N> {
-        Segmentation::segment(self, Ranged::tail(self))
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self, N> {
-        Segmentation::segment(self, Ranged::rtail(self))
-    }
-}
-
-impl<T, R, const N: usize> SegmentedBy<R> for ArrayVec<T, N>
+impl<T, R, const N: usize> SegmentedBy<usize, R> for ArrayVec<T, N>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, N> {
-        Segment::intersect(self, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, N>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
     }
 }
 
 impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
-    type Target = Self;
     type Kind = Self;
+    type Target = Self;
+}
+
+impl<T, const N: usize> Tail for ArrayVec<T, N> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, N> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, N> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
+    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -712,26 +706,19 @@ where
     }
 }
 
-impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-{
-    fn tail(&mut self) -> Segment<'_, Self, N> {
-        Segmentation::segment(self, Ranged::tail(&self.items))
-    }
+impl<T, const N: usize> Segmentation for ArrayVec1<T, N> where [T; N]: Array1 {}
 
-    fn rtail(&mut self) -> Segment<'_, Self, N> {
-        Segmentation::segment(self, Ranged::rtail(&self.items))
-    }
-}
-
-impl<T, R, const N: usize> SegmentedBy<R> for ArrayVec1<T, N>
+impl<T, R, const N: usize> SegmentedBy<usize, R> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self, N> {
-        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, N>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
@@ -739,8 +726,23 @@ impl<T, const N: usize> SegmentedOver for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
-    type Target = ArrayVec<T, N>;
     type Kind = Self;
+    type Target = ArrayVec<T, N>;
+}
+
+impl<T, const N: usize> Tail for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, N> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, N> {
+        self.items.rtail().rekind()
+    }
 }
 
 impl<'a, T, const N: usize> TryFrom<&'a [T]> for ArrayVec1<T, N>
@@ -799,7 +801,8 @@ where
     }
 }
 
-pub type Segment<'a, K, const N: usize> = segment::Segment<'a, K, ArrayVec<ItemFor<K, N>, N>>;
+pub type Segment<'a, K, const N: usize> =
+    segment::Segment<'a, K, ArrayVec<ItemFor<K, N>, N>, IndexRange>;
 
 impl<K, T, const N: usize> Segment<'_, K, N>
 where
@@ -819,18 +822,24 @@ where
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
-        let index = self.range.project(&index).expect_in_bounds();
+        let index = self
+            .range
+            .project(index)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         self.items.insert(index, item);
         self.range.put_from_end(1);
     }
 
     pub fn insert_back(&mut self, item: T) {
-        self.items.insert(self.range.end, item);
+        self.items.insert(self.range.end(), item);
         self.range.put_from_end(1);
     }
 
     pub fn remove(&mut self, index: usize) -> T {
-        let index = self.range.project(&index).expect_in_bounds();
+        let index = self
+            .range
+            .project(index)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         let item = self.items.remove(index);
         self.range.take_from_end(1);
         item
@@ -841,7 +850,7 @@ where
             None
         }
         else {
-            let item = self.items.remove(self.range.end - 1);
+            let item = self.items.remove(self.range.end() - 1);
             self.range.take_from_end(1);
             Some(item)
         }
@@ -852,8 +861,11 @@ where
             panic!("index out of bounds")
         }
         else {
-            let index = self.range.project(&index).expect_in_bounds();
-            let swapped = self.range.end - 1;
+            let index = self
+                .range
+                .project(index)
+                .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+            let swapped = self.range.end() - 1;
             self.items.as_mut_slice().swap(index, swapped);
             let item = self.items.remove(swapped);
             self.range.take_from_end(1);
@@ -870,11 +882,11 @@ where
     }
 
     pub fn as_slice(&self) -> &[T] {
-        &self.items.as_slice()[self.range.start..self.range.end]
+        &self.items.as_slice()[self.range.start()..self.range.end()]
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        &mut self.items.as_mut_slice()[self.range.start..self.range.end]
+        &mut self.items.as_mut_slice()[self.range.start()..self.range.end()]
     }
 
     pub fn as_ptr(&self) -> *const T {
@@ -964,7 +976,7 @@ where
         let n = self.items.len();
         // Split off the remainder beyond the segment to avoid spurious inserts and copying. This
         // comes at the cost of a necessary array on the stack and bulk copy.
-        let tail: ArrayVec<_, N> = self.items.drain(self.range.end..).collect();
+        let tail: ArrayVec<_, N> = self.items.drain(self.range.end()..).collect();
         self.items.extend(items);
         self.items.extend(tail);
         let n = self.items.len() - n;
@@ -1002,30 +1014,38 @@ where
     }
 }
 
-impl<K, T, const N: usize> Segmentation for Segment<'_, K, N>
-where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+impl<K, T, const N: usize> Segmentation for Segment<'_, K, N> where
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>
 {
-    fn tail(&mut self) -> Segment<'_, K, N> {
-        let range = self.project(&(1..));
-        Segment::intersect(self.items, &range)
-    }
+}
 
-    fn rtail(&mut self) -> Segment<'_, K, N> {
-        let range = self.project(&(..self.len().saturating_sub(1)));
-        Segment::intersect(self.items, &range)
+impl<K, T, R, const N: usize> SegmentedBy<usize, R> for Segment<'_, K, N>
+where
+    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, K, N>, Self::Error> {
+        self.project_and_intersect(range)
     }
 }
 
-impl<K, T, R, const N: usize> SegmentedBy<R> for Segment<'_, K, N>
+impl<K, T, const N: usize> Tail for Segment<'_, K, N>
 where
-    PositionalRange: Project<R, Output = PositionalRange>,
-    K: ClosedArrayVec<N, Item = T> + SegmentedBy<R> + SegmentedOver<Target = ArrayVec<T, N>>,
-    R: RangeBounds<usize>,
+    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, K, N> {
-        let range = self.project(&range::ordered_range_offsets(range));
-        Segment::intersect(self.items, &range)
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, K, N> {
+        self.project_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K, N> {
+        let n = self.len();
+        self.project_rtail_range(n)
     }
 }
 
@@ -1054,7 +1074,7 @@ mod tests {
     use crate::array_vec1::ArrayVec1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::Segmentation;
+    use crate::segment::Tail;
     #[cfg(feature = "serde")]
     use crate::{
         array_vec1::harness::xs1,

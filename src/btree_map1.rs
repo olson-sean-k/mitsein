@@ -10,7 +10,7 @@ use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
-use core::ops::RangeBounds;
+use core::ops::{Bound, RangeBounds};
 #[cfg(feature = "rayon")]
 use rayon::iter::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
@@ -27,8 +27,10 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, Intersect, RelationalRange};
-use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
+use crate::segment::range::{
+    self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, UnorderedError,
+};
+use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -80,73 +82,62 @@ unsafe impl<K, V> MaybeEmpty for BTreeMap<K, V> {
     }
 }
 
-impl<K, V> Ranged for BTreeMap<K, V>
+impl<K, V> Segmentation for BTreeMap<K, V> where K: Ord {}
+
+impl<K, V, R> SegmentedBy<K, R> for BTreeMap<K, V>
 where
-    K: Clone + Ord,
+    K: Ord,
+    R: IntoRangeBounds<K>,
 {
-    type Range = RelationalRange<K>;
+    type Range = Option<ItemRange<K>>;
+    type Error = UnorderedError<Bound<K>>;
 
-    fn range(&self) -> Self::Range {
-        self.keys()
-            .next()
-            .cloned()
-            .zip(self.keys().next_back().cloned())
-            .into()
-    }
-
-    fn tail(&self) -> Self::Range {
-        self.keys()
-            .nth(1)
-            .cloned()
-            .zip(self.keys().next_back().cloned())
-            .into()
-    }
-
-    fn rtail(&self) -> Self::Range {
-        self.keys()
-            .next()
-            .cloned()
-            .zip(self.keys().rev().nth(1).cloned())
-            .into()
-    }
-}
-
-impl<K, V> Segmentation for BTreeMap<K, V>
-where
-    K: Clone + Ord,
-{
-    fn tail(&mut self) -> Segment<'_, Self> {
-        match Ranged::tail(self).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(self),
-        }
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        match Ranged::rtail(self).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(self),
-        }
-    }
-}
-
-impl<K, V, R> SegmentedBy<R> for BTreeMap<K, V>
-where
-    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Clone + Ord,
-    R: RangeBounds<K>,
-{
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect(self, &range::ordered_range_bounds(range))
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        range::ordered_range_bounds(range)
+            .map(|range| {
+                let (start, end) = range.into_bounds();
+                Segment::unchecked(self, Some(ItemRange::unchecked(start, end)))
+            })
+            .map_err(|range| {
+                let (start, end) = range.into_bounds();
+                UnorderedError(start, end)
+            })
     }
 }
 
 impl<K, V> SegmentedOver for BTreeMap<K, V>
 where
+    K: Ord,
+{
+    type Kind = Self;
+    type Target = Self;
+}
+
+impl<K, V> Tail for BTreeMap<K, V>
+where
     K: Clone + Ord,
 {
-    type Target = Self;
-    type Kind = Self;
+    type Range = Option<ItemRange<K>>;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let range = self
+            .keys()
+            .nth(1)
+            .cloned()
+            .zip(self.keys().next_back().cloned())
+            .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
+        Segment::unchecked(self, range)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let range = self
+            .keys()
+            .next()
+            .cloned()
+            .zip(self.keys().rev().nth(1).cloned())
+            .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
+        Segment::unchecked(self, range)
+    }
 }
 
 pub type ManyEntry<'a, K, V> = btree_map::OccupiedEntry<'a, K, V>;
@@ -1025,42 +1016,71 @@ where
     }
 }
 
-impl<K, V> Segmentation for BTreeMap1<K, V>
-where
-    K: Clone + UnsafeOrd,
-{
-    fn tail(&mut self) -> Segment<'_, Self> {
-        match Ranged::tail(&self.items).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(&mut self.items),
-        }
-    }
+impl<K, V> Segmentation for BTreeMap1<K, V> where K: UnsafeOrd {}
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        match Ranged::rtail(&self.items).try_into_range_inclusive() {
-            Some(range) => Segmentation::segment(self, range),
-            _ => Segment::empty(&mut self.items),
-        }
-    }
-}
-
-impl<K, V, R> SegmentedBy<R> for BTreeMap1<K, V>
+impl<K, V, R> SegmentedBy<K, R> for BTreeMap1<K, V>
 where
-    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    K: Clone + UnsafeOrd,
-    R: RangeBounds<K>,
+    K: UnsafeOrd,
+    R: IntoRangeBounds<K>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_bounds(range))
+    type Range = Option<ItemRange<K>>;
+    type Error = RangeError<Bound<K>>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        range::ordered_range_bounds(range)
+            .map_err(|range| {
+                let (start, end) = range.into_bounds();
+                UnorderedError(start, end).into()
+            })
+            .and_then(|range| {
+                if range.contains(self.keys1().first()) && range.contains(self.keys1().last()) {
+                    let (start, end) = range.into_bounds();
+                    Err(OutOfBoundsError::Range(start, end).into())
+                }
+                else {
+                    let (start, end) = range.into_bounds();
+                    Ok(Segment::unchecked(
+                        &mut self.items,
+                        Some(ItemRange::unchecked(start, end)),
+                    ))
+                }
+            })
     }
 }
 
 impl<K, V> SegmentedOver for BTreeMap1<K, V>
 where
+    K: UnsafeOrd,
+{
+    type Kind = Self;
+    type Target = BTreeMap<K, V>;
+}
+
+impl<K, V> Tail for BTreeMap1<K, V>
+where
     K: Clone + UnsafeOrd,
 {
-    type Target = BTreeMap<K, V>;
-    type Kind = Self;
+    type Range = Option<ItemRange<K>>;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let range = self.items.keys().nth(1).cloned().map(|start| {
+            ItemRange::unchecked(
+                Bound::Included(start),
+                Bound::Included(self.keys1().last().clone()),
+            )
+        });
+        Segment::unchecked(&mut self.items, range)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let range = self.items.keys().rev().nth(1).cloned().map(|end| {
+            ItemRange::unchecked(
+                Bound::Included(self.keys1().first().clone()),
+                Bound::Included(end),
+            )
+        });
+        Segment::unchecked(&mut self.items, range)
+    }
 }
 
 impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
@@ -1127,7 +1147,8 @@ where
     }
 }
 
-pub type Segment<'a, T> = segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>>;
+pub type Segment<'a, T> =
+    segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, Option<ItemRange<KeyFor<T>>>>;
 
 impl<T, K, V> Segment<'_, T>
 where
@@ -1138,7 +1159,9 @@ where
     where
         F: FnMut(&K, &mut V) -> bool,
     {
-        self.items.retain(self.range.retain_key_value_in_range(f))
+        if let Some(range) = self.range.as_ref() {
+            self.items.retain(range.retain_key_value_in_range(f))
+        }
     }
 
     pub fn insert_in_range(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)> {
@@ -1151,15 +1174,46 @@ where
     }
 
     pub fn append_in_range(&mut self, other: &mut BTreeMap<K, V>) {
-        if let RelationalRange::NonEmpty { ref start, ref end } = self.range {
+        if let Some(range) = self.range.as_ref() {
+            // To append within the range of the segment, `other` is split into `low`, `middle`,
+            // and `high`. The `middle` set contains any and all items in range, and so it extends
+            // the segment. `low` and `high` are out of bounds of the range, and so these items are
+            // not inserted into the segment and must remain in `other`.
+            //
+            // Note that `low` is just an alias for `other` here, and so it is an exclusive
+            // reference to the input `BTreeMap` (unlike `middle` and `high`).
             let low = other;
-            let mut middle = low.split_off(start);
-            let mut high = middle.split_off(end);
-            self.items.append(&mut middle);
-            if let Some(first) = high.remove(end) {
-                self.items.insert(end.clone(), first);
-            }
-            low.append(&mut high);
+            let mut middle = match range.start_bound() {
+                Bound::Excluded(start) => {
+                    let mut middle = low.split_off(start);
+                    low.extend(middle.remove_entry(start));
+                    middle
+                },
+                Bound::Included(start) => low.split_off(start),
+                Bound::Unbounded => {
+                    if let Some(first) = low.keys().next().cloned() {
+                        // The segment has no lower bound, so all of `low` is split off into
+                        // `middle` (leaving `low` empty).
+                        low.split_off(&first)
+                    }
+                    else {
+                        // If `other` is empty (and so `low.first()` is `None`), then the middle
+                        // items are also empty.
+                        BTreeMap::new()
+                    }
+                },
+            };
+            let high = match range.end_bound() {
+                Bound::Excluded(end) => middle.split_off(end),
+                Bound::Included(end) => {
+                    let mut high = middle.split_off(end);
+                    middle.extend(high.remove_entry(end));
+                    high
+                },
+                Bound::Unbounded => BTreeMap::new(),
+            };
+            self.items.extend(middle);
+            low.extend(high);
         }
     }
 
@@ -1177,8 +1231,8 @@ where
     }
 
     pub fn clear(&mut self) {
-        if let Some(range) = self.range.clone().try_into_range_inclusive() {
-            self.items.retain(|key, _| !range.contains(key));
+        if let Some(range) = self.range.as_ref() {
+            self.items.retain(|key, _| !range.contains(key))
         }
     }
 
@@ -1192,21 +1246,23 @@ where
     }
 
     pub fn first_key_value(&self) -> Option<(&K, &V)> {
-        match self.range {
-            RelationalRange::Empty => None,
-            RelationalRange::NonEmpty { ref start, .. } => {
-                self.items.get(start).map(|first| (start, first))
-            },
-        }
+        self.range
+            .as_ref()
+            .and_then(|range| match range.start_bound() {
+                Bound::Excluded(start) => self.items.range(start..).nth(1),
+                Bound::Included(start) => self.items.range(start..).next(),
+                Bound::Unbounded => self.items.first_key_value(),
+            })
     }
 
     pub fn last_key_value(&self) -> Option<(&K, &V)> {
-        match self.range {
-            RelationalRange::Empty => None,
-            RelationalRange::NonEmpty { ref end, .. } => {
-                self.items.get(end).map(|last| (end, last))
-            },
-        }
+        self.range
+            .as_ref()
+            .and_then(|range| match range.end_bound() {
+                Bound::Excluded(end) => self.items.range(..end).next_back(),
+                Bound::Included(end) => self.items.range(..=end).next_back(),
+                Bound::Unbounded => self.items.last_key_value(),
+            })
     }
 
     pub fn contains_key(&self, key: &K) -> bool {
@@ -1217,44 +1273,55 @@ where
 impl<T, K, V> Segmentation for Segment<'_, T>
 where
     T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
+    K: Ord,
+{
+}
+
+impl<T, K, V> Tail for Segment<'_, T>
+where
+    T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
 {
+    type Range = Option<ItemRange<K>>;
+
     fn tail(&mut self) -> Segment<'_, T> {
-        match self.range.clone().try_into_range_inclusive() {
-            Some(range) => match BTreeMap::range(self.items, range.clone()).nth(1) {
-                Some((start, _)) => Segment::unchecked(
-                    self.items,
-                    RelationalRange::unchecked(start.clone(), range.end().clone()),
-                ),
-                _ => Segment::empty(self.items),
-            },
-            _ => Segment::empty(self.items),
+        if let Some(range) = self.range.clone() {
+            let (start, end) = range.into_bounds();
+            let start = match start {
+                Bound::Excluded(start) => self.items.range(start..).nth(2),
+                Bound::Included(start) => self.items.range(start..).nth(1),
+                Bound::Unbounded => self.items.iter().nth(1),
+            };
+            let range = start
+                .map(|(key, _)| key)
+                .cloned()
+                .and_then(|start| range::ordered_range_bounds((Bound::Included(start), end)).ok())
+                .map(|(start, end)| ItemRange::unchecked(start, end));
+            Segment::unchecked(self.items, range)
+        }
+        else {
+            Segment::unchecked(self.items, None)
         }
     }
 
     fn rtail(&mut self) -> Segment<'_, T> {
-        match self.range.clone().try_into_range_inclusive() {
-            Some(range) => match BTreeMap::range(self.items, range.clone()).rev().nth(1) {
-                Some((end, _)) => Segment::unchecked(
-                    self.items,
-                    RelationalRange::unchecked(range.start().clone(), end.clone()),
-                ),
-                _ => Segment::empty(self.items),
-            },
-            _ => Segment::empty(self.items),
+        if let Some(range) = self.range.clone() {
+            let (start, end) = range.into_bounds();
+            let end = match end {
+                Bound::Excluded(end) => self.items.range(..end).rev().nth(1),
+                Bound::Included(end) => self.items.range(..=end).rev().nth(1),
+                Bound::Unbounded => self.items.iter().rev().nth(1),
+            };
+            let range = end
+                .map(|(key, _)| key)
+                .cloned()
+                .and_then(|end| range::ordered_range_bounds((start, Bound::Included(end))).ok())
+                .map(|(start, end)| ItemRange::unchecked(start, end));
+            Segment::unchecked(self.items, range)
         }
-    }
-}
-
-impl<T, K, V, R> SegmentedBy<R> for Segment<'_, T>
-where
-    RelationalRange<K>: Intersect<R, Output = RelationalRange<K>>,
-    T: ClosedBTreeMap<Key = K, Value = V> + SegmentedBy<R> + SegmentedOver<Target = BTreeMap<K, V>>,
-    K: Clone + Ord,
-    R: RangeBounds<K>,
-{
-    fn segment(&mut self, range: R) -> Segment<'_, T> {
-        Segment::intersect(self.items, &range::ordered_range_bounds(range))
+        else {
+            Segment::unchecked(self.items, None)
+        }
     }
 }
 
@@ -1290,7 +1357,8 @@ mod tests {
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::Segmentation;
+    use crate::segment::range::IntoRangeBounds;
+    use crate::segment::{Segmentation, Tail};
     #[cfg(feature = "serde")]
     use crate::{
         btree_map1::harness::xs1,
@@ -1340,17 +1408,23 @@ mod tests {
     }
 
     #[rstest]
-    #[case::absent_in_range(4, 4, Ok(None))]
-    #[case::present_in_range(4, 9, Ok(Some(VALUE)))]
-    #[case::out_of_range(4, 0, Err((0, VALUE)))]
-    #[case::out_of_range(4, 1, Err((1, VALUE)))]
-    fn insert_into_btree_map1_segment_range_from_then_output_eq(
+    #[case::absent_in_range(4.., 4, Ok(None))]
+    #[case::absent_in_range(..=4, 4, Ok(None))]
+    #[case::present_in_range(4.., 9, Ok(Some(VALUE)))]
+    #[case::out_of_range_lower_bound(4.., 0, Err((0, VALUE)))]
+    #[case::out_of_range_lower_bound(4.., 1, Err((1, VALUE)))]
+    #[case::out_of_range_upper_bound(..5, 5, Err((5, VALUE)))]
+    #[case::out_of_range_upper_bound(3..=5, 6, Err((6, VALUE)))]
+    #[case::out_of_range_upper_bound(..5, 6, Err((6, VALUE)))]
+    fn insert_into_btree_map1_segment_then_output_eq<R>(
         #[from(terminals1)] mut xs1: BTreeMap1<u8, char>,
-        #[case] from: u8,
+        #[case] range: R,
         #[case] key: u8,
         #[case] expected: Result<Option<char>, (u8, char)>,
-    ) {
-        let mut segment = xs1.segment(from..);
+    ) where
+        R: IntoRangeBounds<u8>,
+    {
+        let mut segment = xs1.segment(range).unwrap();
         assert_eq!(segment.insert_in_range(key, VALUE), expected);
     }
 

@@ -33,8 +33,8 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
-use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
+use crate::segment::range::{self, IndexRange, Intersect, Project, RangeError};
+use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -83,44 +83,38 @@ unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
     }
 }
 
-impl<T, S> Ranged for IndexSet<T, S> {
-    type Range = PositionalRange;
+impl<T, S> Segmentation for IndexSet<T, S> {}
 
-    fn range(&self) -> Self::Range {
-        From::from(0..self.len())
-    }
-
-    fn tail(&self) -> Self::Range {
-        From::from(1..self.len())
-    }
-
-    fn rtail(&self) -> Self::Range {
-        From::from(0..self.len().saturating_sub(1))
-    }
-}
-
-impl<T, S> Segmentation for IndexSet<T, S> {
-    fn tail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::tail(self))
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::rtail(self))
-    }
-}
-
-impl<T, S, R> SegmentedBy<R> for IndexSet<T, S>
+impl<T, S, R> SegmentedBy<usize, R> for IndexSet<T, S>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect(self, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
     }
 }
 
 impl<T, S> SegmentedOver for IndexSet<T, S> {
     type Kind = Self;
     type Target = Self;
+}
+
+impl<T, S> Tail for IndexSet<T, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
+    }
 }
 
 type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, IndexSet<T, S>, U, N>;
@@ -1188,28 +1182,24 @@ where
     }
 }
 
-impl<T, S> Segmentation for IndexSet1<T, S> {
-    fn tail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::tail(&self.items))
-    }
+impl<T, S> Segmentation for IndexSet1<T, S> {}
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::rtail(&self.items))
-    }
-}
-
-impl<T, S, R> SegmentedBy<R> for IndexSet1<T, S>
+impl<T, S, R> SegmentedBy<usize, R> for IndexSet1<T, S>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
 impl<T, S> SegmentedOver for IndexSet1<T, S> {
-    type Target = IndexSet<T, S>;
     type Kind = Self;
+    type Target = IndexSet<T, S>;
 }
 
 impl<R, T, S> Sub<&'_ R> for &'_ IndexSet1<T, S>
@@ -1239,6 +1229,18 @@ where
     }
 }
 
+impl<T, S> Tail for IndexSet1<T, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        self.items.rtail().rekind()
+    }
+}
+
 impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
     type Error = EmptyError<IndexSet<T, S>>;
 
@@ -1247,7 +1249,7 @@ impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, IndexSet<ItemFor<K>, StateFor<K>>>;
+pub type Segment<'a, K> = segment::Segment<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, IndexRange>;
 
 // TODO: It should be possible to safely implement `swap_drain` for segments over `IndexSet1`. The
 //       `IndexSet::drain` iterator immediately culls its indices but then defers to `vec::Drain`
@@ -1270,26 +1272,38 @@ where
     }
 
     pub fn move_index(&mut self, from: usize, to: usize) {
-        let from = self.range.project(&from).expect_in_bounds();
-        let to = self.range.project(&to).expect_in_bounds();
+        let from = self
+            .range
+            .project(from)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+        let to = self
+            .range
+            .project(to)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         self.items.move_index(from, to)
     }
 
     pub fn swap_indices(&mut self, a: usize, b: usize) {
-        let a = self.range.project(&a).expect_in_bounds();
-        let b = self.range.project(&b).expect_in_bounds();
+        let a = self
+            .range
+            .project(a)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+        let b = self
+            .range
+            .project(b)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         self.items.swap_indices(a, b)
     }
 
     pub fn shift_remove_index(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(&index).ok()?;
+        let index = self.range.project(index).ok()?;
         self.items
             .shift_remove_index(index)
             .inspect(|_| self.range.take_from_end(1))
     }
 
     pub fn swap_remove_index(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(&index).ok()?;
+        let index = self.range.project(index).ok()?;
         self.items
             .swap_remove_index(index)
             .inspect(|_| self.range.take_from_end(1))
@@ -1311,7 +1325,10 @@ where
     S: BuildHasher,
 {
     pub fn shift_insert(&mut self, index: usize, item: T) -> bool {
-        let index = self.range.project(&index).expect_in_bounds();
+        let index = self
+            .range
+            .project(index)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         if self.items.shift_insert(index, item) {
             self.range.put_from_end(1);
             true
@@ -1322,32 +1339,39 @@ where
     }
 }
 
-impl<K, T, S> Segmentation for Segment<'_, K>
-where
-    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
+impl<K, T, S> Segmentation for Segment<'_, K> where
+    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>
 {
-    fn tail(&mut self) -> Segment<'_, K> {
-        let range = self.project(&(1..));
-        Segment::intersect(self.items, &range)
-    }
+}
 
-    fn rtail(&mut self) -> Segment<'_, K> {
-        let range = self.project(&(..self.len().saturating_sub(1)));
-        Segment::intersect(self.items, &range)
+impl<K, T, S, R> SegmentedBy<usize, R> for Segment<'_, K>
+where
+    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+        let range = self.range.intersect(self.range.project(range)?)?;
+        Ok(Segment::unchecked(self.items, range))
     }
 }
 
-impl<K, T, S, R> SegmentedBy<R> for Segment<'_, K>
+impl<K, T, S> Tail for Segment<'_, K>
 where
-    PositionalRange: Project<R, Output = PositionalRange>,
-    K: ClosedIndexSet<Item = T, State = S>
-        + SegmentedBy<R>
-        + SegmentedOver<Target = IndexSet<T, S>>,
-    R: RangeBounds<usize>,
+    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, K> {
-        let range = self.project(&range::ordered_range_offsets(range));
-        Segment::intersect(self.items, &range)
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, K> {
+        self.project_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K> {
+        let n = self.len();
+        self.project_rtail_range(n)
     }
 }
 

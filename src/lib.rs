@@ -233,6 +233,8 @@
 //! [`RcSlice1`]: crate::rc1::RcSlice1
 //! [`RcStr1`]: crate::rc1::RcStr1
 //! [`schemars`]: https://crates.io/crates/schemars
+//! [`Segment`]: crate::segment::Segment
+//! [`Segmentation`]: crate::segment::Segmentation
 //! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`smallvec`]: https://crates.io/crates/smallvec
@@ -312,7 +314,6 @@ extern crate std;
 
 mod safety;
 mod schemars;
-mod segment;
 mod serde;
 mod take;
 
@@ -327,6 +328,7 @@ pub mod index_map1;
 pub mod index_set1;
 pub mod iter1;
 pub mod rc1;
+pub mod segment;
 pub mod slice1;
 pub mod small_vec1;
 pub mod str1;
@@ -363,14 +365,14 @@ pub mod prelude {
     };
     #[cfg(feature = "rayon")]
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
+    #[cfg(any(feature = "arrayvec", feature = "alloc"))]
+    pub use crate::segment::{Segmentation, Tail};
     pub use crate::slice1::{slice1, Slice1};
     pub use crate::str1::Str1;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{
         ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
     };
-    #[cfg(any(feature = "arrayvec", feature = "alloc"))]
-    pub use crate::Segmentation;
     #[cfg(feature = "alloc")]
     pub use {
         crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
@@ -395,8 +397,6 @@ use core::num::NonZeroUsize;
 #[cfg(feature = "serde")]
 use crate::serde::Serde;
 
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-pub use segment::{Segment, Segmentation, SegmentedBy, SegmentedOver};
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 pub use take::TakeIfMany;
 

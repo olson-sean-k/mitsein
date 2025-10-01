@@ -107,7 +107,7 @@ xs.tail().rtail().swap_drain(..); // `swap_drain` is the counterpart to `drain`.
 assert_eq!(xs.as_slice(), &[0i32, 4]);
 
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
-xs.segment(..3).retain(|x| *x % 2 != 0);
+xs.segment(..3).unwrap().retain(|x| *x % 2 != 0);
 assert_eq!(xs.as_slice(), &[1i32, 3, 4]);
 ```
 

@@ -34,8 +34,8 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, PositionalRange, Project, ProjectionExt as _};
-use crate::segment::{self, Ranged, Segmentation, SegmentedBy, SegmentedOver};
+use crate::segment::range::{self, IndexRange, Project, RangeError};
+use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -88,44 +88,38 @@ unsafe impl<K, V, S> MaybeEmpty for IndexMap<K, V, S> {
     }
 }
 
-impl<K, V, S> Ranged for IndexMap<K, V, S> {
-    type Range = PositionalRange;
+impl<K, V, S> Segmentation for IndexMap<K, V, S> {}
 
-    fn range(&self) -> Self::Range {
-        From::from(0..self.len())
-    }
-
-    fn tail(&self) -> Self::Range {
-        From::from(1..self.len())
-    }
-
-    fn rtail(&self) -> Self::Range {
-        From::from(0..self.len().saturating_sub(1))
-    }
-}
-
-impl<K, V, S> Segmentation for IndexMap<K, V, S> {
-    fn tail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::tail(self))
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::rtail(self))
-    }
-}
-
-impl<K, V, S, R> SegmentedBy<R> for IndexMap<K, V, S>
+impl<K, V, S, R> SegmentedBy<usize, R> for IndexMap<K, V, S>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect(self, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
     }
 }
 
 impl<K, V, S> SegmentedOver for IndexMap<K, V, S> {
-    type Target = Self;
     type Kind = Self;
+    type Target = Self;
+}
+
+impl<K, V, S> Tail for IndexMap<K, V, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
+    }
 }
 
 pub type ManyEntry<'a, K, V> = index_map::OccupiedEntry<'a, K, V>;
@@ -1560,28 +1554,36 @@ where
     }
 }
 
-impl<K, V, S> Segmentation for IndexMap1<K, V, S> {
-    fn tail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::tail(&self.items))
-    }
+impl<K, V, S> Segmentation for IndexMap1<K, V, S> {}
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        Segmentation::segment(self, Ranged::rtail(&self.items))
-    }
-}
-
-impl<K, V, S, R> SegmentedBy<R> for IndexMap1<K, V, S>
+impl<K, V, S, R> SegmentedBy<usize, R> for IndexMap1<K, V, S>
 where
     R: RangeBounds<usize>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, Self> {
-        Segment::intersect_strict_subset(&mut self.items, &range::ordered_range_offsets(range))
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
 impl<K, V, S> SegmentedOver for IndexMap1<K, V, S> {
-    type Target = IndexMap<K, V, S>;
     type Kind = Self;
+    type Target = IndexMap<K, V, S>;
+}
+
+impl<K, V, S> Tail for IndexMap1<K, V, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        self.items.rtail().rekind()
+    }
 }
 
 impl<K, V, S> TryFrom<IndexMap<K, V, S>> for IndexMap1<K, V, S> {
@@ -1592,7 +1594,8 @@ impl<K, V, S> TryFrom<IndexMap<K, V, S>> for IndexMap1<K, V, S> {
     }
 }
 
-pub type Segment<'a, T> = segment::Segment<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>>;
+pub type Segment<'a, T> =
+    segment::Segment<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>, IndexRange>;
 
 impl<T, K, V, S> Segment<'_, T>
 where
@@ -1612,26 +1615,38 @@ where
     }
 
     pub fn move_index(&mut self, from: usize, to: usize) {
-        let from = self.range.project(&from).expect_in_bounds();
-        let to = self.range.project(&to).expect_in_bounds();
+        let from = self
+            .range
+            .project(from)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+        let to = self
+            .range
+            .project(to)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         self.items.move_index(from, to)
     }
 
     pub fn swap_indices(&mut self, a: usize, b: usize) {
-        let a = self.range.project(&a).expect_in_bounds();
-        let b = self.range.project(&b).expect_in_bounds();
+        let a = self
+            .range
+            .project(a)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+        let b = self
+            .range
+            .project(b)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         self.items.swap_indices(a, b)
     }
 
     pub fn shift_remove_index(&mut self, index: usize) -> Option<(K, V)> {
-        let index = self.range.project(&index).ok()?;
+        let index = self.range.project(index).ok()?;
         self.items
             .shift_remove_index(index)
             .inspect(|_| self.range.take_from_end(1))
     }
 
     pub fn swap_remove_index(&mut self, index: usize) -> Option<(K, V)> {
-        let index = self.range.project(&index).ok()?;
+        let index = self.range.project(index).ok()?;
         self.items
             .swap_remove_index(index)
             .inspect(|_| self.range.take_from_end(1))
@@ -1661,32 +1676,38 @@ where
     }
 }
 
-impl<T, K, V, S> Segmentation for Segment<'_, T>
-where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>,
+impl<T, K, V, S> Segmentation for Segment<'_, T> where
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>
 {
-    fn tail(&mut self) -> Segment<'_, T> {
-        let range = self.project(&(1..));
-        Segment::intersect(self.items, &range)
-    }
+}
 
-    fn rtail(&mut self) -> Segment<'_, T> {
-        let range = self.project(&(..self.len().saturating_sub(1)));
-        Segment::intersect(self.items, &range)
+impl<T, K, V, S, R> SegmentedBy<usize, R> for Segment<'_, T>
+where
+    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, T>, Self::Error> {
+        self.project_and_intersect(range)
     }
 }
 
-impl<T, K, V, S, R> SegmentedBy<R> for Segment<'_, T>
+impl<T, K, V, S> Tail for Segment<'_, T>
 where
-    PositionalRange: Project<R, Output = PositionalRange>,
-    T: ClosedIndexMap<Key = K, Value = V, State = S>
-        + SegmentedBy<R>
-        + SegmentedOver<Target = IndexMap<K, V, S>>,
-    R: RangeBounds<usize>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>,
 {
-    fn segment(&mut self, range: R) -> Segment<'_, T> {
-        let range = self.project(&range::ordered_range_offsets(range));
-        Segment::intersect(self.items, &range)
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, T> {
+        self.project_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, T> {
+        let n = self.len();
+        self.project_rtail_range(n)
     }
 }
 
@@ -1717,7 +1738,7 @@ mod tests {
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::Segmentation;
+    use crate::segment::Tail;
     #[cfg(feature = "serde")]
     use crate::{
         index_map1::harness::xs1,
