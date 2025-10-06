@@ -41,79 +41,6 @@ use crate::vec1::Vec1;
 use crate::{safety, Cardinality};
 use crate::{EmptyError, NonEmpty, NonZeroExt as _};
 
-// The input type parameter `K` is unused in this trait, but is required to prevent a coherence
-// error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
-// However, `core` may implement `Iterator` for `core::Result` and that presents a conflict. This
-// parameter avoids the conflict by implementing a distinct `ThenIterator1` trait for any
-// `Iterator` type `I` versus `Result<I>`.
-//
-// This is unfortunate and, though this trait is not meant to be used in this way, makes bounds on
-// the trait and type definitions for its outputs unusual:
-//
-//   fn max<I, K>(items: I) -> i64
-//   where
-//       I: ThenIterator1<K, Item = i64>,
-//   {
-//       items.chain_non_empty([0]).max()
-//   }
-//
-// Note the input type parameter `K`. `ThenIterator1` is an extension trait with a broad
-// implementaion over `Iterator` types, so this is very unlikely to be a problem. Moreover,
-// associated types are the more "correct" implementation for such an iterator-like trait. In fact,
-// using the input type parameter `K` makes this sort of bound even more troublesome, as the
-// relationship between the implementor and parameter `K` differs between the two implementations
-// (requiring distinct bounds for each)!
-pub trait ThenIterator1<K>: Sized {
-    type Item;
-    type MaybeEmpty: Iterator<Item = Self::Item>;
-    type Chained: Iterator<Item = Self::Item>;
-
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
-    where
-        T: IntoIterator1<Item = Self::Item>;
-
-    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
-    where
-        T: IntoIterator1<Item = Self::Item>,
-    {
-        self.or_else_non_empty(move || items)
-    }
-
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
-    where
-        T: IntoIterator1<Item = Self::Item>,
-        F: FnOnce() -> T;
-
-    fn or_one<T>(self, item: Self::Item) -> OrNonEmpty<Self::MaybeEmpty, [Self::Item; 1]> {
-        self.or_non_empty([item])
-    }
-}
-
-impl<I> ThenIterator1<I> for I
-where
-    I: Iterator + Sized,
-{
-    type Item = I::Item;
-    type MaybeEmpty = I;
-    type Chained = I;
-
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
-    where
-        T: IntoIterator1<Item = Self::Item>,
-    {
-        // SAFETY: `items` is non-empty.
-        unsafe { Iterator1::from_iter_unchecked(self.chain(items.into_iter1())) }
-    }
-
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
-    where
-        T: IntoIterator1<Item = Self::Item>,
-        F: FnOnce() -> T,
-    {
-        Iterator1::try_from_iter(self).or_else_non_empty(f)
-    }
-}
-
 // Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
 // implementation. In particular, the `IntoIterator::IntoIter` type for `Either` is itself, and so
 // it is impossible to output an appropriate `Iterator1` type in an `IntoIterator1` implementation.
@@ -151,21 +78,6 @@ where
         unsafe { Iterator1::from_iter_unchecked(items) }
     }
 }
-
-pub trait IteratorExt: Iterator + Sized {
-    fn try_into_iter1(self) -> Result<Self> {
-        Iterator1::try_from_iter(self)
-    }
-
-    fn try_collect1<T>(self) -> result::Result<T, EmptyError<Peekable<Self>>>
-    where
-        T: FromIterator1<<Self as Iterator>::Item>,
-    {
-        T::try_from_iter(self)
-    }
-}
-
-impl<I> IteratorExt for I where I: Iterator {}
 
 pub trait Extend1<T> {
     #[must_use]
@@ -281,10 +193,6 @@ where
     }
 }
 
-pub trait IntoIterator1: IntoIterator {
-    fn into_iter1(self) -> Iterator1<Self::IntoIter>;
-}
-
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 pub trait FromParallelIterator1<T> {
@@ -293,10 +201,102 @@ pub trait FromParallelIterator1<T> {
         I: IntoParallelIterator1<Item = T>;
 }
 
+pub trait IntoIterator1: IntoIterator {
+    fn into_iter1(self) -> Iterator1<Self::IntoIter>;
+}
+
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 pub trait IntoParallelIterator1: IntoParallelIterator {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter>;
+}
+
+pub trait IteratorExt: Iterator + Sized {
+    fn try_into_iter1(self) -> Result<Self> {
+        Iterator1::try_from_iter(self)
+    }
+
+    fn try_collect1<T>(self) -> result::Result<T, EmptyError<Peekable<Self>>>
+    where
+        T: FromIterator1<<Self as Iterator>::Item>,
+    {
+        T::try_from_iter(self)
+    }
+}
+
+impl<I> IteratorExt for I where I: Iterator {}
+
+// The input type parameter `K` is unused in this trait, but is required to prevent a coherence
+// error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
+// However, `core` may implement `Iterator` for `core::Result` and that presents a conflict. This
+// parameter avoids the conflict by implementing a distinct `ThenIterator1` trait for any
+// `Iterator` type `I` versus `Result<I>`.
+//
+// This is unfortunate and, though this trait is not meant to be used in this way, makes bounds on
+// the trait and type definitions for its outputs unusual:
+//
+//   fn max<I, K>(items: I) -> i64
+//   where
+//       I: ThenIterator1<K, Item = i64>,
+//   {
+//       items.chain_non_empty([0]).max()
+//   }
+//
+// Note the input type parameter `K`. `ThenIterator1` is an extension trait with a broad
+// implementaion over `Iterator` types, so this is very unlikely to be a problem. Moreover,
+// associated types are the more "correct" implementation for such an iterator-like trait. In fact,
+// using the input type parameter `K` makes this sort of bound even more troublesome, as the
+// relationship between the implementor and parameter `K` differs between the two implementations
+// (requiring distinct bounds for each)!
+pub trait ThenIterator1<K>: Sized {
+    type Item;
+    type MaybeEmpty: Iterator<Item = Self::Item>;
+    type Chained: Iterator<Item = Self::Item>;
+
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    where
+        T: IntoIterator1<Item = Self::Item>;
+
+    fn or_non_empty<T>(self, items: T) -> OrNonEmpty<Self::MaybeEmpty, T>
+    where
+        T: IntoIterator1<Item = Self::Item>,
+    {
+        self.or_else_non_empty(move || items)
+    }
+
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
+    where
+        T: IntoIterator1<Item = Self::Item>,
+        F: FnOnce() -> T;
+
+    fn or_one<T>(self, item: Self::Item) -> OrNonEmpty<Self::MaybeEmpty, [Self::Item; 1]> {
+        self.or_non_empty([item])
+    }
+}
+
+impl<I> ThenIterator1<I> for I
+where
+    I: Iterator + Sized,
+{
+    type Item = I::Item;
+    type MaybeEmpty = I;
+    type Chained = I;
+
+    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    where
+        T: IntoIterator1<Item = Self::Item>,
+    {
+        // SAFETY: `items` is non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.chain(items.into_iter1())) }
+    }
+
+    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
+    where
+        T: IntoIterator1<Item = Self::Item>,
+        F: FnOnce() -> T,
+    {
+        Iterator1::try_from_iter(self).or_else_non_empty(f)
+    }
 }
 
 pub type AtMostOne<T> = option::IntoIter<T>;
