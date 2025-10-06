@@ -66,12 +66,10 @@ where
         R: Iterator<Item = L::Item>,
     {
         let items = match self {
-            Either::Left(items) => {
-                empty_or_into::<L>(Some(items.into_iter())).chain(empty_or_into::<R>(None))
-            },
-            Either::Right(items) => {
-                empty_or_into::<L>(None).chain(empty_or_into::<R>(Some(items.into_iter())))
-            },
+            Either::Left(items) => self::empty_or_into::<L>(Some(items.into_iter()))
+                .chain(self::empty_or_into::<R>(None)),
+            Either::Right(items) => self::empty_or_into::<L>(None)
+                .chain(self::empty_or_into::<R>(Some(items.into_iter()))),
         };
         // SAFETY: Both the left and right values are non-empty iterators, so one of the iterators
         //         in the chain in `items` is non-empty and therefore `items` is non-empty.
@@ -357,8 +355,8 @@ where
         // SAFETY: Both `T` and `self` (when `Ok`) are non-empty.
         unsafe {
             Iterator1::from_iter_unchecked(match self {
-                Ok(items) => items.into_iter().chain(empty_or_into::<T>(None)),
-                Err(error) => error.into_empty().chain(empty_or_into(Some(f()))),
+                Ok(items) => items.into_iter().chain(self::empty_or_into::<T>(None)),
+                Err(error) => error.into_empty().chain(self::empty_or_into(Some(f()))),
             })
         }
     }
