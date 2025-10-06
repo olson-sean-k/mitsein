@@ -334,6 +334,26 @@ impl<T> VecDeque1<T> {
     pub const fn as_vec_deque(&self) -> &VecDeque<T> {
         &self.items
     }
+
+    /// # Safety
+    ///
+    /// The [`VecDeque`] behind the returned mutable reference **must not** be empty when the
+    /// reference is dropped. Consider the following example:
+    ///
+    /// ```rust,no_run
+    /// use mitsein::vec_deque1::VecDeque1;
+    ///
+    /// let mut xs = VecDeque1::from([0i32, 1, 2, 3]);
+    /// // This block is unsound. The `&mut VecDeque<_>` is dropped in the block and so `xs` can be
+    /// // freely manipulated after the block despite violation of the non-empty guarantee.
+    /// unsafe {
+    ///     xs.as_mut_vec_deque().clear();
+    /// }
+    /// let x = xs.front(); // Undefined behavior!
+    /// ```
+    pub const unsafe fn as_mut_vec_deque(&mut self) -> &mut VecDeque<T> {
+        &mut self.items
+    }
 }
 
 #[cfg(feature = "rayon")]

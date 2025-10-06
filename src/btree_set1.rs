@@ -413,6 +413,26 @@ impl<T> BTreeSet1<T> {
     pub const fn as_btree_set(&self) -> &BTreeSet<T> {
         &self.items
     }
+
+    /// # Safety
+    ///
+    /// The [`BTreeSet`] behind the returned mutable reference **must not** be empty when the
+    /// reference is dropped. Consider the following example:
+    ///
+    /// ```rust,no_run
+    /// use mitsein::btree_set1::BTreeSet1;
+    ///
+    /// let mut xs = BTreeSet1::from([0i32, 1, 2, 3]);
+    /// // This block is unsound. The `&mut BTreeSet` is dropped in the block and so `xs` can be
+    /// // freely manipulated after the block despite violation of the non-empty guarantee.
+    /// unsafe {
+    ///     xs.as_mut_btree_set().clear();
+    /// }
+    /// let x = xs.first(); // Undefined behavior!
+    /// ```
+    pub const unsafe fn as_mut_btree_set(&mut self) -> &mut BTreeSet<T> {
+        &mut self.items
+    }
 }
 
 #[cfg(feature = "rayon")]

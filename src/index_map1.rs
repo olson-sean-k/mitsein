@@ -901,6 +901,26 @@ impl<K, V, S> IndexMap1<K, V, S> {
         &self.items
     }
 
+    /// # Safety
+    ///
+    /// The [`IndexMap`] behind the returned mutable reference **must not** be empty when the
+    /// reference is dropped. Consider the following example:
+    ///
+    /// ```rust,no_run
+    /// use mitsein::index_map1::IndexMap1;
+    ///
+    /// let mut xs = IndexMap1::from([("a", 0i32), ("b", 1)]);
+    /// // This block is unsound. The `&mut IndexMap` is dropped in the block and so `xs` can be
+    /// // freely manipulated after the block despite violation of the non-empty guarantee.
+    /// unsafe {
+    ///     xs.as_mut_index_map().clear();
+    /// }
+    /// let x = xs.first(); // Undefined behavior!
+    /// ```
+    pub const unsafe fn as_mut_index_map(&mut self) -> &mut IndexMap<K, V, S> {
+        &mut self.items
+    }
+
     pub fn as_slice1(&self) -> &'_ Slice1<K, V> {
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }

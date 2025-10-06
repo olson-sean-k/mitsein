@@ -262,6 +262,26 @@ impl String1 {
 
     /// # Safety
     ///
+    /// The [`String`] behind the returned mutable reference **must not** be empty when the
+    /// reference is dropped. Consider the following example:
+    ///
+    /// ```rust,no_run
+    /// use mitsein::string1::String1;
+    ///
+    /// let mut xs = String1::try_from("abc").unwrap();
+    /// // This block is unsound. The `&mut String` is dropped in the block and so `xs` can be
+    /// // freely manipulated after the block despite violation of the non-empty guarantee.
+    /// unsafe {
+    ///     xs.as_mut_string().clear();
+    /// }
+    /// let x = xs.as_bytes1().first(); // Undefined behavior!
+    /// ```
+    pub const unsafe fn as_mut_string(&mut self) -> &mut String {
+        &mut self.items
+    }
+
+    /// # Safety
+    ///
     /// The returned [`Vec1`] must contain valid UTF-8 when the reference is dropped. Note that the
     /// non-empty guarantee of `String1` may also be violated by invalid UTF-8, because invalid
     /// UTF-8 bytes may yield no code points.

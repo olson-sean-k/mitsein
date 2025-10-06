@@ -401,6 +401,26 @@ where
         &self.items
     }
 
+    /// # Safety
+    ///
+    /// The [`ArrayVec`] behind the returned mutable reference **must not** be empty when the
+    /// reference is dropped. Consider the following example:
+    ///
+    /// ```rust,no_run
+    /// use mitsein::array_vec1::ArrayVec1;
+    ///
+    /// let mut xs = ArrayVec1::from([0i32, 1, 2, 3]);
+    /// // This block is unsound. The `&mut ArrayVec` is dropped in the block and so `xs` can be
+    /// // freely manipulated after the block despite violation of the non-empty guarantee.
+    /// unsafe {
+    ///     xs.as_mut_array_vec().clear();
+    /// }
+    /// let x = xs.first(); // Undefined behavior!
+    /// ```
+    pub const unsafe fn as_mut_array_vec(&mut self) -> &mut ArrayVec<T, N> {
+        &mut self.items
+    }
+
     pub fn as_slice1(&self) -> &Slice1<T> {
         // SAFETY: `self` must be non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }

@@ -449,6 +449,26 @@ impl<T, S> IndexSet1<T, S> {
         &self.items
     }
 
+    /// # Safety
+    ///
+    /// The [`IndexSet`] behind the returned mutable reference **must not** be empty when the
+    /// reference is dropped. Consider the following example:
+    ///
+    /// ```rust,no_run
+    /// use mitsein::index_set1::IndexSet1;
+    ///
+    /// let mut xs = IndexSet1::from([0i32, 1, 2, 3]);
+    /// // This block is unsound. The `&mut IndexSet` is dropped in the block and so `xs` can be
+    /// // freely manipulated after the block despite violation of the non-empty guarantee.
+    /// unsafe {
+    ///     xs.as_mut_index_set().clear();
+    /// }
+    /// let x = xs.first(); // Undefined behavior!
+    /// ```
+    pub const unsafe fn as_mut_index_set(&mut self) -> &mut IndexSet<T, S> {
+        &mut self.items
+    }
+
     pub fn as_slice1(&self) -> &Slice1<T> {
         // SAFETY:
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
