@@ -14,6 +14,8 @@ use core::iter::{
 use core::num::NonZeroUsize;
 use core::option;
 use core::result;
+#[cfg(feature = "either")]
+use either::Either;
 #[cfg(feature = "itertools")]
 use itertools::{
     Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
@@ -109,6 +111,44 @@ where
         F: FnOnce() -> T,
     {
         Iterator1::try_from_iter(self).or_else_non_empty(f)
+    }
+}
+
+// Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
+// implementation. In particular, the `IntoIterator::IntoIter` type for `Either` is itself, and so
+// it is impossible to output an appropriate `Iterator1` type in an `IntoIterator1` implementation.
+#[cfg(feature = "either")]
+#[cfg_attr(docsrs, doc(cfg(feature = "either")))]
+pub trait EitherExt<L, R> {
+    fn into_iter1(self) -> LeftOrRight<L, R>
+    where
+        L: Iterator,
+        R: Iterator<Item = L::Item>;
+}
+
+#[cfg(feature = "either")]
+#[cfg_attr(docsrs, doc(cfg(feature = "either")))]
+impl<L, R> EitherExt<L, R> for Either<Iterator1<L>, Iterator1<R>>
+where
+    L: Iterator,
+    R: Iterator<Item = L::Item>,
+{
+    fn into_iter1(self) -> LeftOrRight<L, R>
+    where
+        L: Iterator,
+        R: Iterator<Item = L::Item>,
+    {
+        let items = match self {
+            Either::Left(items) => {
+                empty_or_into::<L>(Some(items.into_iter())).chain(empty_or_into::<R>(None))
+            },
+            Either::Right(items) => {
+                empty_or_into::<L>(None).chain(empty_or_into::<R>(Some(items.into_iter())))
+            },
+        };
+        // SAFETY: Both the left and right values are non-empty iterators, so one of the iterators
+        //         in the chain in `items` is non-empty and therefore `items` is non-empty.
+        unsafe { Iterator1::from_iter_unchecked(items) }
     }
 }
 
@@ -278,6 +318,10 @@ pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
 pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
+
+#[cfg(feature = "either")]
+#[cfg_attr(docsrs, doc(cfg(feature = "either")))]
+pub type LeftOrRight<L, R> = Iterator1<Chain<EmptyOrInto<L>, EmptyOrInto<R>>>;
 
 pub type Result<I> = result::Result<Iterator1<Peekable<I>>, EmptyError<Peekable<I>>>;
 

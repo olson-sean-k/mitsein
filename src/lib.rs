@@ -203,8 +203,9 @@
 //! | `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.         |
 //! | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.          |
 //! | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.          |
+//! | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.           |
 //! | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.          |
-//! | `itertools` |              | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.           |
+//! | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.           |
 //! | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                  |
 //! | `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.               |
 //! | `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`]. |
@@ -222,6 +223,7 @@
 //! [`BoxedStr1`]: crate::boxed1::BoxedStr1
 //! [`CowSlice1`]: crate::borrow1::CowSlice1
 //! [`CowStr1`]: crate::borrow1::CowStr1
+//! [`either`]: https://crates.io/crates/either
 //! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
@@ -354,6 +356,8 @@ pub mod prelude {
     pub use crate::array1::Array1;
     #[cfg(feature = "indexmap")]
     pub use crate::index_map1::OrOnlyEntryExt as _;
+    #[cfg(feature = "either")]
+    pub use crate::iter1::EitherExt as _;
     pub use crate::iter1::{
         Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
     };

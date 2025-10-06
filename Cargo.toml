@@ -44,12 +44,16 @@ arrayvec = [
     "dep:arrayvec",
     "schemars?/arrayvec07",
 ]
+either = ["dep:either"]
 indexmap = [
     "dep:indexmap",
     "alloc",
     "schemars?/indexmap2",
 ]
-itertools = ["dep:itertools"]
+itertools = [
+    "dep:itertools",
+    "either",
+]
 rayon = [
     "dep:rayon",
     "indexmap?/rayon",
@@ -74,6 +78,7 @@ smallvec = [
 ]
 std = [
     "alloc",
+    "either?/std",
     "indexmap?/std",
     "itertools?/use_std",
     "schemars?/std",
@@ -90,6 +95,11 @@ optional = true
 
 [dependencies.arrayvec]
 version = "^0.7.0"
+default-features = false
+optional = true
+
+[dependencies.either]
+version = "^1.15.0"
 default-features = false
 optional = true
 

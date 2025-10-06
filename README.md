@@ -199,8 +199,9 @@ feature flags.
 | `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.         |
 | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.          |
 | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.          |
+| `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.           |
 | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.          |
-| `itertools` |              | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.           |
+| `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.           |
 | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                  |
 | `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.               |
 | `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`]. |
@@ -209,6 +210,7 @@ feature flags.
 
 [`arbitrary`]: https://crates.io/crates/arbitrary
 [`arrayvec`]: https://crates.io/crates/arrayvec
+[`either`]: https://crates.io/crates/either
 [`indexmap`]: https://crates.io/crates/indexmap
 [`itertools`]: https://crates.io/crates/itertools
 [`miri`]: https://github.com/rust-lang/miri
