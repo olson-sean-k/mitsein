@@ -23,7 +23,6 @@ pub unsafe trait UnsafeOrd: Ord {}
 //         `UnsafeOrd`. Moreover, these `Ord` implementations are very unlikely to change and are
 //         even less likely to change in such a way that they are non-conformant with `UnsafeOrd`.
 
-// TODO: Implement `UnsafeOrd` for all applicable non-empty types. For example, `String1`.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod alloc {
@@ -40,6 +39,7 @@ mod alloc {
     unsafe impl<T> UnsafeOrd for alloc::collections::vec_deque::VecDeque<T> where T: UnsafeOrd {}
 
     unsafe impl<T> UnsafeOrd for crate::btree_set1::BTreeSet1<T> where T: UnsafeOrd {}
+    unsafe impl UnsafeOrd for crate::string1::String1 {}
     unsafe impl<T> UnsafeOrd for crate::vec1::Vec1<T> where T: UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for crate::vec_deque1::VecDeque1<T> where T: UnsafeOrd {}
 }
@@ -82,10 +82,10 @@ mod core {
     unsafe impl UnsafeOrd for u128 {}
     unsafe impl UnsafeOrd for usize {}
 
-    unsafe impl<T> UnsafeOrd for *const T where T: UnsafeOrd {}
-    unsafe impl<T> UnsafeOrd for *mut T where T: UnsafeOrd {}
-    unsafe impl<T> UnsafeOrd for &'_ T where T: UnsafeOrd {}
-    unsafe impl<T> UnsafeOrd for &'_ mut T where T: UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for *const T where T: ?Sized + UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for *mut T where T: ?Sized + UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for &'_ T where T: ?Sized + UnsafeOrd {}
+    unsafe impl<T> UnsafeOrd for &'_ mut T where T: ?Sized + UnsafeOrd {}
     unsafe impl<T> UnsafeOrd for [T] where T: UnsafeOrd {}
     unsafe impl<T, const N: usize> UnsafeOrd for [T; N] where T: UnsafeOrd {}
 
@@ -131,6 +131,9 @@ mod core {
     unsafe impl UnsafeOrd for core::any::TypeId {}
     unsafe impl<T> UnsafeOrd for core::num::Wrapping<T> where T: UnsafeOrd {}
 
+    unsafe impl<T> UnsafeOrd for crate::slice1::Slice1<T> where T: UnsafeOrd {}
+    unsafe impl UnsafeOrd for crate::str1::Str1 {}
+
     macro_rules! impl_unsafe_ord_for_tuple {
         (($($T:ident $(,)?)+) $(,)?) => {
             unsafe impl<$($T,)+> $crate::cmp::UnsafeOrd for ($($T,)+)
@@ -143,4 +146,24 @@ mod core {
         };
     }
     crate::with_tuples!(impl_unsafe_ord_for_tuple, (T1, T2, T3, T4, T5, T6, T7, T8));
+}
+
+#[cfg(feature = "smallvec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
+mod small_vec {
+    use crate::cmp::UnsafeOrd;
+
+    unsafe impl<A> UnsafeOrd for smallvec::SmallVec<A>
+    where
+        A: smallvec::Array,
+        A::Item: UnsafeOrd,
+    {
+    }
+
+    unsafe impl<A> UnsafeOrd for crate::small_vec1::SmallVec1<A>
+    where
+        A: smallvec::Array,
+        A::Item: UnsafeOrd,
+    {
+    }
 }
