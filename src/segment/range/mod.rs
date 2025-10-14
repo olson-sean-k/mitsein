@@ -2,6 +2,7 @@
 
 mod index;
 mod item;
+mod trim;
 
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
@@ -11,10 +12,12 @@ use core::ops::{
 
 pub use crate::segment::range::index::IndexRange;
 #[cfg(feature = "alloc")]
-pub use crate::segment::range::item::ItemRange;
+pub use {crate::segment::range::item::ItemRange, crate::segment::range::trim::TrimRange};
 
 #[cfg(feature = "alloc")]
-pub(crate) use crate::segment::range::item::OptionExt;
+pub(crate) use {
+    crate::segment::range::item::OptionExt, crate::segment::range::trim::ResolveTrimRange,
+};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RangeError<N> {

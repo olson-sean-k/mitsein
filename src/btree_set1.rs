@@ -25,7 +25,8 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{
-    self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, UnorderedError,
+    self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
+    ResolveTrimRange, TrimRange, UnorderedError,
 };
 use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
 use crate::take;
@@ -75,6 +76,23 @@ unsafe impl<T> MaybeEmpty for BTreeSet<T> {
     }
 }
 
+impl<T> ResolveTrimRange<Option<ItemRange<T>>> for BTreeSet<T>
+where
+    T: Clone + Ord,
+{
+    fn resolve_trim_range(&self, range: TrimRange) -> Option<ItemRange<T>> {
+        let TrimRange { tail, rtail } = range;
+        self.iter()
+            .nth(tail)
+            .zip(self.iter().rev().nth(rtail))
+            .and_then(|(start, end)| range::ordered_range_bounds(start.clone()..=end.clone()).ok())
+            .map(|range| {
+                let (start, end) = range.into_bounds();
+                ItemRange::unchecked(start, end)
+            })
+    }
+}
+
 impl<T> Segmentation for BTreeSet<T> where T: Ord {}
 
 impl<T, R> SegmentedBy<T, R> for BTreeSet<T>
@@ -85,7 +103,7 @@ where
     type Range = Option<ItemRange<T>>;
     type Error = UnorderedError<Bound<T>>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
         range::ordered_range_bounds(range)
             .map(|range| {
                 let (start, end) = range.into_bounds();
@@ -98,36 +116,36 @@ where
     }
 }
 
-impl<T> Tail for BTreeSet<T>
-where
-    T: Clone + Ord,
-{
-    type Range = Option<ItemRange<T>>;
+impl<T> Tail for BTreeSet<T> {
+    type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
-        let range = self
-            .iter()
-            .nth(1)
-            .cloned()
-            .zip(self.last().cloned())
-            .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
-        Segment::unchecked(self, range)
+    //fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
+    //    let range = self
+    //        .iter()
+    //        .nth(1)
+    //        .cloned()
+    //        .zip(self.last().cloned())
+    //        .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
+    //    Segment::unchecked(self, range)
+    //}
+    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(self, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        let range = self
-            .first()
-            .cloned()
-            .zip(self.iter().rev().nth(1).cloned())
-            .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
-        Segment::unchecked(self, range)
+    //fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
+    //    let range = self
+    //        .first()
+    //        .cloned()
+    //        .zip(self.iter().rev().nth(1).cloned())
+    //        .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
+    //    Segment::unchecked(self, range)
+    //}
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(self, TrimRange::RTAIL1)
     }
 }
 
-impl<T> SegmentedOver for BTreeSet<T>
-where
-    T: Ord,
-{
+impl<T> SegmentedOver for BTreeSet<T> {
     type Kind = Self;
     type Target = Self;
 }
@@ -401,12 +419,12 @@ impl<T> BTreeSet1<T> {
         self.items.is_superset(other.as_btree_set())
     }
 
-    pub fn contains<Q>(&self, item: &Q) -> bool
+    pub fn contains<Q>(&self, key: &Q) -> bool
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        self.items.contains(item)
+        self.items.contains(key)
     }
 
     pub const fn as_btree_set(&self) -> &BTreeSet<T> {
@@ -733,7 +751,7 @@ where
     type Range = Option<ItemRange<T>>;
     type Error = RangeError<Bound<T>>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
         range::ordered_range_bounds(range)
             .map_err(|range| {
                 let (start, end) = range.into_bounds();
@@ -755,10 +773,7 @@ where
     }
 }
 
-impl<T> SegmentedOver for BTreeSet1<T>
-where
-    T: UnsafeOrd,
-{
+impl<T> SegmentedOver for BTreeSet1<T> {
     type Kind = Self;
     type Target = BTreeSet<T>;
 }
@@ -786,24 +801,15 @@ where
     }
 }
 
-impl<T> Tail for BTreeSet1<T>
-where
-    T: Clone + UnsafeOrd,
-{
-    type Range = Option<ItemRange<T>>;
+impl<T> Tail for BTreeSet1<T> {
+    type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
-        let range = self.items.iter().nth(1).cloned().map(|start| {
-            ItemRange::unchecked(Bound::Included(start), Bound::Included(self.last().clone()))
-        });
-        Segment::unchecked(&mut self.items, range)
+    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        let range = self.items.iter().rev().nth(1).cloned().map(|end| {
-            ItemRange::unchecked(Bound::Included(self.first().clone()), Bound::Included(end))
-        });
-        Segment::unchecked(&mut self.items, range)
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
     }
 }
 
@@ -871,10 +877,9 @@ where
     }
 }
 
-pub type Segment<'a, K> =
-    segment::Segment<'a, K, BTreeSet<ItemFor<K>>, Option<ItemRange<ItemFor<K>>>>;
+pub type Segment<'a, K, R> = segment::Segment<'a, K, BTreeSet<ItemFor<K>>, R>;
 
-impl<K, T> Segment<'_, K>
+impl<K, T> Segment<'_, K, Option<ItemRange<ItemFor<K>>>>
 where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Ord,
@@ -944,18 +949,18 @@ where
         }
     }
 
-    pub fn remove(&mut self, item: &T) -> bool {
-        if self.contains(item) {
-            self.items.remove(item)
+    pub fn remove(&mut self, key: &T) -> bool {
+        if self.contains(key) {
+            self.items.remove(key)
         }
         else {
             false
         }
     }
 
-    pub fn take(&mut self, item: &T) -> Option<T> {
-        if self.contains(item) {
-            self.items.take(item)
+    pub fn take(&mut self, key: &T) -> Option<T> {
+        if self.contains(key) {
+            self.items.take(key)
         }
         else {
             None
@@ -963,13 +968,11 @@ where
     }
 
     pub fn clear(&mut self) {
-        if let Some(range) = self.range.as_ref() {
-            self.items.retain(|item| !range.contains(item))
-        }
+        self.retain(|_| false);
     }
 
-    pub fn get(&self, item: &T) -> Option<&T> {
-        self.contains(item).then(|| self.items.get(item)).flatten()
+    pub fn get(&self, key: &T) -> Option<&T> {
+        self.contains(key).then(|| self.items.get(key)).flatten()
     }
 
     pub fn first(&self) -> Option<&T> {
@@ -992,26 +995,19 @@ where
             })
     }
 
-    pub fn contains(&self, item: &T) -> bool {
-        self.range.contains(item) && self.items.contains(item)
+    pub fn contains(&self, key: &T) -> bool {
+        self.range.contains(key) && self.items.contains(key)
     }
 }
 
-impl<K, T> Segmentation for Segment<'_, K>
-where
-    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
-    T: Clone + Ord,
-{
-}
-
-impl<K, T> Tail for Segment<'_, K>
+impl<K, T> Tail for Segment<'_, K, Option<ItemRange<T>>>
 where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Clone + Ord,
 {
     type Range = Option<ItemRange<T>>;
 
-    fn tail(&mut self) -> Segment<'_, K> {
+    fn tail(&mut self) -> Segment<'_, K, Self::Range> {
         if let Some(range) = self.range.clone() {
             let (start, end) = range.into_bounds();
             let start = match start {
@@ -1030,7 +1026,7 @@ where
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, K> {
+    fn rtail(&mut self) -> Segment<'_, K, Self::Range> {
         if let Some(range) = self.range.clone() {
             let (start, end) = range.into_bounds();
             let end = match end {
@@ -1047,6 +1043,113 @@ where
         else {
             Segment::unchecked(self.items, None)
         }
+    }
+}
+
+impl<'a, K, T> Segment<'a, K, TrimRange>
+where
+    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    T: Ord,
+{
+    pub fn by_item(self) -> Segment<'a, K, Option<ItemRange<T>>>
+    where
+        T: Clone,
+    {
+        let Segment { items, range } = self;
+        let range = items.resolve_trim_range(range);
+        Segment::unchecked(items, range)
+    }
+
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let TrimRange { tail, rtail } = self.range;
+        let rtail = self.items.len().saturating_sub(rtail);
+        let mut index = 0usize;
+        self.items.retain(|item| {
+            let is_in_range = index >= tail && index < rtail;
+            index = index.checked_add(1).expect("overflow in item index");
+            (!is_in_range) || f(item)
+        })
+    }
+
+    pub fn insert_in_range(&mut self, item: T) -> Result<bool, T>
+    where
+        T: Clone,
+    {
+        let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
+        Segment::<K, _>::unchecked(self.items, range).insert_in_range(item)
+    }
+
+    pub fn append_in_range(&mut self, other: &mut BTreeSet<T>)
+    where
+        T: Clone,
+    {
+        let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
+        Segment::<K, _>::unchecked(self.items, range).append_in_range(other)
+    }
+
+    // It is especially important here to query `T` and not another related type `Q`, even if `T:
+    // Borrow<Q>`. A type `Q` can implement `Ord` differently than `T`, which can remove items
+    // beyond the range of the segment. This is not great, but for non-empty collections this is
+    // unsound!
+    pub fn remove(&mut self, key: &T) -> bool {
+        if self.contains(key) {
+            self.items.remove(key)
+        }
+        else {
+            false
+        }
+    }
+
+    pub fn take(&mut self, key: &T) -> Option<T> {
+        if self.contains(key) {
+            self.items.take(key)
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.retain(|_| false);
+    }
+
+    pub fn get(&self, key: &T) -> Option<&T> {
+        let TrimRange { tail, rtail } = self.range;
+        let is_key = |item: &_| item == key;
+        self.items.get(key).take_if(|_| {
+            (!self.items.iter().take(tail).any(is_key))
+                && (!self.items.iter().rev().take(rtail).any(is_key))
+        })
+    }
+
+    pub fn first(&self) -> Option<&T> {
+        self.items.iter().nth(self.range.tail)
+    }
+
+    pub fn last(&self) -> Option<&T> {
+        self.items.iter().rev().nth(self.range.rtail)
+    }
+
+    pub fn contains(&self, key: &T) -> bool {
+        self.get(key).is_some()
+    }
+}
+
+impl<K, T> Tail for Segment<'_, K, TrimRange>
+where
+    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+{
+    type Range = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, K, Self::Range> {
+        self.advance_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K, Self::Range> {
+        self.advance_rtail_range()
     }
 }
 
@@ -1127,6 +1230,25 @@ mod tests {
             })
             .unwrap(),
         );
+    }
+
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0))]
+    #[case::one_tail_empty_rtail(harness::xs1(1))]
+    #[case::many_tail_one_rtail(harness::xs1(2))]
+    #[case::many_tail_many_rtail(harness::xs1(3))]
+    fn clear_intersected_tail_rtail_of_btree_set1_then_btree_set1_eq_self(
+        #[case] mut xs1: BTreeSet1<u8>,
+    ) {
+        let expected = xs1.clone();
+        let mut segment = xs1.tail();
+        let mut segment = segment.tail();
+        let mut segment = segment.tail();
+        let mut segment = segment.rtail();
+        let mut segment = segment.rtail();
+        let mut segment = segment.rtail();
+        segment.clear();
+        assert_eq!(xs1, expected);
     }
 
     #[rstest]

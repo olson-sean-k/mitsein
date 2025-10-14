@@ -14,6 +14,8 @@ use core::cmp;
 use core::fmt::{self, Debug, Formatter};
 use core::ops::RangeBounds;
 
+#[cfg(feature = "alloc")]
+use crate::segment::range::TrimRange;
 use crate::segment::range::{IndexRange, Intersect, Project};
 
 pub use crate::segment::range::{IntoRangeBounds, OutOfBoundsError, RangeError, UnorderedError};
@@ -177,6 +179,22 @@ where
 
     pub(crate) fn project_rtail_range(&mut self, n: usize) -> Segment<'_, K, T, IndexRange> {
         let range = self.range.project(..n.saturating_sub(1)).unwrap();
+        Segment::unchecked(self.items, range)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<K, T> Segment<'_, K, T, TrimRange>
+where
+    K: SegmentedOver<Target = T> + ?Sized,
+{
+    pub(crate) fn advance_tail_range(&mut self) -> Segment<'_, K, T, TrimRange> {
+        let range = self.range.tail();
+        Segment::unchecked(self.items, range)
+    }
+
+    pub(crate) fn advance_rtail_range(&mut self) -> Segment<'_, K, T, TrimRange> {
+        let range = self.range.rtail();
         Segment::unchecked(self.items, range)
     }
 }
