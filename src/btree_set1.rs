@@ -19,7 +19,7 @@ use {
 };
 
 use crate::array1::Array1;
-use crate::cmp::UnsafeOrd;
+use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -119,27 +119,10 @@ where
 impl<T> Tail for BTreeSet<T> {
     type Range = TrimRange;
 
-    //fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-    //    let range = self
-    //        .iter()
-    //        .nth(1)
-    //        .cloned()
-    //        .zip(self.last().cloned())
-    //        .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
-    //    Segment::unchecked(self, range)
-    //}
     fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
         Segment::unchecked(self, TrimRange::TAIL1)
     }
 
-    //fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-    //    let range = self
-    //        .first()
-    //        .cloned()
-    //        .zip(self.iter().rev().nth(1).cloned())
-    //        .map(|(start, end)| ItemRange::unchecked(Bound::Included(start), Bound::Included(end)));
-    //    Segment::unchecked(self, range)
-    //}
     fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
         Segment::unchecked(self, TrimRange::RTAIL1)
     }
@@ -884,6 +867,27 @@ where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
     T: Ord,
 {
+    fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.take_isomorph_unchecked(key).is_some()
+    }
+
+    fn take_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        if self.contains(key) {
+            self.items.take(key)
+        }
+        else {
+            None
+        }
+    }
+
     pub fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&T) -> bool,
@@ -949,29 +953,15 @@ where
         }
     }
 
-    pub fn remove(&mut self, key: &T) -> bool {
-        if self.contains(key) {
-            self.items.remove(key)
-        }
-        else {
-            false
-        }
-    }
-
-    pub fn take(&mut self, key: &T) -> Option<T> {
-        if self.contains(key) {
-            self.items.take(key)
-        }
-        else {
-            None
-        }
-    }
-
     pub fn clear(&mut self) {
         self.retain(|_| false);
     }
 
-    pub fn get(&self, key: &T) -> Option<&T> {
+    pub fn get<Q>(&self, key: &Q) -> Option<&T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         self.contains(key).then(|| self.items.get(key)).flatten()
     }
 
@@ -995,14 +985,63 @@ where
             })
     }
 
-    pub fn contains(&self, key: &T) -> bool {
+    pub fn contains<Q>(&self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         self.range.contains(key) && self.items.contains(key)
+    }
+}
+
+impl<T> Segment<'_, BTreeSet<T>, Option<ItemRange<T>>>
+where
+    T: Ord,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+
+    pub fn take<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.take_isomorph_unchecked(key)
+    }
+}
+
+impl<T> Segment<'_, BTreeSet1<T>, Option<ItemRange<T>>>
+where
+    T: Ord,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+
+    pub fn take<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.take_isomorph_unchecked(key)
     }
 }
 
 impl<K, T> Tail for Segment<'_, K, Option<ItemRange<T>>>
 where
     K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    // A `T: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
+    // constructed for a `BTreeSet1` via `SegmentedBy`, which has that bound. This means that there
+    // is no need to separate `Tail` implementations for `BTreeSet` and `BTreeSet1`.
     T: Clone + Ord,
 {
     type Range = Option<ItemRange<T>>;
@@ -1060,6 +1099,27 @@ where
         Segment::unchecked(items, range)
     }
 
+    fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.take_isomorph_unchecked(key).is_some()
+    }
+
+    fn take_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        if self.contains(key) {
+            self.items.take(key)
+        }
+        else {
+            None
+        }
+    }
+
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&T) -> bool,
@@ -1090,35 +1150,17 @@ where
         Segment::<K, _>::unchecked(self.items, range).append_in_range(other)
     }
 
-    // It is especially important here to query `T` and not another related type `Q`, even if `T:
-    // Borrow<Q>`. A type `Q` can implement `Ord` differently than `T`, which can remove items
-    // beyond the range of the segment. This is not great, but for non-empty collections this is
-    // unsound!
-    pub fn remove(&mut self, key: &T) -> bool {
-        if self.contains(key) {
-            self.items.remove(key)
-        }
-        else {
-            false
-        }
-    }
-
-    pub fn take(&mut self, key: &T) -> Option<T> {
-        if self.contains(key) {
-            self.items.take(key)
-        }
-        else {
-            None
-        }
-    }
-
     pub fn clear(&mut self) {
         self.retain(|_| false);
     }
 
-    pub fn get(&self, key: &T) -> Option<&T> {
+    pub fn get<Q>(&self, key: &Q) -> Option<&T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         let TrimRange { tail, rtail } = self.range;
-        let is_key = |item: &_| item == key;
+        let is_key = |item: &_| Borrow::<Q>::borrow(item) == key;
         self.items.get(key).take_if(|_| {
             (!self.items.iter().take(tail).any(is_key))
                 && (!self.items.iter().rev().take(rtail).any(is_key))
@@ -1133,8 +1175,54 @@ where
         self.items.iter().rev().nth(self.range.rtail)
     }
 
-    pub fn contains(&self, key: &T) -> bool {
+    pub fn contains<Q>(&self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         self.get(key).is_some()
+    }
+}
+
+impl<T> Segment<'_, BTreeSet<T>, TrimRange>
+where
+    T: Ord,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+
+    pub fn take<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.take_isomorph_unchecked(key)
+    }
+}
+
+impl<T> Segment<'_, BTreeSet1<T>, TrimRange>
+where
+    T: Ord,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+
+    pub fn take<Q>(&mut self, key: &Q) -> Option<T>
+    where
+        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.take_isomorph_unchecked(key)
     }
 }
 

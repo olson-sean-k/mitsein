@@ -22,7 +22,7 @@ use {
 };
 
 use crate::array1::Array1;
-use crate::cmp::UnsafeOrd;
+use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -123,17 +123,14 @@ where
     }
 }
 
-impl<K, V> SegmentedOver for BTreeMap<K, V>
-where
-    K: Ord,
-{
+impl<K, V> SegmentedOver for BTreeMap<K, V> {
     type Kind = Self;
     type Target = Self;
 }
 
 impl<K, V> Tail for BTreeMap<K, V>
 where
-    K: Clone + Ord,
+    K: Clone,
 {
     type Range = TrimRange;
 
@@ -1054,17 +1051,14 @@ where
     }
 }
 
-impl<K, V> SegmentedOver for BTreeMap1<K, V>
-where
-    K: UnsafeOrd,
-{
+impl<K, V> SegmentedOver for BTreeMap1<K, V> {
     type Kind = Self;
     type Target = BTreeMap<K, V>;
 }
 
 impl<K, V> Tail for BTreeMap1<K, V>
 where
-    K: Clone + UnsafeOrd,
+    K: Clone,
 {
     type Range = TrimRange;
 
@@ -1148,6 +1142,19 @@ where
     T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
     K: Ord,
 {
+    fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        if self.range.contains(key) {
+            self.items.remove(key)
+        }
+        else {
+            None
+        }
+    }
+
     pub fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&K, &mut V) -> bool,
@@ -1213,26 +1220,17 @@ where
         }
     }
 
-    // It is especially important here to query `K` and not another related type `Q`, even if `K:
-    // Borrow<Q>`. A type `Q` can implement `Ord` differently than `K`, which can remove items
-    // beyond the range of the segment. This is not great, but for non-empty collections this is
-    // unsound!
-    pub fn remove(&mut self, key: &K) -> Option<V> {
-        if self.range.contains(key) {
-            self.items.remove(key)
-        }
-        else {
-            None
-        }
-    }
-
     pub fn clear(&mut self) {
         if let Some(range) = self.range.as_ref() {
             self.items.retain(|key, _| !range.contains(key))
         }
     }
 
-    pub fn get(&self, key: &K) -> Option<&V> {
+    pub fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         if self.range.contains(key) {
             self.items.get(key)
         }
@@ -1261,14 +1259,41 @@ where
             })
     }
 
-    pub fn contains_key(&self, key: &K) -> bool {
+    pub fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         self.range.contains(key) && self.items.contains_key(key)
+    }
+}
+
+impl<K, V> Segment<'_, BTreeMap<K, V>, Option<ItemRange<K>>> {
+    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+}
+
+impl<K, V> Segment<'_, BTreeMap1<K, V>, Option<ItemRange<K>>> {
+    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.remove_isomorph_unchecked(key)
     }
 }
 
 impl<T, K, V> Tail for Segment<'_, T, Option<ItemRange<K>>>
 where
     T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
+    // A `K: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
+    // constructed for a `BTreeMap1` via `SegmentedBy`, which has that bound. This means that there
+    // is no need to separate `Tail` implementations for `BTreeMap` and `BTreeMap1`.
     K: Clone + Ord,
 {
     type Range = Option<ItemRange<K>>;
@@ -1328,6 +1353,19 @@ where
         Segment::unchecked(items, range)
     }
 
+    fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        if self.contains_key(key) {
+            self.items.remove(key)
+        }
+        else {
+            None
+        }
+    }
+
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&K, &mut V) -> bool,
@@ -1358,26 +1396,17 @@ where
         Segment::<T, _>::unchecked(self.items, range).append_in_range(other)
     }
 
-    // It is especially important here to query `K` and not another related type `Q`, even if `K:
-    // Borrow<Q>`. A type `Q` can implement `Ord` differently than `K`, which can remove items
-    // beyond the range of the segment. This is not great, but for non-empty collections this is
-    // unsound!
-    pub fn remove(&mut self, key: &K) -> Option<V> {
-        if self.contains_key(key) {
-            self.items.remove(key)
-        }
-        else {
-            None
-        }
-    }
-
     pub fn clear(&mut self) {
         self.retain(|_, _| false);
     }
 
-    pub fn get(&self, key: &K) -> Option<&V> {
+    pub fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         let TrimRange { tail, rtail } = self.range;
-        let is_key = |item: &_| item == key;
+        let is_key = |item: &_| Borrow::<Q>::borrow(item) == key;
         self.items.get(key).take_if(|_| {
             (!self.items.keys().take(tail).any(is_key))
                 && (!self.items.keys().rev().take(rtail).any(is_key))
@@ -1392,8 +1421,38 @@ where
         self.items.iter().rev().nth(self.range.rtail)
     }
 
-    pub fn contains_key(&self, key: &K) -> bool {
+    pub fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
         self.get(key).is_some()
+    }
+}
+
+impl<K, V> Segment<'_, BTreeMap<K, V>, TrimRange>
+where
+    K: Ord,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        self.remove_isomorph_unchecked(key)
+    }
+}
+
+impl<K, V> Segment<'_, BTreeMap1<K, V>, TrimRange>
+where
+    K: UnsafeOrd,
+{
+    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q> + UnsafeIsomorph<Q>,
+        Q: ?Sized + UnsafeOrd,
+    {
+        self.remove_isomorph_unchecked(key)
     }
 }
 

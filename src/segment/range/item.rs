@@ -6,17 +6,19 @@ use core::ops::{Bound, RangeBounds};
 use crate::segment::range::{IntoRangeBounds, UnorderedError};
 
 pub trait OptionExt<N> {
-    fn contains(&self, item: &N) -> bool
+    fn contains<Q>(&self, key: &Q) -> bool
     where
-        N: Ord;
+        N: Borrow<Q> + Ord,
+        Q: Ord + ?Sized;
 }
 
 impl<N> OptionExt<N> for Option<ItemRange<N>> {
-    fn contains(&self, item: &N) -> bool
+    fn contains<Q>(&self, key: &Q) -> bool
     where
-        N: Ord,
+        N: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
     {
-        self.as_ref().is_some_and(|range| range.contains(item))
+        self.as_ref().is_some_and(|range| range.contains(key))
     }
 }
 
@@ -87,11 +89,20 @@ impl<N> ItemRange<N> {
     pub fn borrow<Q>(&self) -> ItemRange<&Q>
     where
         N: Borrow<Q>,
+        Q: ?Sized,
     {
         ItemRange::unchecked(
             self.start.as_ref().map(N::borrow),
             self.end.as_ref().map(N::borrow),
         )
+    }
+
+    pub fn contains<Q>(&self, key: &Q) -> bool
+    where
+        N: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        RangeBounds::contains(&self.borrow::<Q>(), key)
     }
 }
 
