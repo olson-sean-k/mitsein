@@ -8,7 +8,7 @@ use alloc::borrow::{Borrow, BorrowMut};
 use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter;
+use core::iter::{self, Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
@@ -945,6 +945,15 @@ where
 
     pub fn len(&self) -> usize {
         self.range.len()
+    }
+
+    pub fn iter(&self) -> Take<Skip<slice::Iter<'_, T>>> {
+        self.items.iter().skip(self.range.start()).take(self.len())
+    }
+
+    pub fn iter_mut(&mut self) -> Take<Skip<slice::IterMut<'_, T>>> {
+        let body = self.len();
+        self.items.iter_mut().skip(self.range.start()).take(body)
     }
 
     pub fn as_slice(&self) -> &[T] {

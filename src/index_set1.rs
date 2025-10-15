@@ -12,6 +12,7 @@ use core::borrow::Borrow;
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::hash::{BuildHasher, Hash};
+use core::iter::{Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, Deref, RangeBounds, Sub};
@@ -1315,6 +1316,10 @@ where
 
     pub fn len(&self) -> usize {
         self.range.len()
+    }
+
+    pub fn iter(&self) -> Take<Skip<index_set::Iter<'_, T>>> {
+        self.items.iter().skip(self.range.start()).take(self.len())
     }
 }
 

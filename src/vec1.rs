@@ -9,7 +9,7 @@ use alloc::vec::{self, Drain, Vec};
 use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{self, FusedIterator};
+use core::iter::{self, FusedIterator, Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
@@ -1151,6 +1151,15 @@ where
         self.range.len()
     }
 
+    pub fn iter(&self) -> Take<Skip<slice::Iter<'_, T>>> {
+        self.items.iter().skip(self.range.start()).take(self.len())
+    }
+
+    pub fn iter_mut(&mut self) -> Take<Skip<slice::IterMut<'_, T>>> {
+        let body = self.len();
+        self.items.iter_mut().skip(self.range.start()).take(body)
+    }
+
     pub fn as_slice(&self) -> &[T] {
         &self.items.as_slice()[self.range.start()..self.range.end()]
     }
@@ -1411,12 +1420,13 @@ pub mod harness {
 #[cfg(test)]
 mod tests {
     use alloc::vec;
+    use alloc::vec::Vec;
     use core::iter;
     use core::mem;
     use core::ops::RangeBounds;
     use rstest::rstest;
     #[cfg(feature = "serde")]
-    use {alloc::vec::Vec, serde_test::Token};
+    use serde_test::Token;
 
     use crate::iter1::IntoIterator1;
     #[cfg(feature = "schemars")]
@@ -1491,6 +1501,26 @@ mod tests {
         //       and unsafe code in cases for `f`? If so, do that instead!
         let x = xs1.pop_if_many_and(|x| f(x as *mut u8));
         assert_eq!((x, xs1.as_slice1()), expected);
+    }
+
+    #[rstest]
+    #[case::empty_at_front(0..0, &[])]
+    #[case::empty_at_back(4..4, &[])]
+    #[case::one_at_front(0..1, &[0])]
+    #[case::one_at_back(4.., &[4])]
+    #[case::middle(1..4, &[1, 2, 3])]
+    #[case::tail(1.., &[1, 2, 3, 4])]
+    #[case::rtail(..4, &[0, 1, 2, 3])]
+    fn collect_segment_iter_of_vec1_into_vec_then_eq<S>(
+        mut xs1: Vec1<u8>,
+        #[case] segment: S,
+        #[case] expected: &[u8],
+    ) where
+        S: RangeBounds<usize>,
+    {
+        let segment = xs1.segment(segment).unwrap();
+        let xs: Vec<_> = segment.iter().copied().collect();
+        assert_eq!(xs.as_slice(), expected);
     }
 
     #[rstest]

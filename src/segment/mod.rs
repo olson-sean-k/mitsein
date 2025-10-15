@@ -197,6 +197,10 @@ where
         let range = self.range.rtail();
         Segment::unchecked(self.items, range)
     }
+
+    pub(crate) fn untrimmed_item_count(&self, n: usize) -> usize {
+        n.saturating_sub(self.range.trimmed_item_count())
+    }
 }
 
 impl<K, T, R> Debug for Segment<'_, K, T, R>

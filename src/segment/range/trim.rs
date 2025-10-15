@@ -37,6 +37,12 @@ impl TrimRange {
         }
     }
 
+    pub fn trimmed_item_count(&self) -> usize {
+        self.tail
+            .checked_add(self.rtail)
+            .unwrap_or_else(|| self::panic_trimmed_item_count_overflow())
+    }
+
     pub const fn is_all(&self) -> bool {
         self.tail == 0 && self.rtail == 0
     }
@@ -48,4 +54,8 @@ const fn panic_tail_overflow() -> ! {
 
 const fn panic_rtail_overflow() -> ! {
     panic!("overflow in trim range rtail")
+}
+
+const fn panic_trimmed_item_count_overflow() -> ! {
+    panic!("overflow in trim range count")
 }

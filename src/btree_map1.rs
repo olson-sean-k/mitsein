@@ -8,6 +8,7 @@ use alloc::collections::btree_map::{self, BTreeMap, VacantEntry};
 use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
+use core::iter::{Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Bound, RangeBounds};
@@ -1259,6 +1260,33 @@ where
             })
     }
 
+    pub fn len(&self) -> usize {
+        self.range.as_ref().map_or(0, |range| {
+            self.items
+                .range((range.start_bound(), range.end_bound()))
+                .count()
+        })
+    }
+
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = (&'_ K, &'_ V)> {
+        self.range
+            .as_ref()
+            .map(|range| self.items.range((range.start_bound(), range.end_bound())))
+            .into_iter()
+            .flatten()
+    }
+
+    pub fn iter_mut(&mut self) -> impl '_ + Iterator<Item = (&'_ K, &'_ mut V)> {
+        self.range
+            .as_ref()
+            .map(|range| {
+                self.items
+                    .range_mut((range.start_bound(), range.end_bound()))
+            })
+            .into_iter()
+            .flatten()
+    }
+
     pub fn contains_key<Q>(&self, key: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -1419,6 +1447,19 @@ where
 
     pub fn last_key_value(&self) -> Option<(&K, &V)> {
         self.items.iter().rev().nth(self.range.rtail)
+    }
+
+    pub fn len(&self) -> usize {
+        self.untrimmed_item_count(self.items.len())
+    }
+
+    pub fn iter(&self) -> Take<Skip<btree_map::Iter<'_, K, V>>> {
+        self.items.iter().skip(self.range.tail).take(self.len())
+    }
+
+    pub fn iter_mut(&mut self) -> Take<Skip<btree_map::IterMut<'_, K, V>>> {
+        let body = self.len();
+        self.items.iter_mut().skip(self.range.tail).take(body)
     }
 
     pub fn contains_key<Q>(&self, key: &Q) -> bool

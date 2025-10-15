@@ -11,6 +11,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::hash::{BuildHasher, Hash};
+use core::iter::{Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, RangeBounds};
@@ -1658,6 +1659,15 @@ where
 
     pub fn len(&self) -> usize {
         self.range.len()
+    }
+
+    pub fn iter(&self) -> Take<Skip<index_map::Iter<'_, K, V>>> {
+        self.items.iter().skip(self.range.start()).take(self.len())
+    }
+
+    pub fn iter_mut(&mut self) -> Take<Skip<index_map::IterMut<'_, K, V>>> {
+        let body = self.len();
+        self.items.iter_mut().skip(self.range.start()).take(body)
     }
 }
 

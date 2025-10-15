@@ -8,6 +8,7 @@ use alloc::collections::btree_set::{self, BTreeSet};
 use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
+use core::iter::{Skip, Take};
 use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, Bound, RangeBounds, Sub};
 #[cfg(feature = "rayon")]
@@ -985,6 +986,22 @@ where
             })
     }
 
+    pub fn len(&self) -> usize {
+        self.range.as_ref().map_or(0, |range| {
+            self.items
+                .range((range.start_bound(), range.end_bound()))
+                .count()
+        })
+    }
+
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
+        self.range
+            .as_ref()
+            .map(|range| self.items.range((range.start_bound(), range.end_bound())))
+            .into_iter()
+            .flatten()
+    }
+
     pub fn contains<Q>(&self, key: &Q) -> bool
     where
         T: Borrow<Q>,
@@ -1175,6 +1192,14 @@ where
         self.items.iter().rev().nth(self.range.rtail)
     }
 
+    pub fn len(&self) -> usize {
+        self.untrimmed_item_count(self.items.len())
+    }
+
+    pub fn iter(&self) -> Take<Skip<btree_set::Iter<'_, T>>> {
+        self.items.iter().skip(self.range.tail).take(self.len())
+    }
+
     pub fn contains<Q>(&self, key: &Q) -> bool
     where
         T: Borrow<Q>,
@@ -1261,11 +1286,12 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use rstest::rstest;
     #[cfg(feature = "serde")]
-    use {alloc::vec::Vec, serde_test::Token};
+    use serde_test::Token;
 
-    use crate::btree_set1::harness::{self, terminals1};
+    use crate::btree_set1::harness::{self, terminals1, xs1};
     use crate::btree_set1::BTreeSet1;
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
@@ -1273,10 +1299,53 @@ mod tests {
     use crate::segment::range::IntoRangeBounds;
     use crate::segment::{Segmentation, Tail};
     #[cfg(feature = "serde")]
-    use crate::{
-        btree_set1::harness::xs1,
-        serde::{self, harness::sequence},
-    };
+    use crate::serde::{self, harness::sequence};
+
+    #[rstest]
+    #[case::empty_at_front(0..0, &[])]
+    #[case::empty_at_back(4..4, &[])]
+    #[case::one_at_front(0..1, &[0])]
+    #[case::one_at_back(4.., &[4])]
+    #[case::middle(1..4, &[1, 2, 3])]
+    #[case::tail(1.., &[1, 2, 3, 4])]
+    #[case::rtail(..4, &[0, 1, 2, 3])]
+    fn collect_segment_iter_of_btree_set1_into_vec_then_eq<S>(
+        mut xs1: BTreeSet1<u8>,
+        #[case] segment: S,
+        #[case] expected: &[u8],
+    ) where
+        S: IntoRangeBounds<u8>,
+    {
+        let segment = xs1.segment(segment).unwrap();
+        let xs: Vec<_> = segment.iter().copied().collect();
+        assert_eq!(xs.as_slice(), expected);
+    }
+
+    #[rstest]
+    #[case::empty_tail(harness::xs1(0), &[])]
+    #[case::one_tail(harness::xs1(1), &[1])]
+    #[case::many_tail(harness::xs1(4), &[1, 2, 3, 4])]
+    fn collect_tail_iter_of_btree_set1_into_vec_then_eq(
+        #[case] mut xs1: BTreeSet1<u8>,
+        #[case] expected: &[u8],
+    ) {
+        let segment = xs1.tail();
+        let xs: Vec<_> = segment.iter().copied().collect();
+        assert_eq!(xs.as_slice(), expected);
+    }
+
+    #[rstest]
+    #[case::empty_rtail(harness::xs1(0), &[])]
+    #[case::one_rtail(harness::xs1(1), &[0])]
+    #[case::many_rtail(harness::xs1(4), &[0, 1, 2, 3])]
+    fn collect_rtail_iter_of_btree_set1_into_vec_then_eq(
+        #[case] mut xs1: BTreeSet1<u8>,
+        #[case] expected: &[u8],
+    ) {
+        let segment = xs1.rtail();
+        let xs: Vec<_> = segment.iter().copied().collect();
+        assert_eq!(xs.as_slice(), expected);
+    }
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
