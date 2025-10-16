@@ -1,3 +1,22 @@
+//! APIs for construction and unwrapping that are checked or unchecked based on the build
+//! configuration.
+//!
+//! This module provides "maybe unchecked" functions for fallible operations. These functions have
+//! a `_maybe_unchecked` suffix and mirror `_unchecked` counterparts. When checks are enabled (and
+//! so these functions do in fact check), the non-empty guarantee is checked at runtime and so the
+//! surface area for potential unsoundness is dramatically reduced. Only unsafe transmutation
+//! through transparent types remains (it is unaffected by this module and the build
+//! configuration).
+//!
+//! Functions in this module must always be used just as their `_unchecked` counterparts:
+//! invariants must be maintained by callers! The "maybe" merely means that a check may or may not
+//! actually occur. This is why `_maybe_unchecked` functions are `unsafe`.
+//!
+//! Checks are enabled in test builds (i.e., `[#cfg(test)]`) so that bugs manifest as deterministic
+//! panics rather than (often silent) undefined behavior. However, checks are **not** enabled for
+//! Miri builds (despite also being test builds), because this may prevent Miri from discovering
+//! memory safety problems.
+
 // LINT: APIs in this module are pervasive and the set of features that require an item can be
 //       volatile and difficult to determine. Dead code is allowed instead, though it requires more
 //       careful auditing. Items with a more obvious or simple set of dependent features are
@@ -30,6 +49,9 @@ pub use maybe::{
     non_zero_from_usize_maybe_unchecked, unreachable_maybe_unchecked, unwrap_option_maybe_unchecked,
 };
 
+/// Maybe unchecked extension methods for [`ArrayVec`].
+///
+/// [`ArrayVec`]: arrayvec::ArrayVec
 #[cfg(feature = "arrayvec")]
 pub trait ArrayVecExt<T> {
     /// # Safety
@@ -38,6 +60,9 @@ pub trait ArrayVecExt<T> {
     unsafe fn push_maybe_unchecked(&mut self, item: T);
 }
 
+/// Maybe unchecked extension methods for [`NonZero`].
+///
+/// [`NonZero`]: core::num::NonZero
 pub trait NonZeroExt<T> {
     /// # Safety
     ///
@@ -45,24 +70,23 @@ pub trait NonZeroExt<T> {
     unsafe fn new_maybe_unchecked(n: T) -> Self;
 }
 
+/// Maybe unchecked extension methods for [`Option`].
 pub trait OptionExt<T> {
     /// # Safety
     ///
-    /// The `Option` must be [`Some`]
-    ///
-    /// [`Some`]: core::option::Option::Some
+    /// The `Option` must be [`Some`].
     unsafe fn unwrap_maybe_unchecked(self) -> T;
 }
 
+/// Maybe unchecked extension methods for [`Result`].
 pub trait ResultExt<T, E> {
     /// # Safety
     ///
-    /// The `Result` must be [`Ok`]
-    ///
-    /// [`Ok`]: core::result::Result::Ok
+    /// The `Result` must be [`Ok`].
     unsafe fn unwrap_maybe_unchecked(self) -> T;
 }
 
+/// Maybe unchecked extension methods for [slices][prim@slice].
 pub trait SliceExt<T> {
     /// # Safety
     ///

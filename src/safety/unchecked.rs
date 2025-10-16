@@ -69,7 +69,8 @@ pub const unsafe fn unreachable_maybe_unchecked() -> ! {
 
 /// # Safety
 ///
-/// `option` must be `Some`.
+/// `option` must be [`Some`].
+#[inline(always)]
 pub const unsafe fn unwrap_option_maybe_unchecked<T>(option: Option<T>) -> T {
     unsafe { option.unwrap_unchecked() }
 }
