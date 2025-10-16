@@ -206,6 +206,13 @@ impl<T> VecDeque1<T> {
         self.items
     }
 
+    pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<VecDeque<T>>>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.and_then_try(|items| items.retain(f))
+    }
+
     pub fn shrink_to(&mut self, capacity: usize) {
         self.items.shrink_to(capacity)
     }

@@ -211,6 +211,14 @@ impl<T> BTreeSet1<T> {
         self.items
     }
 
+    pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<BTreeSet<T>>>
+    where
+        T: Ord,
+        F: FnMut(&T) -> bool,
+    {
+        self.and_then_try(|items| items.retain(f))
+    }
+
     pub fn split_off_tail(&mut self) -> BTreeSet<T>
     where
         T: Clone + UnsafeOrd,

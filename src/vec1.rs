@@ -222,6 +222,13 @@ impl<T> Vec1<T> {
         unsafe { Slice1::from_mut_slice_unchecked(self.items.leak()) }
     }
 
+    pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<Vec<T>>>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.and_then_try(|items| items.retain(f))
+    }
+
     pub fn reserve(&mut self, additional: usize) {
         self.items.reserve(additional)
     }

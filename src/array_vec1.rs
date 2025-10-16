@@ -332,6 +332,13 @@ where
         self.items.into_inner_unchecked()
     }
 
+    pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<ArrayVec<T, N>>>
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        self.and_then_try(|items| items.retain(f))
+    }
+
     pub fn try_extend_from_slice(&mut self, items: &[T]) -> Result<(), CapacityError>
     where
         T: Copy,

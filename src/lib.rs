@@ -540,6 +540,24 @@ where
     items: T,
 }
 
+impl<T> NonEmpty<T>
+where
+    T: Sized,
+{
+    pub fn and_then_try<F>(self, f: F) -> Result<Self, EmptyError<T>>
+    where
+        // A bound on `FromMaybeEmpty` would be more direct, but that trait is not part of the
+        // public API. `TryFrom` is used instead, since it is implemented in terms of
+        // `FromMaybeEmpty`.
+        Self: TryFrom<T, Error = EmptyError<T>>,
+        F: FnOnce(&mut T),
+    {
+        let NonEmpty { mut items } = self;
+        f(&mut items);
+        <NonEmpty<T> as TryFrom<T>>::try_from(items)
+    }
+}
+
 #[cfg(any(feature = "arrayvec", feature = "alloc"))]
 impl<T> NonEmpty<T>
 where

@@ -245,6 +245,13 @@ where
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice()) }
     }
 
+    pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<SmallVec<A>>>
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        self.and_then_try(|items| items.retain(f))
+    }
+
     pub fn reserve(&mut self, additional: usize) {
         self.items.reserve(additional)
     }

@@ -509,6 +509,14 @@ impl<K, V> BTreeMap1<K, V> {
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
+    pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<BTreeMap<K, V>>>
+    where
+        K: Ord,
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        self.and_then_try(|items| items.retain(f))
+    }
+
     pub fn split_off_tail(&mut self) -> BTreeMap<K, V>
     where
         K: Clone + UnsafeOrd,

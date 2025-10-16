@@ -194,6 +194,13 @@ impl String1 {
         unsafe { Str1::from_mut_str_unchecked(self.items.leak()) }
     }
 
+    pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<String>>
+    where
+        F: FnMut(char) -> bool,
+    {
+        self.and_then_try(|items| items.retain(f))
+    }
+
     pub fn reserve(&mut self, additional: usize) {
         self.items.reserve(additional)
     }
