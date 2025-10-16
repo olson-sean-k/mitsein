@@ -9,6 +9,7 @@ use alloc::boxed::Box;
 use alloc::vec::{self, Vec};
 use core::slice;
 
+use crate::EmptyError;
 use crate::array1::Array1;
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 use crate::rc1::{RcSlice1, RcSlice1Ext as _};
@@ -20,7 +21,6 @@ use crate::string1::String1;
 #[cfg(target_has_atomic = "ptr")]
 use crate::sync1::{ArcSlice1, ArcSlice1Ext as _};
 use crate::vec1::Vec1;
-use crate::EmptyError;
 
 pub type BoxedSlice1<T> = Box<Slice1<T>>;
 
@@ -62,7 +62,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
         //         `Slice1<T>` have the same representation (`Slice1<T>` is `repr(transparent)`).
         //         Moreover, the allocator only requires that the memory location and layout are
         //         the same when deallocating, so dropping the transmuted `Box` is sound.
-        Box::from_raw(items as *mut Slice1<T>)
+        unsafe { Box::from_raw(items as *mut Slice1<T>) }
     }
 
     fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, EmptyError<Box<[T]>>> {
@@ -263,7 +263,7 @@ impl BoxedStr1Ext for BoxedStr1 {
         //         `Str1` have the same representation (`Str1` is `repr(transparent)`). Moreover,
         //         the allocator only requires that the memory location and layout are the same
         //         when deallocating, so dropping the transmuted `Box` is sound.
-        Box::from_raw(items as *mut Str1)
+        unsafe { Box::from_raw(items as *mut Str1) }
     }
 
     fn into_boxed_str(self) -> Box<str> {

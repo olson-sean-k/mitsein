@@ -180,7 +180,7 @@ impl<T> Slice1<T> {
     pub const unsafe fn from_slice_unchecked(items: &Slice<T>) -> &Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice<T>` and
         //         `Slice1<T>` are the same.
-        mem::transmute::<&'_ Slice<T>, &'_ Slice1<T>>(items)
+        unsafe { mem::transmute::<&'_ Slice<T>, &'_ Slice1<T>>(items) }
     }
 
     pub fn split_first(&self) -> (&T, &Slice<T>) {
@@ -238,7 +238,7 @@ impl<T, S> IndexSet1<T, S> {
     ///
     /// [`IndexSet::new`]: indexmap::set::IndexSet::new
     pub unsafe fn from_index_set_unchecked(items: IndexSet<T, S>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn into_index_set(self) -> IndexSet<T, S> {

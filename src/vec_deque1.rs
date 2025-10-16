@@ -163,7 +163,7 @@ impl<T> VecDeque1<T> {
     ///
     /// [`VecDeque::new`]: alloc::collections::vec_deque::VecDeque::new
     pub unsafe fn from_vec_deque_unchecked(items: VecDeque<T>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn from_one(item: T) -> Self {
@@ -970,10 +970,10 @@ mod tests {
     use crate::segment::{Segmentation, Tail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
-    use crate::slice1::{slice1, Slice1};
+    use crate::slice1::{Slice1, slice1};
+    use crate::vec_deque1::VecDeque1;
     use crate::vec_deque1::harness;
     use crate::vec_deque1::harness::xs1;
-    use crate::vec_deque1::VecDeque1;
 
     #[rstest]
     #[case::one_into_empty_front(0..0, [42], slice1![42, 0, 1, 2, 3, 4])]

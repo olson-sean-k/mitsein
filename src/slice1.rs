@@ -52,7 +52,7 @@ impl<T> Slice1<T> {
     pub const unsafe fn from_slice_unchecked(items: &[T]) -> &Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `[T]` and
         //         `Slice1<T>` are the same.
-        mem::transmute::<&'_ [T], &'_ Slice1<T>>(items)
+        unsafe { mem::transmute::<&'_ [T], &'_ Slice1<T>>(items) }
     }
 
     /// # Safety
@@ -62,7 +62,7 @@ impl<T> Slice1<T> {
     pub const unsafe fn from_mut_slice_unchecked(items: &mut [T]) -> &mut Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `[T]` and
         //         `Slice1<T>` are the same.
-        mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items)
+        unsafe { mem::transmute::<&'_ mut [T], &'_ mut Slice1<T>>(items) }
     }
 
     pub fn try_from_slice(items: &[T]) -> Result<&Self, EmptyError<&[T]>> {

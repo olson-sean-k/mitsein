@@ -64,7 +64,7 @@ impl Str1 {
     pub const unsafe fn from_str_unchecked(items: &str) -> &Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `str` and `Str1`
         //         are the same.
-        mem::transmute::<&'_ str, &'_ Str1>(items)
+        unsafe { mem::transmute::<&'_ str, &'_ Str1>(items) }
     }
 
     /// # Safety
@@ -74,7 +74,7 @@ impl Str1 {
     pub const unsafe fn from_mut_str_unchecked(items: &mut str) -> &mut Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `str` and `Str1`
         //         are the same.
-        mem::transmute::<&'_ mut str, &'_ mut Str1>(items)
+        unsafe { mem::transmute::<&'_ mut str, &'_ mut Str1>(items) }
     }
 
     pub fn try_from_str(items: &str) -> Result<&Self, EmptyError<&str>> {

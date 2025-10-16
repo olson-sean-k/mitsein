@@ -213,29 +213,29 @@ where
 
     pub fn insert(&mut self, value: V) -> V {
         match self {
-            OccupiedEntry::Many(ref mut many) => many.insert(value),
-            OccupiedEntry::One(ref mut only) => only.insert(value),
+            OccupiedEntry::Many(many) => many.insert(value),
+            OccupiedEntry::One(only) => only.insert(value),
         }
     }
 
     pub fn get(&self) -> &V {
         match self {
-            OccupiedEntry::Many(ref many) => many.get(),
-            OccupiedEntry::One(ref only) => only.get(),
+            OccupiedEntry::Many(many) => many.get(),
+            OccupiedEntry::One(only) => only.get(),
         }
     }
 
     pub fn get_mut(&mut self) -> &mut V {
         match self {
-            OccupiedEntry::Many(ref mut many) => many.get_mut(),
-            OccupiedEntry::One(ref mut only) => only.get_mut(),
+            OccupiedEntry::Many(many) => many.get_mut(),
+            OccupiedEntry::One(only) => only.get_mut(),
         }
     }
 
     pub fn key(&self) -> &K {
         match self {
-            OccupiedEntry::Many(ref many) => many.key(),
-            OccupiedEntry::One(ref only) => only.key(),
+            OccupiedEntry::Many(many) => many.key(),
+            OccupiedEntry::One(only) => only.key(),
         }
     }
 }
@@ -297,7 +297,7 @@ where
     {
         match &mut self {
             Entry::Vacant(_) => {},
-            Entry::Occupied(ref mut occupied) => f(occupied.get_mut()),
+            Entry::Occupied(occupied) => f(occupied.get_mut()),
         };
         self
     }
@@ -367,15 +367,15 @@ where
 {
     fn get(&self) -> &V {
         match self {
-            Ok(ref value) => value,
-            Err(ref only) => only.get(),
+            Ok(value) => value,
+            Err(only) => only.get(),
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok(ref mut value) => value,
-            Err(ref mut only) => only.get_mut(),
+            Ok(value) => value,
+            Err(only) => only.get_mut(),
         }
     }
 }
@@ -386,15 +386,15 @@ where
 {
     fn get(&self) -> &V {
         match self {
-            Ok((_, ref value)) => value,
-            Err(ref only) => only.get(),
+            Ok((_, value)) => value,
+            Err(only) => only.get(),
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok((_, ref mut value)) => value,
-            Err(ref mut only) => only.get_mut(),
+            Ok((_, value)) => value,
+            Err(only) => only.get_mut(),
         }
     }
 }
@@ -469,7 +469,7 @@ impl<K, V> BTreeMap1<K, V> {
     ///
     /// [`BTreeMap::new`]: alloc::collections::btree_map::BTreeMap::new
     pub unsafe fn from_btree_map_unchecked(items: BTreeMap<K, V>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn from_one(item: (K, V)) -> Self
@@ -1547,8 +1547,8 @@ mod tests {
     #[cfg(feature = "serde")]
     use {alloc::vec::Vec, serde_test::Token};
 
-    use crate::btree_map1::harness::{self, terminals1, VALUE};
     use crate::btree_map1::BTreeMap1;
+    use crate::btree_map1::harness::{self, VALUE, terminals1};
     use crate::harness::KeyValueRef;
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]

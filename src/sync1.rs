@@ -54,7 +54,7 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
         //         `Slice1<T>` have the same representation (`Slice1<T>` is `repr(transparent)`).
         //         Moreover, the allocator only requires that the memory location and layout are
         //         the same when deallocating, so dropping the transmuted `Arc` is sound.
-        Arc::from_raw(items as *const Slice1<T>)
+        unsafe { Arc::from_raw(items as *const Slice1<T>) }
     }
 
     fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, EmptyError<Arc<[T]>>> {
@@ -155,7 +155,7 @@ impl<T> WeakSlice1Ext<T> for WeakSlice1<T> {
         //         `Slice1<T>` have the same representation (`Slice1<T>` is `repr(transparent)`).
         //         Moreover, the allocator only requires that the memory location and layout are
         //         the same when deallocating, so dropping the transmuted `Weak` is sound.
-        Weak::from_raw(items as *const Slice1<T>)
+        unsafe { Weak::from_raw(items as *const Slice1<T>) }
     }
 }
 
@@ -189,7 +189,7 @@ impl ArcStr1Ext for ArcStr1 {
         //         `Str1` have the same representation (`Str1` is `repr(transparent)`). Moreover,
         //         the allocator only requires that the memory location and layout are the same
         //         when deallocating, so dropping the transmuted `Arc` is sound.
-        Arc::from_raw(items as *const Str1)
+        unsafe { Arc::from_raw(items as *const Str1) }
     }
 
     fn try_from_arc_str(items: Arc<str>) -> Result<Self, EmptyError<Arc<str>>> {
@@ -244,6 +244,6 @@ impl WeakStr1Ext for WeakStr1 {
         //         `Str1` have the same representation (`Str1` is `repr(transparent)`). Moreover,
         //         the allocator only requires that the memory location and layout are the same
         //         when deallocating, so dropping the transmuted `Weak` is sound.
-        Weak::from_raw(items as *const Str1)
+        unsafe { Weak::from_raw(items as *const Str1) }
     }
 }

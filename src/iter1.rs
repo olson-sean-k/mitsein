@@ -38,7 +38,7 @@ use crate::safety::OptionExt as _;
 #[cfg(feature = "rayon")]
 use crate::vec1::Vec1;
 #[cfg(feature = "itertools")]
-use crate::{safety, Cardinality};
+use crate::{Cardinality, safety};
 use crate::{EmptyError, NonEmpty, NonZeroExt as _};
 
 // Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
@@ -413,7 +413,7 @@ impl<I> Iterator1<I> {
         J: Iterator,
         F: FnOnce(I) -> J,
     {
-        Iterator1::from_iter_unchecked(f(self.items))
+        unsafe { Iterator1::from_iter_unchecked(f(self.items)) }
     }
 
     pub const fn as_iter(&self) -> &I {
@@ -988,7 +988,7 @@ impl<I> ParallelIterator1<I> {
         J: ParallelIterator,
         F: FnOnce(I) -> J,
     {
-        ParallelIterator1::from_par_iter_unchecked(f(self.items))
+        unsafe { ParallelIterator1::from_par_iter_unchecked(f(self.items)) }
     }
 
     pub const fn as_par_iter(&self) -> &I {
@@ -1180,7 +1180,7 @@ mod tests {
     use rstest::rstest;
 
     use crate::iter1::{IntoIterator1, ThenIterator1};
-    use crate::slice1::{slice1, Slice1};
+    use crate::slice1::{Slice1, slice1};
     #[cfg(feature = "alloc")]
     use crate::vec1::Vec1;
 
@@ -1218,9 +1218,10 @@ mod tests {
         #[case] xs1: impl IntoIterator1<Item = u8>,
         #[case] expected: &Slice1<u8>,
     ) {
-        assert!(xs
-            .into_iter()
-            .or_non_empty(xs1)
-            .eq(expected.iter1().copied()));
+        assert!(
+            xs.into_iter()
+                .or_non_empty(xs1)
+                .eq(expected.iter1().copied())
+        );
     }
 }

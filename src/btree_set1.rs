@@ -181,7 +181,7 @@ impl<T> BTreeSet1<T> {
     ///
     /// [`BTreeSet::new`]: alloc::collections::btree_set::BTreeSet::new
     pub unsafe fn from_btree_set_unchecked(items: BTreeSet<T>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn from_one(item: T) -> Self
@@ -1299,8 +1299,8 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde_test::Token;
 
-    use crate::btree_set1::harness::{self, terminals1, xs1};
     use crate::btree_set1::BTreeSet1;
+    use crate::btree_set1::harness::{self, terminals1, xs1};
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;

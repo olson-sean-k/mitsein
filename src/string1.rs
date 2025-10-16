@@ -6,7 +6,7 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::borrow::{Borrow, BorrowMut, Cow};
-use alloc::string::{FromUtf16Error, FromUtf8Error, String};
+use alloc::string::{FromUtf8Error, FromUtf16Error, String};
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
 use core::fmt::{self, Debug, Display, Formatter, Write};
@@ -134,7 +134,7 @@ impl String1 {
     ///
     /// [`Vec::new`]: alloc::vec::Vec::new
     pub unsafe fn from_string_unchecked(items: String) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn from_one_with_capacity<U>(item: char, capacity: usize) -> Self {

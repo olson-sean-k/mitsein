@@ -154,10 +154,8 @@ impl<T> CardinalityError<T> {
 impl<T> Debug for CardinalityError<T> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         match self {
-            CardinalityError::Empty(ref error) => {
-                formatter.debug_tuple("Empty").field(error).finish()
-            },
-            CardinalityError::Capacity(ref error) => {
+            CardinalityError::Empty(error) => formatter.debug_tuple("Empty").field(error).finish(),
+            CardinalityError::Capacity(error) => {
                 formatter.debug_tuple("Capacity").field(error).finish()
             },
         }
@@ -167,8 +165,8 @@ impl<T> Debug for CardinalityError<T> {
 impl<T> Display for CardinalityError<T> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         match self {
-            CardinalityError::Empty(ref error) => write!(formatter, "{error}"),
-            CardinalityError::Capacity(ref error) => write!(formatter, "{error}"),
+            CardinalityError::Empty(error) => write!(formatter, "{error}"),
+            CardinalityError::Capacity(error) => write!(formatter, "{error}"),
         }
     }
 }
@@ -272,7 +270,7 @@ where
     ///
     /// [`ArrayVec::new`]: arrayvec::ArrayVec::new
     pub unsafe fn from_array_vec_unchecked(items: ArrayVec<T, N>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn from_one(item: T) -> Self {
@@ -329,7 +327,7 @@ where
     /// The `ArrayVec1` must be saturated (length equals capacity), otherwise the output is
     /// uninitialized and unsound.
     pub unsafe fn into_array_unchecked(self) -> [T; N] {
-        self.items.into_inner_unchecked()
+        unsafe { self.items.into_inner_unchecked() }
     }
 
     pub fn try_retain<F>(self, f: F) -> Result<Self, EmptyError<ArrayVec<T, N>>>
@@ -359,7 +357,7 @@ where
     /// The `ArrayVec1` must have vacancy (available capacity) for the given item. Calling this
     /// function against a saturated `ArrayVec1` is undefined behavior.
     pub unsafe fn push_unchecked(&mut self, item: T) {
-        self.items.push_unchecked(item)
+        unsafe { self.items.push_unchecked(item) }
     }
 
     pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self, N> {
@@ -1087,8 +1085,8 @@ mod tests {
     #[cfg(feature = "serde")]
     use {arrayvec::ArrayVec, serde_test::Token};
 
-    use crate::array_vec1::harness::{self, CAPACITY};
     use crate::array_vec1::ArrayVec1;
+    use crate::array_vec1::harness::{self, CAPACITY};
     #[cfg(feature = "schemars")]
     use crate::schemars;
     use crate::segment::Tail;

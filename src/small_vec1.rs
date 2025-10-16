@@ -179,7 +179,7 @@ where
     ///
     /// [`SmallVec::new`]: smallvec::SmallVec::new
     pub unsafe fn from_small_vec_unchecked(items: SmallVec<A>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn from_one(item: T) -> Self {

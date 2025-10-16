@@ -15,8 +15,8 @@ use core::iter::{Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, RangeBounds};
-use indexmap::map::{self as index_map, IndexMap, Slice, VacantEntry};
 use indexmap::Equivalent;
+use indexmap::map::{self as index_map, IndexMap, Slice, VacantEntry};
 #[cfg(feature = "rayon")]
 use rayon::iter::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
@@ -216,36 +216,36 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
 
     pub fn insert(&mut self, value: V) -> V {
         match self {
-            OccupiedEntry::Many(ref mut many) => many.insert(value),
-            OccupiedEntry::One(ref mut only) => only.insert(value),
+            OccupiedEntry::Many(many) => many.insert(value),
+            OccupiedEntry::One(only) => only.insert(value),
         }
     }
 
     pub fn get(&self) -> &V {
         match self {
-            OccupiedEntry::Many(ref many) => many.get(),
-            OccupiedEntry::One(ref only) => only.get(),
+            OccupiedEntry::Many(many) => many.get(),
+            OccupiedEntry::One(only) => only.get(),
         }
     }
 
     pub fn get_mut(&mut self) -> &mut V {
         match self {
-            OccupiedEntry::Many(ref mut many) => many.get_mut(),
-            OccupiedEntry::One(ref mut only) => only.get_mut(),
+            OccupiedEntry::Many(many) => many.get_mut(),
+            OccupiedEntry::One(only) => only.get_mut(),
         }
     }
 
     pub fn key(&self) -> &K {
         match self {
-            OccupiedEntry::Many(ref many) => many.key(),
-            OccupiedEntry::One(ref only) => only.key(),
+            OccupiedEntry::Many(many) => many.key(),
+            OccupiedEntry::One(only) => only.key(),
         }
     }
 
     pub fn index(&self) -> usize {
         match self {
-            OccupiedEntry::Many(ref many) => many.index(),
-            OccupiedEntry::One(ref only) => only.index(),
+            OccupiedEntry::Many(many) => many.index(),
+            OccupiedEntry::One(only) => only.index(),
         }
     }
 }
@@ -295,7 +295,7 @@ impl<'a, K, V> Entry<'a, K, V> {
     {
         match &mut self {
             Entry::Vacant(_) => {},
-            Entry::Occupied(ref mut occupied) => f(occupied.get_mut()),
+            Entry::Occupied(occupied) => f(occupied.get_mut()),
         };
         self
     }
@@ -381,15 +381,15 @@ pub trait OrOnlyEntryExt<'a, K, V> {
 impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, V, K, V> {
     fn get(&self) -> &V {
         match self {
-            Ok(ref value) => value,
-            Err(ref only) => only.get(),
+            Ok(value) => value,
+            Err(only) => only.get(),
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok(ref mut value) => value,
-            Err(ref mut only) => only.get_mut(),
+            Ok(value) => value,
+            Err(only) => only.get_mut(),
         }
     }
 }
@@ -397,15 +397,15 @@ impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, V, K, V> {
 impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, (K, V), K, V> {
     fn get(&self) -> &V {
         match self {
-            Ok((_, ref value)) => value,
-            Err(ref only) => only.get(),
+            Ok((_, value)) => value,
+            Err(only) => only.get(),
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok((_, ref mut value)) => value,
-            Err(ref mut only) => only.get_mut(),
+            Ok((_, value)) => value,
+            Err(only) => only.get_mut(),
         }
     }
 }
@@ -498,36 +498,36 @@ impl<'a, K, V> IndexedEntry<'a, K, V> {
 
     pub fn insert(&mut self, value: V) -> V {
         match self {
-            IndexedEntry::Many(ref mut many) => many.insert(value),
-            IndexedEntry::One(ref mut only) => only.insert(value),
+            IndexedEntry::Many(many) => many.insert(value),
+            IndexedEntry::One(only) => only.insert(value),
         }
     }
 
     pub fn get(&self) -> &V {
         match self {
-            IndexedEntry::Many(ref many) => many.get(),
-            IndexedEntry::One(ref only) => only.get(),
+            IndexedEntry::Many(many) => many.get(),
+            IndexedEntry::One(only) => only.get(),
         }
     }
 
     pub fn get_mut(&mut self) -> &mut V {
         match self {
-            IndexedEntry::Many(ref mut many) => many.get_mut(),
-            IndexedEntry::One(ref mut only) => only.get_mut(),
+            IndexedEntry::Many(many) => many.get_mut(),
+            IndexedEntry::One(only) => only.get_mut(),
         }
     }
 
     pub fn key(&self) -> &K {
         match self {
-            IndexedEntry::Many(ref many) => many.key(),
-            IndexedEntry::One(ref only) => only.key(),
+            IndexedEntry::Many(many) => many.key(),
+            IndexedEntry::One(only) => only.key(),
         }
     }
 
     pub fn index(&self) -> usize {
         match self {
-            IndexedEntry::Many(ref many) => many.index(),
-            IndexedEntry::One(ref only) => only.index(),
+            IndexedEntry::Many(many) => many.index(),
+            IndexedEntry::One(only) => only.index(),
         }
     }
 }
@@ -549,15 +549,15 @@ pub type OrIndexedOnlyEntry<'a, T, K, V> = Result<T, IndexedOnlyEntry<'a, K, V>>
 impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrIndexedOnlyEntry<'a, V, K, V> {
     fn get(&self) -> &V {
         match self {
-            Ok(ref value) => value,
-            Err(ref only) => only.get(),
+            Ok(value) => value,
+            Err(only) => only.get(),
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok(ref mut value) => value,
-            Err(ref mut only) => only.get_mut(),
+            Ok(value) => value,
+            Err(only) => only.get_mut(),
         }
     }
 }
@@ -635,7 +635,7 @@ impl<K, V> Slice1<K, V> {
     pub const unsafe fn from_slice_unchecked(items: &Slice<K, V>) -> &Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice<K, V>` and
         //         `Slice1<K, V>` are the same.
-        mem::transmute::<&'_ Slice<K, V>, &'_ Slice1<K, V>>(items)
+        unsafe { mem::transmute::<&'_ Slice<K, V>, &'_ Slice1<K, V>>(items) }
     }
 
     /// # Safety
@@ -645,7 +645,7 @@ impl<K, V> Slice1<K, V> {
     pub const unsafe fn from_mut_slice_unchecked(items: &mut Slice<K, V>) -> &mut Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `Slice<K, V>` and
         //         `Slice1<K, V>` are the same.
-        mem::transmute::<&'_ mut Slice<K, V>, &'_ mut Slice1<K, V>>(items)
+        unsafe { mem::transmute::<&'_ mut Slice<K, V>, &'_ mut Slice1<K, V>>(items) }
     }
 
     pub fn split_first(&self) -> ((&K, &V), &Slice<K, V>) {
@@ -701,7 +701,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
     ///
     /// [`IndexMap::new`]: index_map::IndexMap::new
     pub unsafe fn from_index_map_unchecked(items: IndexMap<K, V, S>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn into_index_map(self) -> IndexMap<K, V, S> {
@@ -1743,8 +1743,8 @@ mod tests {
     use {alloc::vec::Vec, serde_test::Token};
 
     use crate::harness::KeyValueRef;
-    use crate::index_map1::harness::{self, VALUE};
     use crate::index_map1::IndexMap1;
+    use crate::index_map1::harness::{self, VALUE};
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;

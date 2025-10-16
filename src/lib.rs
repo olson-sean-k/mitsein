@@ -367,7 +367,7 @@ pub mod prelude {
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
     #[cfg(any(feature = "arrayvec", feature = "alloc"))]
     pub use crate::segment::{Segmentation, Tail};
-    pub use crate::slice1::{slice1, Slice1};
+    pub use crate::slice1::{Slice1, slice1};
     pub use crate::str1::Str1;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{
@@ -380,7 +380,7 @@ pub mod prelude {
         crate::btree_map1::OrOnlyEntryExt as _,
         crate::rc1::{RcSlice1Ext as _, RcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _},
         crate::string1::String1,
-        crate::vec1::{vec1, Vec1},
+        crate::vec1::{Vec1, vec1},
     };
 }
 
@@ -613,7 +613,7 @@ where
     unsafe fn from_maybe_empty_unchecked(items: &'a T) -> Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
         //         `NonEmpty<T>` are the same.
-        mem::transmute::<&'_ T, &'_ NonEmpty<T>>(items)
+        unsafe { mem::transmute::<&'_ T, &'_ NonEmpty<T>>(items) }
     }
 }
 
@@ -625,7 +625,7 @@ where
     unsafe fn from_maybe_empty_unchecked(items: &'a mut T) -> Self {
         // SAFETY: `NonEmpty` is `repr(transparent)`, so the representations of `T` and
         //         `NonEmpty<T>` are the same.
-        mem::transmute::<&'_ mut T, &'_ mut NonEmpty<T>>(items)
+        unsafe { mem::transmute::<&'_ mut T, &'_ mut NonEmpty<T>>(items) }
     }
 }
 

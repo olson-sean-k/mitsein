@@ -54,7 +54,7 @@ impl<T> RcSlice1Ext<T> for RcSlice1<T> {
         //         `Slice1<T>` have the same representation (`Slice1<T>` is `repr(transparent)`).
         //         Moreover, the allocator only requires that the memory location and layout are
         //         the same when deallocating, so dropping the transmuted `Rc` is sound.
-        Rc::from_raw(items as *const Slice1<T>)
+        unsafe { Rc::from_raw(items as *const Slice1<T>) }
     }
 
     fn try_from_rc_slice(items: Rc<[T]>) -> Result<Self, EmptyError<Rc<[T]>>> {
@@ -155,7 +155,7 @@ impl<T> WeakSlice1Ext<T> for WeakSlice1<T> {
         //         `Slice1<T>` have the same representation (`Slice1<T>` is `repr(transparent)`).
         //         Moreover, the allocator only requires that the memory location and layout are
         //         the same when deallocating, so dropping the transmuted `Weak` is sound.
-        Weak::from_raw(items as *const Slice1<T>)
+        unsafe { Weak::from_raw(items as *const Slice1<T>) }
     }
 }
 
@@ -189,7 +189,7 @@ impl RcStr1Ext for RcStr1 {
         //         `Str1` have the same representation (`Str1` is `repr(transparent)`). Moreover,
         //         the allocator only requires that the memory location and layout are the same
         //         when deallocating, so dropping the transmuted `Rc` is sound.
-        Rc::from_raw(items as *const Str1)
+        unsafe { Rc::from_raw(items as *const Str1) }
     }
 
     fn try_from_rc_str(items: Rc<str>) -> Result<Self, EmptyError<Rc<str>>> {
@@ -244,6 +244,6 @@ impl WeakStr1Ext for WeakStr1 {
         //         `Str1` have the same representation (`Str1` is `repr(transparent)`). Moreover,
         //         the allocator only requires that the memory location and layout are the same
         //         when deallocating, so dropping the transmuted `Weak` is sound.
-        Weak::from_raw(items as *const Str1)
+        unsafe { Weak::from_raw(items as *const Str1) }
     }
 }

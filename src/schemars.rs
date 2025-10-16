@@ -1,8 +1,8 @@
 #![cfg(feature = "schemars")]
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
-use serde_json::value::Value;
 use serde_json::Number;
+use serde_json::value::Value;
 
 pub const NON_EMPTY_KEY_ARRAY: &str = "minItems";
 pub const NON_EMPTY_KEY_OBJECT: &str = "minProperties";
@@ -38,9 +38,11 @@ pub mod harness {
     {
         let generator = SchemaGenerator::default();
         let schema = generator.into_root_schema_for::<T>();
-        assert!(schema
-            .get(key)
-            .and_then(Value::as_u64)
-            .is_some_and(|min| min != 0));
+        assert!(
+            schema
+                .get(key)
+                .and_then(Value::as_u64)
+                .is_some_and(|min| min != 0)
+        );
     }
 }

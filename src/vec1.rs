@@ -158,7 +158,7 @@ impl<T> Vec1<T> {
     ///
     /// [`Vec::new`]: alloc::vec::Vec::new
     pub unsafe fn from_vec_unchecked(items: Vec<T>) -> Self {
-        FromMaybeEmpty::from_maybe_empty_unchecked(items)
+        unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
     pub fn from_one(item: T) -> Self {
@@ -1442,9 +1442,9 @@ mod tests {
     use crate::segment::{Segmentation, Tail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
-    use crate::slice1::{slice1, Slice1};
-    use crate::vec1::harness::{self, xs1};
+    use crate::slice1::{Slice1, slice1};
     use crate::vec1::Vec1;
+    use crate::vec1::harness::{self, xs1};
 
     #[rstest]
     fn vec1_from_vec_macro_eq_vec1_from_vec1_macro_by_rep_expr() {
