@@ -93,14 +93,14 @@
 //! This crate provides the following non-empty containers for slices and strings (depending on
 //! which [feature flags](#integrations-and-feature-flags) are enabled):
 //!
-//! - [`ArcSlice1`]
-//! - [`ArcStr1`]
-//! - [`BoxedSlice1`]
-//! - [`BoxedStr1`]
-//! - [`CowSlice1`]
-//! - [`CowStr1`]
-//! - [`RcSlice1`]
-//! - [`RcStr1`]
+//! - [`ArcSlice1`][`ArcSlice1Ext`]
+//! - [`ArcStr1`][`ArcStr1Ext`]
+//! - [`BoxedSlice1`][`BoxedSlice1Ext`]
+//! - [`BoxedStr1`][`BoxedStr1Ext`]
+//! - [`CowSlice1`][`CowSlice1Ext`]
+//! - [`CowStr1`][`CowStr1Ext`]
+//! - [`RcSlice1`][`RcSlice1Ext`]
+//! - [`RcStr1`][`RcStr1Ext`]
 //!
 //! Each of these type definitions has an accompanying extension trait for operations and
 //! conversions that take advantage of the non-empty guarantee. For example, [`ArcSlice1Ext`]
@@ -174,9 +174,9 @@
 //!
 //! A [`Segment`] is a view over a subset of a collection that can mutate both the items and
 //! topology of its target. This is somewhat similar to a mutable slice, but items can also be
-//! inserted and removed through a [`Segment`]. This crate implements segmentation for both
-//! standard and non-empty collections and is one of the most efficient ways to remove and drain
-//! items from non-empty collections.
+//! inserted and removed. This crate implements segmentation for both standard and non-empty
+//! collections and is one of the most efficient ways to remove and drain items from non-empty
+//! collections.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]
 #![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
@@ -188,7 +188,7 @@
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
 //!
-//! See the [`Segmentation`] trait.
+//! See the [`segment`] module.
 //!
 //! # Integrations and Feature Flags
 //!
@@ -213,16 +213,15 @@
 //! | `std`       | `alloc`      | Yes     | `std`         | Integrations with `std::io`.                              |
 //!
 //! [`Arc`]: alloc::sync::Arc
-//! [`ArcSlice1`]: crate::sync1::ArcSlice1
-//! [`ArcStr1`]: crate::sync1::ArcStr1
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
+//! [`ArcStr1Ext`]: crate::sync1::ArcStr1Ext
 //! [`Array1`]: crate::array1::Array1
 //! [`arbitrary`]: https://crates.io/crates/arbitrary
 //! [`arrayvec`]: https://crates.io/crates/arrayvec
-//! [`BoxedSlice1`]: crate::boxed1::BoxedSlice1
-//! [`BoxedStr1`]: crate::boxed1::BoxedStr1
-//! [`CowSlice1`]: crate::borrow1::CowSlice1
-//! [`CowStr1`]: crate::borrow1::CowStr1
+//! [`BoxedSlice1Ext`]: crate::boxed1::BoxedSlice1Ext
+//! [`BoxedStr1Ext`]: crate::boxed1::BoxedStr1Ext
+//! [`CowSlice1Ext`]: crate::borrow1::CowSlice1Ext
+//! [`CowStr1Ext`]: crate::borrow1::CowStr1Ext
 //! [`either`]: https://crates.io/crates/either
 //! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`Iterator1`]: crate::iter1::Iterator1
@@ -230,11 +229,11 @@
 //! [`itertools`]: https://crates.io/crates/itertools
 //! [`ParallelIterator1`]: crate::iter1::ParallelIterator1
 //! [`rayon`]: https://crates.io/crates/rayon
-//! [`RcSlice1`]: crate::rc1::RcSlice1
-//! [`RcStr1`]: crate::rc1::RcStr1
+//! [`RcSlice1Ext`]: crate::rc1::RcSlice1Ext
+//! [`RcStr1Ext`]: crate::rc1::RcStr1Ext
 //! [`schemars`]: https://crates.io/crates/schemars
+//! [`segment`]: crate::segment
 //! [`Segment`]: crate::segment::Segment
-//! [`Segmentation`]: crate::segment::Segmentation
 //! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`smallvec`]: https://crates.io/crates/smallvec
