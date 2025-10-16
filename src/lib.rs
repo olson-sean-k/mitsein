@@ -458,7 +458,7 @@ where
 
     /// # Safety
     ///
-    /// `items` must be non-empty. See [`MaybeEmpty::is_empty`].
+    /// `items` must be non-empty. See [`MaybeEmpty::cardinality`].
     unsafe fn from_maybe_empty_unchecked(items: T) -> Self;
 }
 
