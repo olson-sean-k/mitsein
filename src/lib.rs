@@ -339,13 +339,27 @@ pub mod vec_deque1;
 mod sealed {
     use crate::Cardinality;
 
+    /// A collection type that may be empty and can be adapted by [`NonEmpty`].
+    ///
     /// # Safety
     ///
     /// The implementation of this trait determines whether or not a collection or view is empty.
     /// This query is used to construct non-empty types, and an inconsistent implementation is
     /// unsound. In particular, it is unsound for [`MaybeEmpty::cardinality`] implementations to
-    /// return `Some` when `Self` is empty.
+    /// return [`Some`] when `Self` is empty.
+    ///
+    /// [`NonEmpty`]: crate::NonEmpty
     pub unsafe trait MaybeEmpty: Sized {
+        /// Gets the [cardinality][`Cardinality`] of the collection.
+        ///
+        /// The cardinality of a maybe-empty collection (e.g., [`Vec`]) describes the number of
+        /// items that it contains and is one of three things:
+        ///
+        /// - Zero (represented as [`None`]).
+        /// - One (represented as `Some(Cardinality::One(_))`).
+        /// - Many (represented as `Some(Cardinality::Many(_))`).
+        ///
+        /// [`Vec`]: alloc::vec::Vec
         fn cardinality(&self) -> Option<Cardinality<(), ()>>;
     }
 }
@@ -401,11 +415,18 @@ pub use take::TakeIfMany;
 
 const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
 
+/// Extension methods for [`MaybeEmpty`] types.
 trait MaybeEmptyExt: MaybeEmpty {
+    /// Applies a mapping function from `Self` to `T` if the collection is non-empty.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`EmptyError`] if `Self` is empty.
     fn map_non_empty<T, F>(self, f: F) -> Result<T, EmptyError<Self>>
     where
         F: FnOnce(Self) -> T;
 
+    /// Returns `true` if the collection is empty.
     fn is_empty(&self) -> bool;
 }
 
@@ -434,7 +455,12 @@ where
     }
 }
 
+/// Extension methods for [`NonZero`] types.
+///
+/// [`NonZero`]: core::num::NonZero
 trait NonZeroExt<T> {
+    /// Constructs a non-zero type by clamping the inner value to the range `1..`, effectively
+    /// mapping zero to one.
     fn clamped(n: T) -> Self;
 }
 
@@ -444,10 +470,16 @@ impl NonZeroExt<usize> for NonZeroUsize {
     }
 }
 
+/// Conversions from maybe-empty types to non-empty types.
 trait FromMaybeEmpty<T>: Sized
 where
     T: MaybeEmpty,
 {
+    /// Converts `items` into the non-empty type `Self` if `items` is non-empty.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`EmptyError`] if `items` is empty.
     fn try_from_maybe_empty(items: T) -> Result<Self, EmptyError<T>> {
         items.map_non_empty(|items| {
             // SAFETY: The `map_non_empty` function only executes this code if `items` is
@@ -456,12 +488,16 @@ where
         })
     }
 
+    /// Converts `items` into the non-empty type `Self` **without checking if `items` is
+    /// non-empty**.
+    ///
     /// # Safety
     ///
     /// `items` must be non-empty. See [`MaybeEmpty::cardinality`].
     unsafe fn from_maybe_empty_unchecked(items: T) -> Self;
 }
 
+/// An error in which a non-empty value is expected but an empty value is observed.
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct EmptyError<T> {
     items: T,
@@ -472,24 +508,29 @@ impl<T> EmptyError<T> {
         EmptyError { items }
     }
 
+    /// Converts the error into the empty value.
     pub fn into_empty(self) -> T {
         self.items
     }
 
+    /// Takes the empty value out of the error, returning it and a unit error.
     pub fn take(self) -> (T, EmptyError<()>) {
         (self.items, EmptyError::from_empty(()))
     }
 
+    /// Takes the empty value out of the error and immediately drops it, returning a unit error.
     pub fn take_and_drop(self) -> EmptyError<()> {
         EmptyError::from_empty(())
     }
 
+    /// Converts the error to a reference to the empty value.
     pub fn as_empty(&self) -> &T {
         &self.items
     }
 }
 
 impl<T> EmptyError<&'_ T> {
+    /// Maps the empty value from a borrowed type into its owned type.
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn into_owning(self) -> EmptyError<T::Owned>
@@ -514,6 +555,18 @@ impl<T> Display for EmptyError<T> {
 
 impl<T> Error for EmptyError<T> {}
 
+/// A collection or slice type that must contain one or more items (is never empty).
+///
+/// `NonEmpty` is an adapter that guarantees (barring unsafe code) that a collection or slice is
+/// non-empty and so has one or more items. For example, `NonEmpty<Vec<_>>` represents a non-empty
+/// [`Vec`] with APIs that reflect this non-empty guarantee.
+///
+/// Note that non-empty arrays and iterators are **not** represented with `NonEmpty`: see
+/// [`Array1`] and [`Iterator1`].
+///
+/// [`Array1`]: crate::array1::Array1
+/// [`Iterator1`]: crate::iter1::Iterator1
+/// [`Vec`]: alloc::vec::Vec
 #[cfg_attr(
     feature = "serde",
     derive(::serde_derive::Deserialize, ::serde_derive::Serialize)
@@ -543,6 +596,21 @@ impl<T> NonEmpty<T>
 where
     T: Sized,
 {
+    /// Applies a function `f` over a mutable reference to the inner maybe-empty collection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`EmptyError`] if the function `f` empties the inner value.
+    ///
+    /// # Examples
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = "```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// let xs = vec1![0i32, 1, 2, 3];
+    /// assert!(xs.and_then_try(|xs| xs.clear()).is_err());
+    #[doc = "```"]
     pub fn and_then_try<F>(self, f: F) -> Result<Self, EmptyError<T>>
     where
         // A bound on `FromMaybeEmpty` would be more direct, but that trait is not part of the
@@ -562,6 +630,7 @@ impl<T> NonEmpty<T>
 where
     T: MaybeEmpty + ?Sized,
 {
+    /// Gets the [cardinality][`Cardinality`] of the `NonEmpty`.
     fn cardinality(&self) -> Cardinality<(), ()> {
         match self.items.cardinality() {
             // SAFETY: `self.items` must be non-empty.
@@ -570,6 +639,7 @@ where
         }
     }
 
+    /// Gets a mutable reference to the adapted value as a [`Cardinality`].
     #[cfg(feature = "alloc")]
     fn as_cardinality_items_mut(&mut self) -> Cardinality<&mut T, &mut T> {
         match self.cardinality() {
@@ -658,13 +728,26 @@ where
     }
 }
 
+/// Non-empty cardinality.
+///
+/// `Cardinality` associates some arbitrary data with a non-empty cardinality: one or many. For
+/// some particular data types, cardinality determines specific behaviors, such as in
+/// [`OccupiedEntry`] APIs for [`BTreeMap1`].
+///
+/// [`BTreeMap1`]: crate::btree_map1::BTreeMap1
+/// [`OccupiedEntry`]: crate::btree_map1::OccupiedEntry
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Cardinality<O, M> {
+    /// Exactly one item.
     One(O),
+    /// More than one items.
     Many(M),
 }
 
 impl<O, M> Cardinality<O, M> {
+    /// Converts the cardinality into an `Option<O>`, discarding the [`Many`] value, if any.
+    ///
+    /// [`Many`]: crate::Cardinality::Many
     pub fn one(self) -> Option<O> {
         match self {
             Cardinality::One(one) => Some(one),
@@ -672,6 +755,9 @@ impl<O, M> Cardinality<O, M> {
         }
     }
 
+    /// Converts the cardinality into an `Option<M>`, discarding the [`One`] value, if any.
+    ///
+    /// [`One`]: crate::Cardinality::One
     pub fn many(self) -> Option<M> {
         match self {
             Cardinality::Many(many) => Some(many),
@@ -679,6 +765,10 @@ impl<O, M> Cardinality<O, M> {
         }
     }
 
+    /// Maps a `Cardinality<O, M>` to `Cardinality<U, M>` by applying a function to the [`One`]
+    /// value.
+    ///
+    /// [`One`]: crate::Cardinality::One
     pub fn map_one<U, F>(self, f: F) -> Cardinality<U, M>
     where
         F: FnOnce(O) -> U,
@@ -689,6 +779,10 @@ impl<O, M> Cardinality<O, M> {
         }
     }
 
+    /// Maps a `Cardinality<O, M>` to `Cardinality<O, U>` by applying a function to the [`Many`]
+    /// value.
+    ///
+    /// [`Many`]: crate::Cardinality::Many
     pub fn map_many<U, F>(self, f: F) -> Cardinality<O, U>
     where
         F: FnOnce(M) -> U,
@@ -701,6 +795,8 @@ impl<O, M> Cardinality<O, M> {
 }
 
 impl<T> Cardinality<T, T> {
+    /// Maps a `Cardinality<T, T>` to `Cardinality<U, U>` by applying a function to the inner
+    /// value.
     pub fn map<U, F>(self, f: F) -> Cardinality<U, U>
     where
         F: FnOnce(T) -> U,
