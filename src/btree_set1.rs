@@ -219,6 +219,33 @@ impl<T> BTreeSet1<T> {
         self.and_then_try(|items| items.retain(f))
     }
 
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ T>
+    where
+        T: Ord,
+        F: FnMut(&T) -> bool,
+    {
+        // Segmentation for relational collections can be expensive and involves very different
+        // tradeoffs for collections with many items and collections with large items. For this
+        // reason, the first item is filtered directly rather than using `tail` or `rtail` here.
+        let mut index = 0usize;
+        self.items.retain(|item| {
+            let is_retained = index == 0 || f(item);
+            index += 1;
+            is_retained
+        });
+        if self.len().get() == 1 {
+            let first = self.first();
+            if f(first) { None } else { Some(first) }
+        }
+        else {
+            if !f(self.first()) {
+                // The first item is **not** retained and there is more than one item.
+                self.pop_first_if_many().or_none();
+            }
+            None
+        }
+    }
+
     pub fn split_off_tail(&mut self) -> BTreeSet<T>
     where
         T: Clone + UnsafeOrd,
@@ -1308,6 +1335,40 @@ mod tests {
     use crate::segment::{Segmentation, Tail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
+
+    // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
+    //         allow access to the parameter beyond the scope of their bodies. (This is difficult
+    //         to achieve in this context.)
+    #[rstest]
+    #[case::ignore_and_retain(|_| true, (None, BTreeSet1::from([0, 1, 2, 3, 4])))]
+    #[case::ignore_and_do_not_retain(|_| false, (Some(0), BTreeSet1::from([0])))]
+    #[case::compare_and_retain_none(
+        |x: *const _| unsafe {
+            *x > 4
+        },
+        (Some(0), BTreeSet1::from([0])),
+    )]
+    #[case::compare_and_retain_some(
+        |x: *const _| unsafe {
+            *x < 3
+        },
+        (None, BTreeSet1::from([0, 1, 2])),
+    )]
+    fn retain_until_only_from_btree_set1_then_output_and_btree_set1_eq<F>(
+        mut xs1: BTreeSet1<u8>,
+        #[case] mut f: F,
+        #[case] expected: (Option<u8>, BTreeSet1<u8>),
+    ) where
+        F: FnMut(*const u8) -> bool,
+    {
+        // TODO: The type parameter `F` must be a `FnMut` over `*const u8` instead of `&u8` here,
+        //       because `rstest` constructs the case in a way that the `&u8` has a lifetime that
+        //       is too specific and too long (it would borrow the item beyond
+        //       `retain_until_only`). Is there a way to prevent this without introducing `*const
+        //       u8` and unsafe code in cases for `f`? If so, do that instead!
+        let x = xs1.retain_until_only(|x| f(x as *const u8)).copied();
+        assert_eq!((x, xs1), expected);
+    }
 
     #[rstest]
     #[case::empty_at_front(0..0, &[])]

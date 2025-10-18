@@ -229,6 +229,24 @@ impl<T> Vec1<T> {
         self.and_then_try(|items| items.retain(f))
     }
 
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ T>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.rtail().retain(|item| f(item));
+        if self.len().get() == 1 {
+            let last = self.last();
+            if f(last) { None } else { Some(last) }
+        }
+        else {
+            if !f(self.last()) {
+                // The last item is **not** retained and there is more than one item.
+                self.pop_if_many().or_none();
+            }
+            None
+        }
+    }
+
     pub fn reserve(&mut self, additional: usize) {
         self.items.reserve(additional)
     }
@@ -1457,6 +1475,40 @@ mod tests {
     #[rstest]
     fn vec1_from_vec_macro_eq_vec1_from_vec1_macro_by_expr_literal() {
         assert_eq!(Vec1::try_from(vec![0u8; 4]).unwrap(), vec1![0u8; 4]);
+    }
+
+    // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
+    //         allow access to the parameter beyond the scope of their bodies. (This is difficult
+    //         to achieve in this context.)
+    #[rstest]
+    #[case::ignore_and_retain(|_| true, (None, slice1![0, 1, 2, 3, 4]))]
+    #[case::ignore_and_do_not_retain(|_| false, (Some(4), slice1![4]))]
+    #[case::compare_and_retain_none(
+        |x: *const _| unsafe {
+            *x > 4
+        },
+        (Some(4), slice1![4]),
+    )]
+    #[case::compare_and_retain_some(
+        |x: *const _| unsafe {
+            *x < 3
+        },
+        (None, slice1![0, 1, 2]),
+    )]
+    fn retain_until_only_from_vec1_then_output_and_vec1_eq<F>(
+        mut xs1: Vec1<u8>,
+        #[case] mut f: F,
+        #[case] expected: (Option<u8>, &Slice1<u8>),
+    ) where
+        F: FnMut(*const u8) -> bool,
+    {
+        // TODO: The type parameter `F` must be a `FnMut` over `*const u8` instead of `&u8` here,
+        //       because `rstest` constructs the case in a way that the `&u8` has a lifetime that
+        //       is too specific and too long (it would borrow the item beyond
+        //       `retain_until_only`). Is there a way to prevent this without introducing `*const
+        //       u8` and unsafe code in cases for `f`? If so, do that instead!
+        let x = xs1.retain_until_only(|x| f(x as *const u8)).copied();
+        assert_eq!((x, xs1.as_slice1()), expected);
     }
 
     #[rstest]

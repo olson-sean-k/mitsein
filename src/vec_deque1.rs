@@ -213,6 +213,24 @@ impl<T> VecDeque1<T> {
         self.and_then_try(|items| items.retain(f))
     }
 
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ T>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.tail().retain(|item| f(item));
+        if self.len().get() == 1 {
+            let front = self.front();
+            if f(front) { None } else { Some(front) }
+        }
+        else {
+            if !f(self.front()) {
+                // The front item is **not** retained and there is more than one item.
+                self.pop_front_if_many().or_none();
+            }
+            None
+        }
+    }
+
     pub fn shrink_to(&mut self, capacity: usize) {
         self.items.shrink_to(capacity)
     }

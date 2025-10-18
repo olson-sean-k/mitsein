@@ -517,6 +517,39 @@ impl<K, V> BTreeMap1<K, V> {
         self.and_then_try(|items| items.retain(f))
     }
 
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<(&'_ K, &'_ V)>
+    where
+        K: Ord,
+        F: FnMut(&K, &V) -> bool,
+    {
+        // Segmentation for relational collections can be expensive and involves very different
+        // tradeoffs for collections with many items and collections with large items. For this
+        // reason, the first item is filtered directly rather than using `tail` or `rtail` here.
+        let mut index = 0usize;
+        self.items.retain(|key, value| {
+            let is_retained = index == 0 || f(key, &*value);
+            index += 1;
+            is_retained
+        });
+        if self.len().get() == 1 {
+            let (key, value) = self.first_key_value();
+            if f(key, value) {
+                None
+            }
+            else {
+                Some((key, value))
+            }
+        }
+        else {
+            let (key, value) = self.first_key_value();
+            if !f(key, value) {
+                // The first item is **not** retained and there is more than one item.
+                self.pop_first_if_many().or_none();
+            }
+            None
+        }
+    }
+
     pub fn split_off_tail(&mut self) -> BTreeMap<K, V>
     where
         K: Clone + UnsafeOrd,

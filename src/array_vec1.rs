@@ -337,6 +337,24 @@ where
         self.and_then_try(|items| items.retain(f))
     }
 
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ T>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.rtail().retain(|item| f(item));
+        if self.len().get() == 1 {
+            let last = self.last();
+            if f(last) { None } else { Some(last) }
+        }
+        else {
+            if !f(self.last()) {
+                // The last item is **not** retained and there is more than one item.
+                self.pop_if_many().or_none();
+            }
+            None
+        }
+    }
+
     pub fn try_extend_from_slice(&mut self, items: &[T]) -> Result<(), CapacityError>
     where
         T: Copy,
