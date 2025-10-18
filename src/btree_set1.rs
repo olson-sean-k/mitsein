@@ -1088,8 +1088,8 @@ impl<K, T> Tail for Segment<'_, K, Option<ItemRange<T>>>
 where
     K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
     // A `T: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
-    // constructed for a `BTreeSet1` via `SegmentedBy`, which has that bound. This means that there
-    // is no need to separate `Tail` implementations for `BTreeSet` and `BTreeSet1`.
+    // constructed for a `BTreeSet1` via `Query`, which has that bound. This means that there is no
+    // need to separate `Tail` implementations for `BTreeSet` and `BTreeSet1`.
     T: Clone + Ord,
 {
     type Range = Option<ItemRange<T>>;

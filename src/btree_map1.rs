@@ -1357,8 +1357,8 @@ impl<T, K, V> Tail for Segment<'_, T, Option<ItemRange<K>>>
 where
     T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
     // A `K: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
-    // constructed for a `BTreeMap1` via `SegmentedBy`, which has that bound. This means that there
-    // is no need to separate `Tail` implementations for `BTreeMap` and `BTreeMap1`.
+    // constructed for a `BTreeMap1` via `Query`, which has that bound. This means that there is no
+    // need to separate `Tail` implementations for `BTreeMap` and `BTreeMap1`.
     K: Clone + Ord,
 {
     type Range = Option<ItemRange<K>>;
