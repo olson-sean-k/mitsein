@@ -379,7 +379,7 @@ pub mod prelude {
     #[cfg(feature = "rayon")]
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
     #[cfg(any(feature = "arrayvec", feature = "alloc"))]
-    pub use crate::segment::{Segmentation, Tail};
+    pub use crate::segment::{Query, Tail};
     pub use crate::slice1::{Slice1, slice1};
     pub use crate::str1::Str1;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]

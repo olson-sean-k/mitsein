@@ -35,7 +35,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Intersect, Project, RangeError};
-use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
+use crate::segment::{self, Query, Segmentation, Tail};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -84,9 +84,7 @@ unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
     }
 }
 
-impl<T, S> Segmentation for IndexSet<T, S> {}
-
-impl<T, S, R> SegmentedBy<usize, R> for IndexSet<T, S>
+impl<T, S, R> Query<usize, R> for IndexSet<T, S>
 where
     R: RangeBounds<usize>,
 {
@@ -99,7 +97,7 @@ where
     }
 }
 
-impl<T, S> SegmentedOver for IndexSet<T, S> {
+impl<T, S> Segmentation for IndexSet<T, S> {
     type Kind = Self;
     type Target = Self;
 }
@@ -1183,9 +1181,7 @@ where
     }
 }
 
-impl<T, S> Segmentation for IndexSet1<T, S> {}
-
-impl<T, S, R> SegmentedBy<usize, R> for IndexSet1<T, S>
+impl<T, S, R> Query<usize, R> for IndexSet1<T, S>
 where
     R: RangeBounds<usize>,
 {
@@ -1198,7 +1194,7 @@ where
     }
 }
 
-impl<T, S> SegmentedOver for IndexSet1<T, S> {
+impl<T, S> Segmentation for IndexSet1<T, S> {
     type Kind = Self;
     type Target = IndexSet<T, S>;
 }
@@ -1257,7 +1253,7 @@ pub type Segment<'a, K> = segment::Segment<'a, K, IndexSet<ItemFor<K>, StateFor<
 //       for removing buckets. `IndexSet::swap_indices` can be used much like `slice::swap` here.
 impl<K, T, S> Segment<'_, K>
 where
-    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
 {
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
@@ -1325,7 +1321,7 @@ where
 
 impl<K, T, S> Segment<'_, K>
 where
-    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
     T: Eq + Hash,
     S: BuildHasher,
 {
@@ -1344,15 +1340,10 @@ where
     }
 }
 
-impl<K, T, S> Segmentation for Segment<'_, K> where
-    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>
-{
-}
-
-impl<K, T, S, R> SegmentedBy<usize, R> for Segment<'_, K>
+impl<K, T, S, R> Query<usize, R> for Segment<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
@@ -1366,7 +1357,7 @@ where
 
 impl<K, T, S> Tail for Segment<'_, K>
 where
-    K: ClosedIndexSet<Item = T, State = S> + SegmentedOver<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
 {
     type Range = IndexRange;
 

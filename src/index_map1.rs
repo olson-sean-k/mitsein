@@ -36,7 +36,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
+use crate::segment::{self, Query, Segmentation, Tail};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -89,9 +89,7 @@ unsafe impl<K, V, S> MaybeEmpty for IndexMap<K, V, S> {
     }
 }
 
-impl<K, V, S> Segmentation for IndexMap<K, V, S> {}
-
-impl<K, V, S, R> SegmentedBy<usize, R> for IndexMap<K, V, S>
+impl<K, V, S, R> Query<usize, R> for IndexMap<K, V, S>
 where
     R: RangeBounds<usize>,
 {
@@ -104,7 +102,7 @@ where
     }
 }
 
-impl<K, V, S> SegmentedOver for IndexMap<K, V, S> {
+impl<K, V, S> Segmentation for IndexMap<K, V, S> {
     type Kind = Self;
     type Target = Self;
 }
@@ -1555,9 +1553,7 @@ where
     }
 }
 
-impl<K, V, S> Segmentation for IndexMap1<K, V, S> {}
-
-impl<K, V, S, R> SegmentedBy<usize, R> for IndexMap1<K, V, S>
+impl<K, V, S, R> Query<usize, R> for IndexMap1<K, V, S>
 where
     R: RangeBounds<usize>,
 {
@@ -1570,7 +1566,7 @@ where
     }
 }
 
-impl<K, V, S> SegmentedOver for IndexMap1<K, V, S> {
+impl<K, V, S> Segmentation for IndexMap1<K, V, S> {
     type Kind = Self;
     type Target = IndexMap<K, V, S>;
 }
@@ -1600,7 +1596,7 @@ pub type Segment<'a, T> =
 
 impl<T, K, V, S> Segment<'_, T>
 where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
 {
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
@@ -1673,7 +1669,7 @@ where
 
 impl<T, K, V, S> Segment<'_, T>
 where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
     S: BuildHasher,
 {
     pub fn contains_key<Q>(&self, query: &Q) -> bool
@@ -1686,15 +1682,10 @@ where
     }
 }
 
-impl<T, K, V, S> Segmentation for Segment<'_, T> where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>
-{
-}
-
-impl<T, K, V, S, R> SegmentedBy<usize, R> for Segment<'_, T>
+impl<T, K, V, S, R> Query<usize, R> for Segment<'_, T>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
@@ -1707,7 +1698,7 @@ where
 
 impl<T, K, V, S> Tail for Segment<'_, T>
 where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + SegmentedOver<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
 {
     type Range = IndexRange;
 

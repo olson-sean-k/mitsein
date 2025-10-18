@@ -29,7 +29,7 @@ use crate::segment::range::{
     self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
     ResolveTrimRange, TrimRange, UnorderedError,
 };
-use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
+use crate::segment::{self, Query, Segmentation, Tail};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -94,9 +94,7 @@ where
     }
 }
 
-impl<T> Segmentation for BTreeSet<T> where T: Ord {}
-
-impl<T, R> SegmentedBy<T, R> for BTreeSet<T>
+impl<T, R> Query<T, R> for BTreeSet<T>
 where
     T: Ord,
     R: IntoRangeBounds<T>,
@@ -129,7 +127,7 @@ impl<T> Tail for BTreeSet<T> {
     }
 }
 
-impl<T> SegmentedOver for BTreeSet<T> {
+impl<T> Segmentation for BTreeSet<T> {
     type Kind = Self;
     type Target = Self;
 }
@@ -760,9 +758,7 @@ where
     }
 }
 
-impl<T> Segmentation for BTreeSet1<T> where T: Clone + UnsafeOrd {}
-
-impl<T, R> SegmentedBy<T, R> for BTreeSet1<T>
+impl<T, R> Query<T, R> for BTreeSet1<T>
 where
     T: UnsafeOrd,
     R: IntoRangeBounds<T>,
@@ -792,7 +788,7 @@ where
     }
 }
 
-impl<T> SegmentedOver for BTreeSet1<T> {
+impl<T> Segmentation for BTreeSet1<T> {
     type Kind = Self;
     type Target = BTreeSet<T>;
 }
@@ -900,7 +896,7 @@ pub type Segment<'a, K, R> = segment::Segment<'a, K, BTreeSet<ItemFor<K>>, R>;
 
 impl<K, T> Segment<'_, K, Option<ItemRange<ItemFor<K>>>>
 where
-    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
     T: Ord,
 {
     fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> bool
@@ -1090,7 +1086,7 @@ where
 
 impl<K, T> Tail for Segment<'_, K, Option<ItemRange<T>>>
 where
-    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
     // A `T: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
     // constructed for a `BTreeSet1` via `SegmentedBy`, which has that bound. This means that there
     // is no need to separate `Tail` implementations for `BTreeSet` and `BTreeSet1`.
@@ -1139,7 +1135,7 @@ where
 
 impl<'a, K, T> Segment<'a, K, TrimRange>
 where
-    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
     T: Ord,
 {
     pub fn by_item(self) -> Segment<'a, K, Option<ItemRange<T>>>
@@ -1288,7 +1284,7 @@ where
 
 impl<K, T> Tail for Segment<'_, K, TrimRange>
 where
-    K: ClosedBTreeSet<Item = T> + SegmentedOver<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
 {
     type Range = TrimRange;
 
@@ -1332,7 +1328,7 @@ mod tests {
     #[cfg(feature = "schemars")]
     use crate::schemars;
     use crate::segment::range::IntoRangeBounds;
-    use crate::segment::{Segmentation, Tail};
+    use crate::segment::{Query, Tail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
 
@@ -1378,15 +1374,15 @@ mod tests {
     #[case::middle(1..4, &[1, 2, 3])]
     #[case::tail(1.., &[1, 2, 3, 4])]
     #[case::rtail(..4, &[0, 1, 2, 3])]
-    fn collect_segment_iter_of_btree_set1_into_vec_then_eq<S>(
+    fn collect_segment_iter_of_btree_set1_into_vec_then_eq<R>(
         mut xs1: BTreeSet1<u8>,
-        #[case] segment: S,
+        #[case] range: R,
         #[case] expected: &[u8],
     ) where
-        S: IntoRangeBounds<u8>,
+        R: IntoRangeBounds<u8>,
     {
-        let segment = xs1.segment(segment).unwrap();
-        let xs: Vec<_> = segment.iter().copied().collect();
+        let xss = xs1.segment(range).unwrap();
+        let xs: Vec<_> = xss.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
     }
 
@@ -1398,8 +1394,8 @@ mod tests {
         #[case] mut xs1: BTreeSet1<u8>,
         #[case] expected: &[u8],
     ) {
-        let segment = xs1.tail();
-        let xs: Vec<_> = segment.iter().copied().collect();
+        let tail = xs1.tail();
+        let xs: Vec<_> = tail.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
     }
 
@@ -1411,8 +1407,8 @@ mod tests {
         #[case] mut xs1: BTreeSet1<u8>,
         #[case] expected: &[u8],
     ) {
-        let segment = xs1.rtail();
-        let xs: Vec<_> = segment.iter().copied().collect();
+        let rtail = xs1.rtail();
+        let xs: Vec<_> = rtail.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
     }
 
@@ -1467,13 +1463,13 @@ mod tests {
         #[case] mut xs1: BTreeSet1<u8>,
     ) {
         let expected = xs1.clone();
-        let mut segment = xs1.tail();
-        let mut segment = segment.tail();
-        let mut segment = segment.tail();
-        let mut segment = segment.rtail();
-        let mut segment = segment.rtail();
-        let mut segment = segment.rtail();
-        segment.clear();
+        let mut xss = xs1.tail();
+        let mut xss = xss.tail();
+        let mut xss = xss.tail();
+        let mut xss = xss.rtail();
+        let mut xss = xss.rtail();
+        let mut xss = xss.rtail();
+        xss.clear();
         assert_eq!(xs1, expected);
     }
 
@@ -1494,8 +1490,8 @@ mod tests {
     ) where
         R: IntoRangeBounds<u8>,
     {
-        let mut segment = xs1.segment(range).unwrap();
-        assert_eq!(segment.insert_in_range(item), expected);
+        let mut xss = xs1.segment(range).unwrap();
+        assert_eq!(xss.insert_in_range(item), expected);
     }
 
     #[cfg(feature = "schemars")]

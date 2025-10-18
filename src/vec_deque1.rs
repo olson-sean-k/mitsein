@@ -31,7 +31,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
+use crate::segment::{self, Query, Segmentation, Tail};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::vec1::Vec1;
@@ -75,9 +75,7 @@ unsafe impl<T> MaybeEmpty for VecDeque<T> {
     }
 }
 
-impl<T> Segmentation for VecDeque<T> {}
-
-impl<T, R> SegmentedBy<usize, R> for VecDeque<T>
+impl<T, R> Query<usize, R> for VecDeque<T>
 where
     R: RangeBounds<usize>,
 {
@@ -90,7 +88,7 @@ where
     }
 }
 
-impl<T> SegmentedOver for VecDeque<T> {
+impl<T> Segmentation for VecDeque<T> {
     type Kind = Self;
     type Target = Self;
 }
@@ -657,9 +655,7 @@ crate::impl_partial_eq_for_non_empty!([for U in &mut [U]] <= [for T in VecDeque1
 crate::impl_partial_eq_for_non_empty!([for U in Vec<U>] <= [for T in VecDeque1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in VecDeque<T>]);
 
-impl<T> Segmentation for VecDeque1<T> {}
-
-impl<T, R> SegmentedBy<usize, R> for VecDeque1<T>
+impl<T, R> Query<usize, R> for VecDeque1<T>
 where
     R: RangeBounds<usize>,
 {
@@ -672,7 +668,7 @@ where
     }
 }
 
-impl<T> SegmentedOver for VecDeque1<T> {
+impl<T> Segmentation for VecDeque1<T> {
     type Kind = Self;
     type Target = VecDeque<T>;
 }
@@ -728,7 +724,7 @@ pub type Segment<'a, K> = segment::Segment<'a, K, VecDeque<ItemFor<K>>, IndexRan
 
 impl<K, T> Segment<'_, K>
 where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
 {
     pub fn split_off(&mut self, at: usize) -> VecDeque<T> {
         let at = self
@@ -871,14 +867,14 @@ where
 
 impl<K, T> Eq for Segment<'_, K>
 where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
     T: Eq,
 {
 }
 
 impl<K, T> Extend<T> for Segment<'_, K>
 where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
 {
     fn extend<I>(&mut self, items: I)
     where
@@ -898,7 +894,7 @@ where
 
 impl<K, T> Ord for Segment<'_, K>
 where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
     T: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -908,7 +904,7 @@ where
 
 impl<K, T> PartialEq<Self> for Segment<'_, K>
 where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
     T: PartialEq<T>,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -918,7 +914,7 @@ where
 
 impl<K, T> PartialOrd<Self> for Segment<'_, K>
 where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
     T: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -926,15 +922,10 @@ where
     }
 }
 
-impl<K, T> Segmentation for Segment<'_, K> where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>
-{
-}
-
-impl<K, T, R> SegmentedBy<usize, R> for Segment<'_, K>
+impl<K, T, R> Query<usize, R> for Segment<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
@@ -947,7 +938,7 @@ where
 
 impl<K, T> Tail for Segment<'_, K>
 where
-    K: ClosedVecDeque<Item = T> + SegmentedOver<Target = VecDeque<T>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
 {
     type Range = IndexRange;
 
@@ -985,7 +976,7 @@ mod tests {
     use crate::iter1::IntoIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::{Segmentation, Tail};
+    use crate::segment::{Query, Tail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
@@ -1002,18 +993,18 @@ mod tests {
     #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 88, 42, 2, 3, 4])]
     #[case::one_into_non_empty(1..2, [42], slice1![0, 42, 1, 2, 3, 4])]
     #[case::many_into_non_empty(1..2, [42, 88], slice1![0, 88, 42, 1, 2, 3, 4])]
-    fn insert_front_into_vec_deque1_segment_then_vec_deque1_eq<S, T>(
+    fn insert_front_into_vec_deque1_segment_then_vec_deque1_eq<R, T>(
         mut xs1: VecDeque1<u8>,
-        #[case] segment: S,
+        #[case] range: R,
         #[case] items: T,
         #[case] expected: &Slice1<u8>,
     ) where
-        S: RangeBounds<usize>,
+        R: RangeBounds<usize>,
         T: IntoIterator1<Item = u8>,
     {
-        let mut segment = xs1.segment(segment).unwrap();
+        let mut xss = xs1.segment(range).unwrap();
         for item in items {
-            segment.insert_front(item);
+            xss.insert_front(item);
         }
         assert_eq!(xs1.make_contiguous(), expected);
     }
@@ -1027,18 +1018,18 @@ mod tests {
     #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
     #[case::one_into_non_empty(0..2, [42], slice1![0, 1, 42, 2, 3, 4])]
     #[case::many_into_non_empty(0..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
-    fn insert_back_into_vec_deque1_segment_then_vec_deque1_eq<S, T>(
+    fn insert_back_into_vec_deque1_segment_then_vec_deque1_eq<R, T>(
         mut xs1: VecDeque1<u8>,
-        #[case] segment: S,
+        #[case] range: R,
         #[case] items: T,
         #[case] expected: &Slice1<u8>,
     ) where
-        S: RangeBounds<usize>,
+        R: RangeBounds<usize>,
         T: IntoIterator1<Item = u8>,
     {
-        let mut segment = xs1.segment(segment).unwrap();
+        let mut xss = xs1.segment(range).unwrap();
         for item in items {
-            segment.insert_back(item);
+            xss.insert_back(item);
         }
         assert_eq!(xs1.make_contiguous(), expected);
     }
@@ -1080,14 +1071,14 @@ mod tests {
     #[case::tail(harness::xs1(3), 1.., slice1![0])]
     #[case::rtail(harness::xs1(3), ..3, slice1![3])]
     #[case::middle(harness::xs1(9), 4..8, slice1![0, 1, 2, 3, 8, 9])]
-    fn retain_none_from_vec_deque1_segment_then_vec_deque1_eq<S>(
+    fn retain_none_from_vec_deque1_segment_then_vec_deque1_eq<R>(
         #[case] mut xs1: VecDeque1<u8>,
-        #[case] segment: S,
+        #[case] range: R,
         #[case] expected: &Slice1<u8>,
     ) where
-        S: RangeBounds<usize>,
+        R: RangeBounds<usize>,
     {
-        xs1.segment(segment).unwrap().retain(|_| false);
+        xs1.segment(range).unwrap().retain(|_| false);
         assert_eq!(xs1.make_contiguous(), expected);
     }
 

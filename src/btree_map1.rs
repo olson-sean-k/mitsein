@@ -32,7 +32,7 @@ use crate::segment::range::{
     self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
     ResolveTrimRange, TrimRange, UnorderedError,
 };
-use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
+use crate::segment::{self, Query, Segmentation, Tail};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -101,9 +101,7 @@ where
     }
 }
 
-impl<K, V> Segmentation for BTreeMap<K, V> where K: Ord {}
-
-impl<K, V, R> SegmentedBy<K, R> for BTreeMap<K, V>
+impl<K, V, R> Query<K, R> for BTreeMap<K, V>
 where
     K: Ord,
     R: IntoRangeBounds<K>,
@@ -124,7 +122,7 @@ where
     }
 }
 
-impl<K, V> SegmentedOver for BTreeMap<K, V> {
+impl<K, V> Segmentation for BTreeMap<K, V> {
     type Kind = Self;
     type Target = Self;
 }
@@ -1061,9 +1059,7 @@ where
     }
 }
 
-impl<K, V> Segmentation for BTreeMap1<K, V> where K: UnsafeOrd {}
-
-impl<K, V, R> SegmentedBy<K, R> for BTreeMap1<K, V>
+impl<K, V, R> Query<K, R> for BTreeMap1<K, V>
 where
     K: UnsafeOrd,
     R: IntoRangeBounds<K>,
@@ -1093,7 +1089,7 @@ where
     }
 }
 
-impl<K, V> SegmentedOver for BTreeMap1<K, V> {
+impl<K, V> Segmentation for BTreeMap1<K, V> {
     type Kind = Self;
     type Target = BTreeMap<K, V>;
 }
@@ -1181,7 +1177,7 @@ pub type Segment<'a, T, R> = segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFo
 
 impl<T, K, V> Segment<'_, T, Option<ItemRange<K>>>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
     K: Ord,
 {
     fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<V>
@@ -1359,7 +1355,7 @@ impl<K, V> Segment<'_, BTreeMap1<K, V>, Option<ItemRange<K>>> {
 
 impl<T, K, V> Tail for Segment<'_, T, Option<ItemRange<K>>>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
     // A `K: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
     // constructed for a `BTreeMap1` via `SegmentedBy`, which has that bound. This means that there
     // is no need to separate `Tail` implementations for `BTreeMap` and `BTreeMap1`.
@@ -1410,7 +1406,7 @@ where
 
 impl<'a, T, K, V> Segment<'a, T, TrimRange>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
     K: Ord,
 {
     pub fn by_key(self) -> Segment<'a, T, Option<ItemRange<K>>>
@@ -1540,7 +1536,7 @@ where
 
 impl<T, K, V> Tail for Segment<'_, T, TrimRange>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + SegmentedOver<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
 {
     type Range = TrimRange;
@@ -1587,7 +1583,7 @@ mod tests {
     #[cfg(feature = "schemars")]
     use crate::schemars;
     use crate::segment::range::IntoRangeBounds;
-    use crate::segment::{Segmentation, Tail};
+    use crate::segment::{Query, Tail};
     #[cfg(feature = "serde")]
     use crate::{
         btree_map1::harness::xs1,
@@ -1645,13 +1641,13 @@ mod tests {
         #[case] mut xs1: BTreeMap1<u8, char>,
     ) {
         let expected = xs1.clone();
-        let mut segment = xs1.tail();
-        let mut segment = segment.tail();
-        let mut segment = segment.tail();
-        let mut segment = segment.rtail();
-        let mut segment = segment.rtail();
-        let mut segment = segment.rtail();
-        segment.clear();
+        let mut xss = xs1.tail();
+        let mut xss = xss.tail();
+        let mut xss = xss.tail();
+        let mut xss = xss.rtail();
+        let mut xss = xss.rtail();
+        let mut xss = xss.rtail();
+        xss.clear();
         assert_eq!(xs1, expected);
     }
 
@@ -1672,8 +1668,8 @@ mod tests {
     ) where
         R: IntoRangeBounds<u8>,
     {
-        let mut segment = xs1.segment(range).unwrap();
-        assert_eq!(segment.insert_in_range(key, VALUE), expected);
+        let mut xss = xs1.segment(range).unwrap();
+        assert_eq!(xss.insert_in_range(key, VALUE), expected);
     }
 
     #[cfg(feature = "schemars")]

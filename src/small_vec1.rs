@@ -27,7 +27,7 @@ use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
+use crate::segment::{self, Query, Segmentation, Tail};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::vec1::Vec1;
@@ -79,9 +79,7 @@ where
     }
 }
 
-impl<A> Segmentation for SmallVec<A> where A: Array {}
-
-impl<A, R> SegmentedBy<usize, R> for SmallVec<A>
+impl<A, R> Query<usize, R> for SmallVec<A>
 where
     A: Array,
     R: RangeBounds<usize>,
@@ -95,7 +93,7 @@ where
     }
 }
 
-impl<A> SegmentedOver for SmallVec<A>
+impl<A> Segmentation for SmallVec<A>
 where
     A: Array,
 {
@@ -771,9 +769,7 @@ where
     }
 }
 
-impl<A> Segmentation for SmallVec1<A> where A: Array {}
-
-impl<A, R> SegmentedBy<usize, R> for SmallVec1<A>
+impl<A, R> Query<usize, R> for SmallVec1<A>
 where
     A: Array,
     R: RangeBounds<usize>,
@@ -787,7 +783,7 @@ where
     }
 }
 
-impl<A> SegmentedOver for SmallVec1<A>
+impl<A> Segmentation for SmallVec1<A>
 where
     A: Array,
 {
@@ -867,7 +863,7 @@ pub type Segment<'a, K> = segment::Segment<'a, K, SmallVec<ArrayFor<K>>, IndexRa
 
 impl<K, A, T> Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     pub fn resize(&mut self, len: usize, fill: T)
@@ -1004,7 +1000,7 @@ where
 
 impl<K, A, T> AsMut<[T]> for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn as_mut(&mut self) -> &mut [T] {
@@ -1014,7 +1010,7 @@ where
 
 impl<K, A, T> AsRef<[T]> for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn as_ref(&self) -> &[T] {
@@ -1024,7 +1020,7 @@ where
 
 impl<K, A, T> Borrow<[T]> for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn borrow(&self) -> &[T] {
@@ -1034,7 +1030,7 @@ where
 
 impl<K, A, T> BorrowMut<[T]> for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
@@ -1044,7 +1040,7 @@ where
 
 impl<K, A, T> Deref for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     type Target = [T];
@@ -1056,7 +1052,7 @@ where
 
 impl<K, A, T> DerefMut for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -1066,7 +1062,7 @@ where
 
 impl<K, A, T> Eq for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
     T: Eq,
 {
@@ -1074,7 +1070,7 @@ where
 
 impl<K, A, T> Extend<T> for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn extend<I>(&mut self, items: I)
@@ -1094,7 +1090,7 @@ where
 
 impl<K, A, T> Ord for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
     T: Ord,
 {
@@ -1105,8 +1101,8 @@ where
 
 impl<'a, KT, KU, AT, AU, T, U> PartialEq<Segment<'a, KU>> for Segment<'a, KT>
 where
-    KT: ClosedSmallVec<Array = AT> + SegmentedOver<Target = SmallVec<AT>>,
-    KU: ClosedSmallVec<Array = AU> + SegmentedOver<Target = SmallVec<AU>>,
+    KT: ClosedSmallVec<Array = AT> + Segmentation<Target = SmallVec<AT>>,
+    KU: ClosedSmallVec<Array = AU> + Segmentation<Target = SmallVec<AU>>,
     AT: Array<Item = T>,
     AU: Array<Item = U>,
     T: PartialEq<U>,
@@ -1118,7 +1114,7 @@ where
 
 impl<K, A, T> PartialOrd<Self> for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
     T: PartialOrd<T>,
 {
@@ -1127,17 +1123,10 @@ where
     }
 }
 
-impl<K, A> Segmentation for Segment<'_, K>
-where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
-    A: Array,
-{
-}
-
-impl<K, A, T, R> SegmentedBy<usize, R> for Segment<'_, K>
+impl<K, A, T, R> Query<usize, R> for Segment<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array<Item = T>,
     R: RangeBounds<usize>,
 {
@@ -1151,7 +1140,7 @@ where
 
 impl<K, A> Tail for Segment<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + SegmentedOver<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
     A: Array,
 {
     type Range = IndexRange;

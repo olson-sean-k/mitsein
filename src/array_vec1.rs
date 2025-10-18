@@ -30,7 +30,7 @@ use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, Segmentation, SegmentedBy, SegmentedOver, Tail};
+use crate::segment::{self, Query, Segmentation, Tail};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -93,9 +93,7 @@ unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
     }
 }
 
-impl<T, const N: usize> Segmentation for ArrayVec<T, N> {}
-
-impl<T, R, const N: usize> SegmentedBy<usize, R> for ArrayVec<T, N>
+impl<T, R, const N: usize> Query<usize, R> for ArrayVec<T, N>
 where
     R: RangeBounds<usize>,
 {
@@ -108,7 +106,7 @@ where
     }
 }
 
-impl<T, const N: usize> SegmentedOver for ArrayVec<T, N> {
+impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
     type Kind = Self;
     type Target = Self;
 }
@@ -730,9 +728,7 @@ where
     }
 }
 
-impl<T, const N: usize> Segmentation for ArrayVec1<T, N> where [T; N]: Array1 {}
-
-impl<T, R, const N: usize> SegmentedBy<usize, R> for ArrayVec1<T, N>
+impl<T, R, const N: usize> Query<usize, R> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
     R: RangeBounds<usize>,
@@ -746,7 +742,7 @@ where
     }
 }
 
-impl<T, const N: usize> SegmentedOver for ArrayVec1<T, N>
+impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
@@ -830,7 +826,7 @@ pub type Segment<'a, K, const N: usize> =
 
 impl<K, T, const N: usize> Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
@@ -937,7 +933,7 @@ where
 
 impl<K, T, const N: usize> AsMut<[T]> for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     fn as_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
@@ -946,7 +942,7 @@ where
 
 impl<K, T, const N: usize> AsRef<[T]> for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     fn as_ref(&self) -> &[T] {
         self.as_slice()
@@ -955,7 +951,7 @@ where
 
 impl<K, T, const N: usize> Borrow<[T]> for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     fn borrow(&self) -> &[T] {
         self.as_slice()
@@ -964,7 +960,7 @@ where
 
 impl<K, T, const N: usize> BorrowMut<[T]> for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
@@ -973,7 +969,7 @@ where
 
 impl<K, T, const N: usize> Deref for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     type Target = [T];
 
@@ -984,7 +980,7 @@ where
 
 impl<K, T, const N: usize> DerefMut for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
@@ -993,14 +989,14 @@ where
 
 impl<K, T, const N: usize> Eq for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
     T: Eq,
 {
 }
 
 impl<K, T, const N: usize> Extend<T> for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     fn extend<I>(&mut self, items: I)
     where
@@ -1019,7 +1015,7 @@ where
 
 impl<K, T, const N: usize> Ord for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
     T: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -1029,7 +1025,7 @@ where
 
 impl<K, T, const N: usize> PartialEq<Self> for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
     T: PartialEq<T>,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -1039,7 +1035,7 @@ where
 
 impl<K, T, const N: usize> PartialOrd<Self> for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
     T: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -1047,15 +1043,10 @@ where
     }
 }
 
-impl<K, T, const N: usize> Segmentation for Segment<'_, K, N> where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>
-{
-}
-
-impl<K, T, R, const N: usize> SegmentedBy<usize, R> for Segment<'_, K, N>
+impl<K, T, R, const N: usize> Query<usize, R> for Segment<'_, K, N>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
@@ -1068,7 +1059,7 @@ where
 
 impl<K, T, const N: usize> Tail for Segment<'_, K, N>
 where
-    K: ClosedArrayVec<N, Item = T> + SegmentedOver<Target = ArrayVec<T, N>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
 {
     type Range = IndexRange;
 
