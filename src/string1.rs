@@ -12,7 +12,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::mem;
 use core::num::NonZeroUsize;
-use core::ops::{Deref, DerefMut, Index, IndexMut};
+use core::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut};
 use core::slice::SliceIndex;
 #[cfg(feature = "schemars")]
 use schemars::{JsonSchema, Schema, SchemaGenerator};
@@ -26,6 +26,21 @@ use crate::str1::Str1;
 use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+
+impl Add<&Str1> for String {
+    type Output = String;
+
+    fn add(mut self, rhs: &Str1) -> Self::Output {
+        self.push_str(rhs);
+        self
+    }
+}
+
+impl AddAssign<&Str1> for String {
+    fn add_assign(&mut self, rhs: &Str1) {
+        self.push_str(rhs);
+    }
+}
 
 impl<'a> Extend<&'a Str1> for String {
     fn extend<I>(&mut self, items: I)
@@ -312,6 +327,36 @@ impl String1 {
 
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.items.as_mut_ptr()
+    }
+}
+
+impl Add<&str> for String1 {
+    type Output = String1;
+
+    fn add(mut self, rhs: &str) -> Self::Output {
+        self.push_str(rhs);
+        self
+    }
+}
+
+impl Add<&Str1> for String1 {
+    type Output = String1;
+
+    fn add(mut self, rhs: &Str1) -> Self::Output {
+        self.push_str(rhs);
+        self
+    }
+}
+
+impl AddAssign<&str> for String1 {
+    fn add_assign(&mut self, rhs: &str) {
+        self.push_str(rhs);
+    }
+}
+
+impl AddAssign<&Str1> for String1 {
+    fn add_assign(&mut self, rhs: &Str1) {
+        self.push_str(rhs);
     }
 }
 
