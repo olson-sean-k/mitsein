@@ -740,7 +740,7 @@ where
 pub enum Cardinality<O, M> {
     /// Exactly one item.
     One(O),
-    /// More than one items.
+    /// More than one item.
     Many(M),
 }
 

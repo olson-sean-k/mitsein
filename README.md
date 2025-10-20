@@ -113,7 +113,7 @@ assert_eq!(xs.as_slice(), &[1i32, 3, 4]);
 
 Non-empty slice APIs enable borrowing and copy-on-write, so Mitsein supports
 the standard `Cow` type, unlike many other non-empty implementations like the
-[`nonempty`] and [`vec1`] crates. Extension traits provide seemless conversions
+[`nonempty`] and [`vec1`] crates. Extension traits provide seamless conversions
 for these types.
 
 ```rust
