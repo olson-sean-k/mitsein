@@ -205,6 +205,16 @@ impl<T> BTreeSet1<T> {
         iter1::tail_and_head(tail, head).collect1()
     }
 
+    pub fn try_from_ref(items: &BTreeSet<T>) -> Result<&'_ Self, EmptyError<&'_ BTreeSet<T>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut BTreeSet<T>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut BTreeSet<T>>> {
+        items.try_into()
+    }
+
     pub fn into_btree_set(self) -> BTreeSet<T> {
         self.items
     }
@@ -832,6 +842,22 @@ impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
     type Error = EmptyError<BTreeSet<T>>;
 
     fn try_from(items: BTreeSet<T>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T> TryFrom<&'a BTreeSet<T>> for &'a BTreeSet1<T> {
+    type Error = EmptyError<&'a BTreeSet<T>>;
+
+    fn try_from(items: &'a BTreeSet<T>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T> TryFrom<&'a mut BTreeSet<T>> for &'a mut BTreeSet1<T> {
+    type Error = EmptyError<&'a mut BTreeSet<T>>;
+
+    fn try_from(items: &'a mut BTreeSet<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

@@ -702,6 +702,18 @@ impl<K, V, S> IndexMap1<K, V, S> {
         unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
+    pub fn try_from_ref(
+        items: &IndexMap<K, V, S>,
+    ) -> Result<&'_ Self, EmptyError<&'_ IndexMap<K, V, S>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut IndexMap<K, V, S>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut IndexMap<K, V, S>>> {
+        items.try_into()
+    }
+
     pub fn into_index_map(self) -> IndexMap<K, V, S> {
         self.items
     }
@@ -1587,6 +1599,22 @@ impl<K, V, S> TryFrom<IndexMap<K, V, S>> for IndexMap1<K, V, S> {
     type Error = EmptyError<IndexMap<K, V, S>>;
 
     fn try_from(items: IndexMap<K, V, S>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, K, V, S> TryFrom<&'a IndexMap<K, V, S>> for &'a IndexMap1<K, V, S> {
+    type Error = EmptyError<&'a IndexMap<K, V, S>>;
+
+    fn try_from(items: &'a IndexMap<K, V, S>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, K, V, S> TryFrom<&'a mut IndexMap<K, V, S>> for &'a mut IndexMap1<K, V, S> {
+    type Error = EmptyError<&'a mut IndexMap<K, V, S>>;
+
+    fn try_from(items: &'a mut IndexMap<K, V, S>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

@@ -195,6 +195,16 @@ impl<T> Vec1<T> {
         iter1::tail_and_head(tail, head).collect1()
     }
 
+    pub fn try_from_ref(items: &Vec<T>) -> Result<&'_ Self, EmptyError<&'_ Vec<T>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut Vec<T>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut Vec<T>>> {
+        items.try_into()
+    }
+
     pub fn into_head_and_tail(mut self) -> (T, Vec<T>) {
         let head = self.items.remove(0);
         (head, self.items)
@@ -873,6 +883,22 @@ impl<T> TryFrom<Vec<T>> for Vec1<T> {
     type Error = EmptyError<Vec<T>>;
 
     fn try_from(items: Vec<T>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T> TryFrom<&'a Vec<T>> for &'a Vec1<T> {
+    type Error = EmptyError<&'a Vec<T>>;
+
+    fn try_from(items: &'a Vec<T>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T> TryFrom<&'a mut Vec<T>> for &'a mut Vec1<T> {
+    type Error = EmptyError<&'a mut Vec<T>>;
+
+    fn try_from(items: &'a mut Vec<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

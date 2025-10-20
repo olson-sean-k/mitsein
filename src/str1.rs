@@ -30,7 +30,7 @@ use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedStr1, crate::string1::String1};
 
-unsafe impl MaybeEmpty for &'_ str {
+unsafe impl MaybeEmpty for str {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         // Unlike other containers, the items (bytes) in UTF-8 encoded strings are incongruent with
         // the items manipulated by insertions and removals: code points (`char`s). Cardinality is
@@ -42,12 +42,6 @@ unsafe impl MaybeEmpty for &'_ str {
             1 => Some(Cardinality::One(())),
             _ => Some(Cardinality::Many(())),
         }
-    }
-}
-
-unsafe impl MaybeEmpty for &'_ mut str {
-    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
-        (&**self).cardinality()
     }
 }
 

@@ -200,6 +200,16 @@ impl<T> VecDeque1<T> {
         iter1::tail_and_head(tail, head).collect1()
     }
 
+    pub fn try_from_ref(items: &VecDeque<T>) -> Result<&'_ Self, EmptyError<&'_ VecDeque<T>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut VecDeque<T>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut VecDeque<T>>> {
+        items.try_into()
+    }
+
     pub fn into_vec_deque(self) -> VecDeque<T> {
         self.items
     }
@@ -689,6 +699,22 @@ impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
     type Error = EmptyError<VecDeque<T>>;
 
     fn try_from(items: VecDeque<T>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T> TryFrom<&'a VecDeque<T>> for &'a VecDeque1<T> {
+    type Error = EmptyError<&'a VecDeque<T>>;
+
+    fn try_from(items: &'a VecDeque<T>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T> TryFrom<&'a mut VecDeque<T>> for &'a mut VecDeque1<T> {
+    type Error = EmptyError<&'a mut VecDeque<T>>;
+
+    fn try_from(items: &'a mut VecDeque<T>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

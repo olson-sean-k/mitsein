@@ -493,6 +493,18 @@ impl<K, V> BTreeMap1<K, V> {
         iter1::tail_and_head(tail, head).collect1()
     }
 
+    pub fn try_from_ref(
+        items: &BTreeMap<K, V>,
+    ) -> Result<&'_ Self, EmptyError<&'_ BTreeMap<K, V>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut BTreeMap<K, V>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut BTreeMap<K, V>>> {
+        items.try_into()
+    }
+
     pub fn into_btree_map(self) -> BTreeMap<K, V> {
         self.items
     }
@@ -1113,6 +1125,22 @@ impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
     type Error = EmptyError<BTreeMap<K, V>>;
 
     fn try_from(items: BTreeMap<K, V>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, K, V> TryFrom<&'a BTreeMap<K, V>> for &'a BTreeMap1<K, V> {
+    type Error = EmptyError<&'a BTreeMap<K, V>>;
+
+    fn try_from(items: &'a BTreeMap<K, V>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, K, V> TryFrom<&'a mut BTreeMap<K, V>> for &'a mut BTreeMap1<K, V> {
+    type Error = EmptyError<&'a mut BTreeMap<K, V>>;
+
+    fn try_from(items: &'a mut BTreeMap<K, V>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

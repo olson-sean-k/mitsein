@@ -239,6 +239,18 @@ impl<T, S> IndexSet1<T, S> {
         unsafe { FromMaybeEmpty::from_maybe_empty_unchecked(items) }
     }
 
+    pub fn try_from_ref(
+        items: &IndexSet<T, S>,
+    ) -> Result<&'_ Self, EmptyError<&'_ IndexSet<T, S>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut IndexSet<T, S>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut IndexSet<T, S>>> {
+        items.try_into()
+    }
+
     pub fn into_index_set(self) -> IndexSet<T, S> {
         self.items
     }
@@ -1242,6 +1254,22 @@ impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
     type Error = EmptyError<IndexSet<T, S>>;
 
     fn try_from(items: IndexSet<T, S>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T, S> TryFrom<&'a IndexSet<T, S>> for &'a IndexSet1<T, S> {
+    type Error = EmptyError<&'a IndexSet<T, S>>;
+
+    fn try_from(items: &'a IndexSet<T, S>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T, S> TryFrom<&'a mut IndexSet<T, S>> for &'a mut IndexSet1<T, S> {
+    type Error = EmptyError<&'a mut IndexSet<T, S>>;
+
+    fn try_from(items: &'a mut IndexSet<T, S>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

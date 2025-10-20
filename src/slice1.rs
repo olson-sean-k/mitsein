@@ -23,19 +23,13 @@ use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 
-unsafe impl<T> MaybeEmpty for &'_ [T] {
+unsafe impl<T> MaybeEmpty for [T] {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         match self.len() {
             0 => None,
             1 => Some(Cardinality::One(())),
             _ => Some(Cardinality::Many(())),
         }
-    }
-}
-
-unsafe impl<T> MaybeEmpty for &'_ mut [T] {
-    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
-        (&**self).cardinality()
     }
 }
 

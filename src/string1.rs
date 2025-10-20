@@ -164,6 +164,16 @@ impl String1 {
         String::with_capacity(capacity).extend_non_empty(items)
     }
 
+    pub fn try_from_ref(items: &String) -> Result<&'_ Self, EmptyError<&'_ String>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut String,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut String>> {
+        items.try_into()
+    }
+
     pub fn from_utf8(items: Vec1<u8>) -> Result<Self, FromUtf8Error> {
         // SAFETY: `items` is non-empty and `String::from_utf8` checks for valid UTF-8, so there
         //         must be one or more code points.
@@ -629,6 +639,22 @@ impl TryFrom<String> for String1 {
     type Error = EmptyError<String>;
 
     fn try_from(items: String) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a> TryFrom<&'a String> for &'a String1 {
+    type Error = EmptyError<&'a String>;
+
+    fn try_from(items: &'a String) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a> TryFrom<&'a mut String> for &'a mut String1 {
+    type Error = EmptyError<&'a mut String>;
+
+    fn try_from(items: &'a mut String) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

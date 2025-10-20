@@ -298,6 +298,18 @@ where
         iter1::tail_and_head(tail, head).collect1()
     }
 
+    pub fn try_from_ref(
+        items: &ArrayVec<T, N>,
+    ) -> Result<&'_ Self, EmptyError<&'_ ArrayVec<T, N>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut ArrayVec<T, N>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut ArrayVec<T, N>>> {
+        items.try_into()
+    }
+
     pub fn into_head_and_tail(mut self) -> (T, ArrayVec<T, N>) {
         let head = self.items.remove(0);
         (head, self.items)
@@ -800,6 +812,28 @@ where
     type Error = EmptyError<ArrayVec<T, N>>;
 
     fn try_from(items: ArrayVec<T, N>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T, const N: usize> TryFrom<&'a ArrayVec<T, N>> for &'a ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    type Error = EmptyError<&'a ArrayVec<T, N>>;
+
+    fn try_from(items: &'a ArrayVec<T, N>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, T, const N: usize> TryFrom<&'a mut ArrayVec<T, N>> for &'a mut ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    type Error = EmptyError<&'a mut ArrayVec<T, N>>;
+
+    fn try_from(items: &'a mut ArrayVec<T, N>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

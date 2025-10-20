@@ -339,7 +339,7 @@ pub mod vec_deque1;
 mod sealed {
     use crate::Cardinality;
 
-    /// A collection type that may be empty and can be adapted by [`NonEmpty`].
+    /// A collection or slice type that may be empty and can be adapted by [`NonEmpty`].
     ///
     /// # Safety
     ///
@@ -349,7 +349,7 @@ mod sealed {
     /// return [`Some`] when `Self` is empty.
     ///
     /// [`NonEmpty`]: crate::NonEmpty
-    pub unsafe trait MaybeEmpty: Sized {
+    pub unsafe trait MaybeEmpty {
         /// Gets the [cardinality][`Cardinality`] of the collection.
         ///
         /// The cardinality of a maybe-empty collection (e.g., [`Vec`]) describes the number of
@@ -361,6 +361,24 @@ mod sealed {
         ///
         /// [`Vec`]: alloc::vec::Vec
         fn cardinality(&self) -> Option<Cardinality<(), ()>>;
+    }
+
+    unsafe impl<T> MaybeEmpty for &'_ T
+    where
+        T: MaybeEmpty + ?Sized,
+    {
+        fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+            <T as MaybeEmpty>::cardinality(*self)
+        }
+    }
+
+    unsafe impl<T> MaybeEmpty for &'_ mut T
+    where
+        T: MaybeEmpty + ?Sized,
+    {
+        fn cardinality(&self) -> Option<Cardinality<(), ()>> {
+            <T as MaybeEmpty>::cardinality(*self)
+        }
     }
 }
 use crate::sealed::*;
@@ -424,6 +442,7 @@ trait MaybeEmptyExt: MaybeEmpty {
     /// Returns an [`EmptyError`] if `Self` is empty.
     fn map_non_empty<T, F>(self, f: F) -> Result<T, EmptyError<Self>>
     where
+        Self: Sized,
         F: FnOnce(Self) -> T;
 
     /// Returns `true` if the collection is empty.
@@ -440,6 +459,7 @@ where
 {
     fn map_non_empty<U, F>(self, f: F) -> Result<U, EmptyError<Self>>
     where
+        Self: Sized,
         F: FnOnce(Self) -> U,
     {
         if self.is_empty() {
@@ -473,7 +493,7 @@ impl NonZeroExt<usize> for NonZeroUsize {
 /// Conversions from maybe-empty types to non-empty types.
 trait FromMaybeEmpty<T>: Sized
 where
-    T: MaybeEmpty,
+    T: MaybeEmpty + Sized,
 {
     /// Converts `items` into the non-empty type `Self` if `items` is non-empty.
     ///

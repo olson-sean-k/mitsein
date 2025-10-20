@@ -216,6 +216,16 @@ where
         iter1::tail_and_head(tail, head).collect1()
     }
 
+    pub fn try_from_ref(items: &SmallVec<A>) -> Result<&'_ Self, EmptyError<&'_ SmallVec<A>>> {
+        items.try_into()
+    }
+
+    pub fn try_from_mut_ref(
+        items: &mut SmallVec<A>,
+    ) -> Result<&'_ mut Self, EmptyError<&'_ mut SmallVec<A>>> {
+        items.try_into()
+    }
+
     pub fn into_head_and_tail(mut self) -> (T, SmallVec<A>) {
         let head = self.items.remove(0);
         (head, self.items)
@@ -825,6 +835,28 @@ where
     type Error = EmptyError<SmallVec<A>>;
 
     fn try_from(items: SmallVec<A>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, A> TryFrom<&'a SmallVec<A>> for &'a SmallVec1<A>
+where
+    A: Array,
+{
+    type Error = EmptyError<&'a SmallVec<A>>;
+
+    fn try_from(items: &'a SmallVec<A>) -> Result<Self, Self::Error> {
+        FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+impl<'a, A> TryFrom<&'a mut SmallVec<A>> for &'a mut SmallVec1<A>
+where
+    A: Array,
+{
+    type Error = EmptyError<&'a mut SmallVec<A>>;
+
+    fn try_from(items: &'a mut SmallVec<A>) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
     }
 }

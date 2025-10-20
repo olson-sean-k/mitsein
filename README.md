@@ -137,6 +137,20 @@ constructor, so the representation of a non-empty collection is always exactly
 the same as its counterpart. For example, `Vec1<T>` is a type definition for
 `NonEmpty<Vec<T>>` and has the same representation as `Vec<T>`.
 
+This representation also supports conversions through references. For example,
+`&mut Vec<T>` can be fallibly converted into `&mut Vec1<T>`, so ownership of a
+maybe-empty collection is not necessary for interacting with it through
+non-empty APIs.
+
+```rust
+use mitsein::prelude::*;
+
+let mut xs = vec![0i32, 1, 2, 3, 4];
+let xs1 = Vec1::try_from_mut_ref(&mut xs).unwrap();
+xs1.tail().clear();
+assert_eq!(xs.as_slice(), &[0]);
+```
+
 ### Explicitness
 
 Non-empty collection APIs that exhibit different behavior from their
