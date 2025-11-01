@@ -73,9 +73,11 @@ where
 
 unsafe impl<K, V> MaybeEmpty for BTreeMap<K, V> {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
-        // `BTreeMap::len` is reliable even in the face of a non-conformant `Ord` implementation.
-        // The `BTreeMap1` implementation relies on this to maintain its non-empty invariant
-        // without bounds on `UnsafeOrd`.
+        // SAFETY: This implementation is critical to memory safety. `BTreeMap::len` is reliable
+        //         here, because it does not break the contract by returning a non-zero value for
+        //         an empty map, even if the `Eq` or `Ord` implementations for `K` are
+        //         non-compliant. This is why `BTreeMap1` APIs do not require `K: UnsafeOrd`
+        //         bounds (unlike segments, which rely on consistently isolating a range).
         match self.len() {
             0 => None,
             1 => Some(Cardinality::One(())),

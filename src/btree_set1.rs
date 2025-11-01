@@ -66,9 +66,11 @@ where
 
 unsafe impl<T> MaybeEmpty for BTreeSet<T> {
     fn cardinality(&self) -> Option<crate::Cardinality<(), ()>> {
-        // `BTreeSet::len` is reliable even in the face of a non-conformant `Ord` implementation.
-        // The `BTreeSet1` implementation relies on this to maintain its non-empty invariant
-        // without bounds on `UnsafeOrd`.
+        // SAFETY: This implementation is critical to memory safety. `BTreeSet::len` is reliable
+        //         here, because it does not break the contract by returning a non-zero value for
+        //         an empty set, even if the `Eq` or `Ord` implementations for `T` are
+        //         non-compliant. This is why `BTreeSet1` APIs do not require `T: UnsafeOrd`
+        //         bounds (unlike segments, which rely on consistently isolating a range).
         match self.len() {
             0 => None,
             1 => Some(crate::Cardinality::One(())),

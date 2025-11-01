@@ -42,6 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
+//! - [`HashSet1`][`hash_set1`]
 //! - [`IndexMap1`][`index_map1`]
 //! - [`IndexSet1`][`index_set1`]
 //! - [`SmallVec1`][`small_vec1`]
@@ -198,19 +199,19 @@
 //!
 //! The following table summarizes supported feature flags and integrations.
 //!
-//! | Feature     | Also Enables | Default | Crate         | Description                                               |
-//! |-------------|--------------|---------|---------------|-----------------------------------------------------------|
-//! | `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.         |
-//! | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.          |
-//! | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.          |
-//! | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.           |
-//! | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.          |
-//! | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.           |
-//! | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                  |
-//! | `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.               |
-//! | `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`]. |
-//! | `smallvec`  | `alloc`      | No      | [`smallvec`]  | Non-empty implementations of [`smallvec`] types.          |
-//! | `std`       | `alloc`      | Yes     | `std`         | Integrations with `std::io`.                              |
+//! | Feature     | Also Enables | Default | Crate         | Description                                                    |
+//! |-------------|--------------|---------|---------------|----------------------------------------------------------------|
+//! | `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.              |
+//! | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
+//! | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
+//! | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
+//! | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
+//! | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
+//! | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                       |
+//! | `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.                    |
+//! | `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`].      |
+//! | `smallvec`  | `alloc`      | No      | [`smallvec`]  | Non-empty implementations of [`smallvec`] types.               |
+//! | `std`       | `alloc`      | Yes     | `std`         | Non-empty hashing collections and integrations with `std::io`. |
 //!
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
@@ -323,6 +324,7 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
+pub mod hash_set1;
 pub mod index_map1;
 pub mod index_set1;
 pub mod iter1;

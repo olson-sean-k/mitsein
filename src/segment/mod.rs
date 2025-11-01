@@ -1,4 +1,4 @@
-//! Segmentation of collections.
+//! Segmentation of ordered collections.
 
 // SAFETY: Though this module contains no unsafe code, an incorrect implementation is unsound. The
 //         segmentation APIs interact with non-empty collections and bugs here may break the
