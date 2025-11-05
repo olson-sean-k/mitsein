@@ -127,22 +127,22 @@ impl<T> Slice1<T> {
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.last_mut()) }
     }
 
-    pub fn chunks(&self, n: usize) -> Iterator1<Chunks<'_, T>> {
+    pub fn chunks1(&self, n: usize) -> Iterator1<Chunks<'_, T>> {
         // SAFETY: This iterator cannot have a cardinality of zero.
         unsafe { Iterator1::from_iter_unchecked(self.items.chunks(n)) }
     }
 
-    pub fn chunks_mut(&mut self, n: usize) -> Iterator1<ChunksMut<'_, T>> {
+    pub fn chunks1_mut(&mut self, n: usize) -> Iterator1<ChunksMut<'_, T>> {
         // SAFETY: This iterator cannot have a cardinality of zero.
         unsafe { Iterator1::from_iter_unchecked(self.items.chunks_mut(n)) }
     }
 
-    pub fn rchunks(&self, n: usize) -> Iterator1<RChunks<'_, T>> {
+    pub fn rchunks1(&self, n: usize) -> Iterator1<RChunks<'_, T>> {
         // SAFETY: This iterator cannot have a cardinality of zero.
         unsafe { Iterator1::from_iter_unchecked(self.items.rchunks(n)) }
     }
 
-    pub fn rchunks_mut(&mut self, n: usize) -> Iterator1<RChunksMut<'_, T>> {
+    pub fn rchunks1_mut(&mut self, n: usize) -> Iterator1<RChunksMut<'_, T>> {
         // SAFETY: This iterator cannot have a cardinality of zero.
         unsafe { Iterator1::from_iter_unchecked(self.items.rchunks_mut(n)) }
     }
