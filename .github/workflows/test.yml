@@ -1,0 +1,28 @@
+name: Test
+on: workflow_call
+jobs:
+  test:
+    name: Test
+    env:
+      RUSTFLAGS: -D warnings
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macOS-latest, ubuntu-latest, windows-latest]
+        toolchain:
+          - 1.85.0 # Minimum.
+          - stable
+          - beta
+          - nightly
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --verbose

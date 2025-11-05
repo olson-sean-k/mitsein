@@ -5,7 +5,6 @@ on:
       version:
         required: true
         type: string
-
 jobs:
   ci:
     uses: ./.github/workflows/continuous-integration.yml

@@ -1,0 +1,19 @@
+name: Document
+on: workflow_call
+jobs:
+  rustdoc:
+    name: Document
+    env:
+      RUSTDOCFLAGS: -D warnings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --all-features --no-deps -p mitsein
