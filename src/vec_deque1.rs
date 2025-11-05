@@ -233,7 +233,7 @@ impl<T> VecDeque1<T> {
         else {
             if !f(self.front()) {
                 // The front item is **not** retained and there is more than one item.
-                self.pop_front_if_many().or_none();
+                self.pop_front_if_many();
             }
             None
         }

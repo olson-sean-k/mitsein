@@ -248,7 +248,7 @@ impl<T> BTreeSet1<T> {
         else {
             if !f(self.first()) {
                 // The first item is **not** retained and there is more than one item.
-                self.pop_first_if_many().or_none();
+                self.pop_first_if_many();
             }
             None
         }

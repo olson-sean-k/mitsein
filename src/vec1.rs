@@ -249,7 +249,7 @@ impl<T> Vec1<T> {
         else {
             if !f(self.last()) {
                 // The last item is **not** retained and there is more than one item.
-                self.pop_if_many().or_none();
+                self.pop_if_many();
             }
             None
         }

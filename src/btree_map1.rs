@@ -554,7 +554,7 @@ impl<K, V> BTreeMap1<K, V> {
             let (key, value) = self.first_key_value();
             if !f(key, value) {
                 // The first item is **not** retained and there is more than one item.
-                self.pop_first_if_many().or_none();
+                self.pop_first_if_many();
             }
             None
         }
