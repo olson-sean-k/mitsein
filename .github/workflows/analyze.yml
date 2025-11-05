@@ -1,0 +1,15 @@
+name: Analyze
+on: workflow_call
+jobs:
+  miri:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: miri
+      - run: cargo miri test --all-features

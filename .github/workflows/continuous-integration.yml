@@ -10,3 +10,6 @@ jobs:
   test:
     needs: [document, format, lint]
     uses: ./.github/workflows/test.yml
+  analyze:
+    needs: [document, format, lint]
+    uses: ./.github/workflows/analyze.yml
