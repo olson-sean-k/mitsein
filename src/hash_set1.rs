@@ -8,6 +8,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::hash::{BuildHasher, Hash};
+use core::iter::FusedIterator;
 use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, Sub};
 #[cfg(feature = "rayon")]
@@ -779,9 +780,53 @@ impl<'a, T, S> TryFrom<&'a mut HashSet<T, S>> for &'a mut HashSet1<T, S> {
     }
 }
 
-// TODO: Though it is likely even less useful, this concept can be generalized to maybe-empty
-//       collections just like `Segment` is. It can also be applied to other unordered non-empty
-//       collections.
+// Unfortunately, the type of the `ExtractIf` predicate `F` cannot be named in `Except::drain` and
+// so prevents returning a complete type.
+struct DrainExcept<'a, T, F>
+where
+    F: FnMut(&T) -> bool,
+{
+    input: hash_set::ExtractIf<'a, T, F>,
+}
+
+impl<T, F> Debug for DrainExcept<'_, T, F>
+where
+    T: Debug,
+    F: FnMut(&T) -> bool,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DrainExcept")
+            .field("input", &self.input)
+            .finish()
+    }
+}
+
+impl<T, F> Drop for DrainExcept<'_, T, F>
+where
+    F: FnMut(&T) -> bool,
+{
+    fn drop(&mut self) {
+        self.input.by_ref().for_each(|_| {});
+    }
+}
+
+impl<T, F> FusedIterator for DrainExcept<'_, T, F> where F: FnMut(&T) -> bool {}
+
+impl<T, F> Iterator for DrainExcept<'_, T, F>
+where
+    F: FnMut(&T) -> bool,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.input.next()
+    }
+}
+
+// TODO: Generalize this type for other unordered collections. This is probably most useful for
+//       non-empty collections, but could be extended to maybe-empty collections too (just like
+//       `Segment`).
 // TODO: Support isomorphic keys.
 #[must_use]
 pub struct Except<'a, T, S> {
@@ -799,6 +844,12 @@ impl<T, S> Except<'_, T, S>
 where
     T: Eq + Hash,
 {
+    pub fn drain(&mut self) -> impl '_ + Drop + FusedIterator<Item = T> {
+        DrainExcept {
+            input: self.items.extract_if(|item| item != self.key),
+        }
+    }
+
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&T) -> bool,
@@ -813,7 +864,7 @@ where
         self.retain(|_| false)
     }
 
-    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
+    pub fn iter(&self) -> impl '_ + Clone + FusedIterator<Item = &'_ T> {
         self.items.iter().filter(|&item| item == self.key)
     }
 }
@@ -846,7 +897,6 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "serde")]
     use alloc::vec::Vec;
     use core::num::NonZeroUsize;
     use rstest::rstest;
@@ -898,6 +948,22 @@ mod tests {
             Ok(expected) => assert_eq!(xs1, expected),
             Err(expected) => assert_eq!(xs1.len(), expected),
         }
+    }
+
+    #[rstest]
+    #[case(0, &[1, 2, 3, 4])]
+    #[case(1, &[0, 2, 3, 4])]
+    #[case(2, &[0, 1, 3, 4])]
+    #[case(3, &[0, 1, 2, 4])]
+    #[case(4, &[0, 1, 2, 3])]
+    fn drain_except_of_hash_set1_then_sorted_drained_eq(
+        mut xs1: HashSet1<u8>,
+        #[case] key: u8,
+        #[case] expected: &[u8],
+    ) {
+        let mut xs: Vec<_> = xs1.except(&key).unwrap().drain().collect();
+        xs.sort();
+        assert_eq!(xs.as_slice(), expected);
     }
 
     #[rstest]
