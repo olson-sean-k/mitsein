@@ -1,5 +1,10 @@
 //! Comparison and ordering extensions.
 
+// SAFETY: The implementations of `UnsafeOrd` in this module trust that the `Ord` implementations
+//         of the given types from `core`, `alloc`, etc. conform to the safety requirements of
+//         `UnsafeOrd`. Moreover, these `Ord` implementations are very unlikely to change and are
+//         even less likely to change in such a way that they are non-conformant with `UnsafeOrd`.
+
 /// Types that can be used in APIs where consistent total ordering is required for memory safety.
 ///
 /// # Safety
@@ -18,6 +23,8 @@
 )]
 pub unsafe trait UnsafeOrd: Ord {}
 
+// TODO: The notion of an unsafe isomorph also exists for `Eq + Hash` types. Rename this trait so
+//       that a similar trait can be introduced for `UnsafeHash`.
 /// [`UnsafeOrd`] types with isomorphic ordering relationships to other [`UnsafeOrd`] types.
 ///
 /// # Safety
@@ -32,11 +39,6 @@ where
     T: ?Sized + UnsafeOrd,
 {
 }
-
-// SAFETY: The implementations of `UnsafeOrd` in this module trust that the `Ord` implementations
-//         of the given types from `core`, `alloc`, etc. conform to the safety requirements of
-//         `UnsafeOrd`. Moreover, these `Ord` implementations are very unlikely to change and are
-//         even less likely to change in such a way that they are non-conformant with `UnsafeOrd`.
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
@@ -215,4 +217,15 @@ mod small_vec {
         A::Item: UnsafeOrd,
     {
     }
+}
+
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+mod std {
+    use crate::cmp::UnsafeOrd;
+
+    unsafe impl UnsafeOrd for std::time::Instant {}
+    unsafe impl UnsafeOrd for std::ffi::OsStr {}
+    unsafe impl UnsafeOrd for std::ffi::OsString {}
+    unsafe impl UnsafeOrd for std::time::SystemTime {}
 }

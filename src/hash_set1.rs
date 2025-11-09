@@ -21,6 +21,7 @@ use {
 };
 
 use crate::array1::Array1;
+use crate::hash::UnsafeHash;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -320,6 +321,16 @@ where
         Q: Eq + Hash + ?Sized,
     {
         TakeIfMany::with(self, query, |items, query| items.items.take(query))
+    }
+
+    pub fn except<'a>(&'a mut self, key: &'a T) -> Option<Except<'a, T, S>>
+    where
+        T: UnsafeHash,
+    {
+        self.contains(key).then_some(Except {
+            items: &mut self.items,
+            key,
+        })
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>
@@ -768,6 +779,58 @@ impl<'a, T, S> TryFrom<&'a mut HashSet<T, S>> for &'a mut HashSet1<T, S> {
     }
 }
 
+// TODO: Though it is likely even less useful, this concept can be generalized to maybe-empty
+//       collections just like `Segment` is. It can also be applied to other unordered non-empty
+//       collections.
+// TODO: Support isomorphic keys.
+#[must_use]
+pub struct Except<'a, T, S> {
+    items: &'a mut HashSet<T, S>,
+    key: &'a T,
+}
+
+impl<T, S> Except<'_, T, S> {
+    pub fn key(&self) -> &T {
+        self.key
+    }
+}
+
+impl<T, S> Except<'_, T, S>
+where
+    T: Eq + Hash,
+{
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.items.retain(|item| {
+            let is_retained = item == self.key;
+            is_retained || f(item)
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.retain(|_| false)
+    }
+
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
+        self.items.iter().filter(|&item| item == self.key)
+    }
+}
+
+impl<T, S> Debug for Except<'_, T, S>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Except")
+            .field("items", &self.items)
+            .field("key", self.key)
+            .finish()
+    }
+}
+
 #[cfg(test)]
 pub mod harness {
     use rstest::fixture;
@@ -835,6 +898,17 @@ mod tests {
             Ok(expected) => assert_eq!(xs1, expected),
             Err(expected) => assert_eq!(xs1.len(), expected),
         }
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    fn clear_except_of_hash_set1_then_hash_set1_eq_key(mut xs1: HashSet1<u8>, #[case] key: u8) {
+        xs1.except(&key).unwrap().clear();
+        assert_eq!(xs1, HashSet1::from_one(key));
     }
 
     #[cfg(feature = "schemars")]

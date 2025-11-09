@@ -324,6 +324,7 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
+pub mod hash;
 pub mod hash_set1;
 pub mod index_map1;
 pub mod index_set1;
