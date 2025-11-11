@@ -442,13 +442,6 @@ where
     pub fn from_one(item: T) -> Self {
         iter1::one(item).collect1()
     }
-
-    pub fn from_head_and_tail<I>(head: T, tail: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-    {
-        iter1::head_and_tail(head, tail).collect1()
-    }
 }
 
 impl<T> HashSet1<T, RandomState>
