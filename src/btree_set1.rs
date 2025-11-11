@@ -20,7 +20,7 @@ use {
 };
 
 use crate::array1::Array1;
-use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
+use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -1097,7 +1097,7 @@ where
 {
     pub fn remove<Q>(&mut self, key: &Q) -> bool
     where
-        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        T: Borrow<Q> + UnsafeOrdIsomorph<Q>,
         Q: ?Sized + UnsafeOrd,
     {
         self.remove_isomorph_unchecked(key)
@@ -1105,7 +1105,7 @@ where
 
     pub fn take<Q>(&mut self, key: &Q) -> Option<T>
     where
-        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        T: Borrow<Q> + UnsafeOrdIsomorph<Q>,
         Q: ?Sized + UnsafeOrd,
     {
         self.take_isomorph_unchecked(key)
@@ -1295,7 +1295,7 @@ where
 {
     pub fn remove<Q>(&mut self, key: &Q) -> bool
     where
-        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        T: Borrow<Q> + UnsafeOrdIsomorph<Q>,
         Q: ?Sized + UnsafeOrd,
     {
         self.remove_isomorph_unchecked(key)
@@ -1303,7 +1303,7 @@ where
 
     pub fn take<Q>(&mut self, key: &Q) -> Option<T>
     where
-        T: Borrow<Q> + UnsafeIsomorph<Q>,
+        T: Borrow<Q> + UnsafeOrdIsomorph<Q>,
         Q: ?Sized + UnsafeOrd,
     {
         self.take_isomorph_unchecked(key)

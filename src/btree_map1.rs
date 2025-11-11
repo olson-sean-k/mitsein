@@ -23,7 +23,7 @@ use {
 };
 
 use crate::array1::Array1;
-use crate::cmp::{UnsafeIsomorph, UnsafeOrd};
+use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -1376,7 +1376,7 @@ impl<K, V> Segment<'_, BTreeMap<K, V>, Option<ItemRange<K>>> {
 impl<K, V> Segment<'_, BTreeMap1<K, V>, Option<ItemRange<K>>> {
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
-        K: Borrow<Q> + UnsafeIsomorph<Q>,
+        K: Borrow<Q> + UnsafeOrdIsomorph<Q>,
         Q: ?Sized + UnsafeOrd,
     {
         self.remove_isomorph_unchecked(key)
@@ -1557,7 +1557,7 @@ where
 {
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
-        K: Borrow<Q> + UnsafeIsomorph<Q>,
+        K: Borrow<Q> + UnsafeOrdIsomorph<Q>,
         Q: ?Sized + UnsafeOrd,
     {
         self.remove_isomorph_unchecked(key)
