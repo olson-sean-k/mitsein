@@ -866,7 +866,7 @@ impl<T, S> Except<'_, T, S>
 where
     T: Eq + Hash,
 {
-    pub fn drain(&mut self) -> impl '_ + Drop + FusedIterator<Item = T> {
+    pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = T> {
         DrainExcept {
             input: self.items.extract_if(|item| item != self.key),
         }
@@ -886,7 +886,7 @@ where
         self.retain(|_| false)
     }
 
-    pub fn iter(&self) -> impl '_ + Clone + FusedIterator<Item = &'_ T> {
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
         self.items.iter().filter(|&item| item == self.key)
     }
 }

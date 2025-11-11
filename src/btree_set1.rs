@@ -1053,7 +1053,7 @@ where
         })
     }
 
-    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
+    pub fn iter(&self) -> impl '_ + Clone + DoubleEndedIterator<Item = &'_ T> {
         self.range
             .as_ref()
             .map(|range| self.items.range((range.start_bound(), range.end_bound())))

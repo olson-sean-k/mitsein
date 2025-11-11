@@ -1335,7 +1335,7 @@ where
         })
     }
 
-    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = (&'_ K, &'_ V)> {
+    pub fn iter(&self) -> impl '_ + Clone + DoubleEndedIterator<Item = (&'_ K, &'_ V)> {
         self.range
             .as_ref()
             .map(|range| self.items.range((range.start_bound(), range.end_bound())))
@@ -1343,7 +1343,7 @@ where
             .flatten()
     }
 
-    pub fn iter_mut(&mut self) -> impl '_ + Iterator<Item = (&'_ K, &'_ mut V)> {
+    pub fn iter_mut(&mut self) -> impl '_ + DoubleEndedIterator<Item = (&'_ K, &'_ mut V)> {
         self.range
             .as_ref()
             .map(|range| {
