@@ -252,6 +252,35 @@ where
         unsafe { HashSet1::from_hash_set_unchecked(items) }
     }
 
+    pub fn extract_until_only_if<'a, F>(&'a mut self, mut f: F) -> impl 'a + Iterator<Item = T>
+    where
+        F: 'a + FnMut(&T) -> bool,
+    {
+        // `self` must be non-empty, so subtracting one from its length cannot underflow.
+        let mut n = self.items.len() - 1;
+        let mut has_retained = false;
+        self.items.extract_if(move |item| {
+            if has_retained {
+                f(item)
+            }
+            else if f(item) {
+                match n.checked_sub(1) {
+                    Some(m) => {
+                        n = m;
+                        true
+                    },
+                    _ => {
+                        has_retained = true;
+                        false
+                    },
+                }
+            }
+            else {
+                false
+            }
+        })
+    }
+
     pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ T>
     where
         T: Clone,
@@ -895,6 +924,13 @@ pub mod harness {
     }
 }
 
+// TODO: The type parameter `F` in some retain and extract tests must be a `FnMut` over `*const u8`
+//       instead of `&u8`, because `rstest` constructs the case in a way that the `&u8` has a
+//       lifetime that is too specific and too long (it would borrow the item beyond the tested
+//       function, such as `retain_until_only`). Is there a way to prevent this without introducing
+//       `*const u8` and unsafe code in cases for `f`? If so, do that instead!
+//
+//       See relevant tests with SAFETY comments.
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
@@ -909,6 +945,39 @@ mod tests {
     use crate::schemars;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
+
+    // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
+    //         allow access to the parameter beyond the scope of their bodies. (This is difficult
+    //         to achieve in this context.)
+    #[rstest]
+    #[case::ignore_and_extract(|_| true, Err(NonZeroUsize::MIN))]
+    #[case::ignore_and_do_not_extract(|_| false, Ok(HashSet1::from([0, 1, 2, 3, 4])))]
+    #[case::compare_and_extract_none(
+        |x: *const _| unsafe {
+            *x > 4
+        },
+        Ok(HashSet1::from([0, 1, 2, 3, 4])),
+    )]
+    #[case::compare_and_extract_some(
+        |x: *const _| unsafe {
+            *x < 3
+        },
+        Ok(HashSet1::from([3, 4])),
+    )]
+    fn extract_until_only_if_from_hash_set1_then_len_or_hash_set1_eq<F>(
+        mut xs1: HashSet1<u8>,
+        #[case] mut f: F,
+        #[case] expected: Result<HashSet1<u8>, NonZeroUsize>,
+    ) where
+        F: FnMut(*const u8) -> bool,
+    {
+        xs1.extract_until_only_if(|x| f(x as *const u8))
+            .for_each(|_| {});
+        match expected {
+            Ok(expected) => assert_eq!(xs1, expected),
+            Err(expected) => assert_eq!(xs1.len(), expected),
+        }
+    }
 
     // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
     //         allow access to the parameter beyond the scope of their bodies. (This is difficult
@@ -938,12 +1007,7 @@ mod tests {
     ) where
         F: FnMut(*const u8) -> bool,
     {
-        // TODO: The type parameter `F` must be a `FnMut` over `*const u8` instead of `&u8` here,
-        //       because `rstest` constructs the case in a way that the `&u8` has a lifetime that
-        //       is too specific and too long (it would borrow the item beyond
-        //       `retain_until_only`). Is there a way to prevent this without introducing `*const
-        //       u8` and unsafe code in cases for `f`? If so, do that instead!
-        let _ = xs1.retain_until_only(|x| f(x as *const u8)).copied();
+        let _ = xs1.retain_until_only(|x| f(x as *const u8));
         match expected {
             Ok(expected) => assert_eq!(xs1, expected),
             Err(expected) => assert_eq!(xs1.len(), expected),
