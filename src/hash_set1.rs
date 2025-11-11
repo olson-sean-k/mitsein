@@ -287,24 +287,20 @@ where
         F: FnMut(&T) -> bool,
     {
         // Unordered collections cannot support segmentation and hashed collections not only
-        // exhibit arbitrary ordering, but that ordering is virtually never deterministic.
-        // Moreover, this code cannot trust the `Eq` and `Hash` implementations for `T` to maintain
-        // the non-empty invariant. Given that, the first observed item is retained and cloned. The
-        // clone is necessary, because there is no other way to reliably reference it while also
-        // mutating the underlying `HashSet`. This first item must be tested against the predicate
-        // function when more than one item remains after this first `retain`.
+        // exhibit arbitrary ordering, but that ordering is virtually never deterministic. The
+        // first observed item is retained and cloned. The clone is necessary, because there is no
+        // other way to reliably reference it while also mutating the underlying `HashSet`. This
+        // first item must be tested against the predicate function when more than one item remains
+        // after this first `retain`.
         let mut first = None;
-        let mut index = 0usize;
         self.items.retain(|item| {
-            let is_retained = if index == 0 {
+            if first.is_none() {
                 first = Some(item.clone());
                 true
             }
             else {
                 f(item)
-            };
-            index += 1;
-            is_retained
+            }
         });
         // SAFETY: `self` must be non-empty, so a first item is always observed in `retain`.
         let first = unsafe { first.unwrap_maybe_unchecked() };
