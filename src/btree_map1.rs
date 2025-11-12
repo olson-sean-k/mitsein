@@ -487,12 +487,12 @@ impl<K, V> BTreeMap1<K, V> {
         iter1::head_and_tail(head, tail).collect1()
     }
 
-    pub fn from_tail_and_head<I>(tail: I, head: (K, V)) -> Self
+    pub fn from_rtail_and_head<I>(tail: I, head: (K, V)) -> Self
     where
         K: Ord,
         I: IntoIterator<Item = (K, V)>,
     {
-        iter1::tail_and_head(tail, head).collect1()
+        iter1::rtail_and_head(tail, head).collect1()
     }
 
     pub fn try_from_ref(

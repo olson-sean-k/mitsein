@@ -199,12 +199,12 @@ impl<T> BTreeSet1<T> {
         iter1::head_and_tail(head, tail).collect1()
     }
 
-    pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
+    pub fn from_rtail_and_head<I>(tail: I, head: T) -> Self
     where
         T: Ord,
         I: IntoIterator<Item = T>,
     {
-        iter1::tail_and_head(tail, head).collect1()
+        iter1::rtail_and_head(tail, head).collect1()
     }
 
     pub fn try_from_ref(items: &BTreeSet<T>) -> Result<&'_ Self, EmptyError<&'_ BTreeSet<T>>> {

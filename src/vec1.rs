@@ -188,11 +188,11 @@ impl<T> Vec1<T> {
         iter1::head_and_tail(head, tail).collect1()
     }
 
-    pub fn from_tail_and_head<I>(tail: I, head: T) -> Self
+    pub fn from_rtail_and_head<I>(tail: I, head: T) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        iter1::tail_and_head(tail, head).collect1()
+        iter1::rtail_and_head(tail, head).collect1()
     }
 
     pub fn try_from_ref(items: &Vec<T>) -> Result<&'_ Self, EmptyError<&'_ Vec<T>>> {
@@ -210,7 +210,7 @@ impl<T> Vec1<T> {
         (head, self.items)
     }
 
-    pub fn into_tail_and_head(mut self) -> (Vec<T>, T) {
+    pub fn into_rtail_and_head(mut self) -> (Vec<T>, T) {
         // SAFETY: `self` must be non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)

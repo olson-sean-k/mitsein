@@ -308,7 +308,7 @@ pub type ExactlyOneWith<F> = Iterator1<AtMostOneWith<F>>;
 pub type HeadAndTail<T> =
     Iterator1<Chain<AtMostOne<<T as IntoIterator>::Item>, <T as IntoIterator>::IntoIter>>;
 
-pub type TailAndHead<T> =
+pub type RTailAndHead<T> =
     Iterator1<Chain<<T as IntoIterator>::IntoIter, AtMostOne<<T as IntoIterator>::Item>>>;
 
 pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
@@ -482,7 +482,7 @@ where
         (head, self.items)
     }
 
-    pub fn into_tail_and_head(mut self) -> (I, I::Item)
+    pub fn into_rtail_and_head(mut self) -> (I, I::Item)
     where
         I: DoubleEndedIterator,
     {
@@ -1137,7 +1137,7 @@ where
     self::one(head).chain(tail)
 }
 
-pub fn tail_and_head<I, T>(tail: I, head: T) -> TailAndHead<I>
+pub fn rtail_and_head<I, T>(tail: I, head: T) -> RTailAndHead<I>
 where
     I: IntoIterator<Item = T>,
 {

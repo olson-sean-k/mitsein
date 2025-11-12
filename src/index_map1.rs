@@ -1123,12 +1123,12 @@ where
         iter1::head_and_tail(head, tail).collect1()
     }
 
-    pub fn from_tail_and_head<I>(tail: I, head: (K, V)) -> Self
+    pub fn from_rtail_and_head<I>(tail: I, head: (K, V)) -> Self
     where
         S: Default,
         I: IntoIterator<Item = (K, V)>,
     {
-        iter1::tail_and_head(tail, head).collect1()
+        iter1::rtail_and_head(tail, head).collect1()
     }
 
     pub fn append<SR>(&mut self, items: &mut IndexMap<K, V, SR>) {
