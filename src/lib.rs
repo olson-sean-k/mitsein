@@ -171,13 +171,16 @@
 //!
 //! See the [`array1`] module.
 //!
-//! # Segmentation
+//! # Exception and Segmentation
 //!
-//! A [`Segment`] is a view over a subset of a collection that can mutate both the items and
-//! topology of its target. This is somewhat similar to a mutable slice, but items can also be
-//! inserted and removed. This crate implements segmentation for both standard and non-empty
-//! collections and is one of the most efficient ways to remove and drain items from non-empty
-//! collections.
+//! [`Except`]s and [`Segment`]s are views over a subset of a collection that can mutate both the
+//! items and topology of the target. This is somewhat similar to a mutable slice, but items can
+//! also be inserted and removed. This crate implements exception and segmentation for both
+//! standard and non-empty collections and is one of the most efficient ways to remove and drain
+//! items from non-empty collections.
+//!
+//! Segmentation is only supported by ordered collection and relies on that ordering to isolate a
+//! subset. See the [`segment`] module.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]
 #![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
@@ -189,7 +192,19 @@
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
 //!
-//! See the [`segment`] module.
+//! Exception does not rely on ordering and is notably supported by hashing collections. See the
+//! [`except`] module.
+#![doc = ""]
+#![cfg_attr(feature = "std", doc = "```rust")]
+#![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
+//! use mitsein::hash_set1::HashSet1;
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = HashSet1::<_>::from_iter1([0i64, 1, 2, 3, 4]);
+//! xs.except(&0).unwrap().clear(); // Efficiently clears all but `0` from `xs`.
+//!
+//! assert_eq!(xs, HashSet1::from_one(0));
+#![doc = "```"]
 //!
 //! # Integrations and Feature Flags
 //!
@@ -224,6 +239,7 @@
 //! [`CowSlice1Ext`]: crate::borrow1::CowSlice1Ext
 //! [`CowStr1Ext`]: crate::borrow1::CowStr1Ext
 //! [`either`]: https://crates.io/crates/either
+//! [`Except`]: crate::except
 //! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
@@ -233,7 +249,6 @@
 //! [`RcSlice1Ext`]: crate::rc1::RcSlice1Ext
 //! [`RcStr1Ext`]: crate::rc1::RcStr1Ext
 //! [`schemars`]: https://crates.io/crates/schemars
-//! [`segment`]: crate::segment
 //! [`Segment`]: crate::segment::Segment
 //! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1

@@ -93,10 +93,11 @@ let xs = Vec1::from([0i32, 1, 2, 3, 4]);
 let ys: Vec1<_> = xs.into_iter1().map(|x| x * 2).collect1();
 ```
 
-Mitsein provides a segmentation API, which isolates a range within a collection
-that supports insertions and removals. Non-empty collections can be segmented
-prior to removals, which consolidates error conditions: a segment can be freely
-manipulated without checks or errors after its construction.
+Mitsein provides exception and segmentation APIs, which isolate a subset of a
+collection that supports insertions and removals. For example, non-empty
+collections can be segmented prior to removals, which consolidates error
+conditions: a segment can be freely manipulated without checks or errors after
+its construction.
 
 ```rust
 use mitsein::prelude::*;
@@ -112,6 +113,18 @@ assert_eq!(xs.as_slice(), &[0i32, 4]);
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
 xs.segment(..3).unwrap().retain(|x| *x % 2 != 0);
 assert_eq!(xs.as_slice(), &[1i32, 3, 4]);
+```
+
+Exception is similar, but is also supported by unordered collections (which
+cannot be segmented).
+
+```rust
+use mitsein::hash_set1::HashSet1;
+use mitsein::prelude::*;
+
+let mut xs = HashSet1::<_>::from_iter1([0i32, 1, 2, 3, 4]);
+xs.except(&0).unwrap().clear();
+assert_eq!(xs, HashSet1::from_one(0));
 ```
 
 Non-empty slice APIs enable borrowing and copy-on-write, so Mitsein supports
