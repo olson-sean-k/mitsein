@@ -25,8 +25,8 @@
 //! At time of writing, `rustdoc` ignores input type parameters in the "Methods from
 //! `Deref<Target = _>`" section. For types that implement `Deref<Target = NonEmpty<_>>`, **the API
 //! documentation may be misleading** and list all methods of [`NonEmpty`] regardless of its input
-//! type parameter. This is mostly a problem for types that dereference to [`Slice1`], such as
-//! [`Vec1`]. See [this `rustdoc` bug](https://github.com/rust-lang/rust/issues/24686).
+//! type parameter. This is mostly a problem for types that dereference to a [`NonEmpty`] type,
+//! such as [`Vec1`]. See [this `rustdoc` bug](https://github.com/rust-lang/rust/issues/24686).
 //!
 //! # Non-Empty Types
 //!
