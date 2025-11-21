@@ -84,6 +84,7 @@ impl<'a, K, T, Q> Except<'a, K, T, Q>
 where
     K: Exception<Target = T>,
 {
+    #[cfg(feature = "std")]
     pub(crate) fn unchecked(items: &'a mut T, key: &'a Q) -> Self {
         Except { items, key }
     }
