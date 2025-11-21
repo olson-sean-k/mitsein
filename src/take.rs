@@ -200,7 +200,9 @@ mod tests {
     }
 
     #[rstest]
-    fn take_from_vec1_without_proxy_fn_then_take_if_many_eagerly_drops(mut xs1: Vec1<u8>) {
+    fn take_from_vec1_without_proxy_fn_then_take_if_many_immediately_drops_and_takes(
+        mut xs1: Vec1<u8>,
+    ) {
         xs1.pop_if_many();
         assert_eq!(xs1.as_slice(), &[0, 1, 2, 3]);
         xs1.remove_if_many(0);
