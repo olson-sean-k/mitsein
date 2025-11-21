@@ -60,6 +60,7 @@ pub trait Tail: Segmentation {
     fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target, Self::Range>;
 }
 
+#[must_use]
 pub struct Segment<'a, K, T, R>
 where
     K: Segmentation<Target = T>,
