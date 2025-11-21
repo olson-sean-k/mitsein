@@ -324,6 +324,7 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
+pub mod except;
 pub mod hash;
 pub mod hash_set1;
 pub mod index_map1;
@@ -390,6 +391,8 @@ pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
 
     pub use crate::array1::Array1;
+    #[cfg(feature = "std")]
+    pub use crate::except::ByKey as _;
     #[cfg(feature = "indexmap")]
     pub use crate::index_map1::OrOnlyEntryExt as _;
     #[cfg(feature = "either")]

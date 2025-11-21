@@ -22,6 +22,7 @@ use {
 };
 
 use crate::array1::Array1;
+use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::hash::UnsafeHash;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
@@ -47,6 +48,26 @@ impl<T, S> ClosedHashSet for HashSet<T, S> {
     fn as_hash_set(&self) -> &HashSet<Self::Item, Self::State> {
         self
     }
+}
+
+impl<T, S> ByKey<T> for HashSet<T, S>
+where
+    T: Eq + Hash,
+    S: BuildHasher,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a T,
+    ) -> Result<Except<'a, Self, T>, KeyNotFoundError<&'a T>> {
+        self.contains(key)
+            .then_some(Except::unchecked(self, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
+impl<T, S> Exception for HashSet<T, S> {
+    type Kind = Self;
+    type Target = Self;
 }
 
 impl<T, S> Extend1<T> for HashSet<T, S>
@@ -349,16 +370,6 @@ where
         TakeIfMany::with(self, query, |items, query| items.items.take(query))
     }
 
-    pub fn except<'a>(&'a mut self, key: &'a T) -> Option<Except<'a, T, S>>
-    where
-        T: UnsafeHash,
-    {
-        self.contains(key).then_some(Except {
-            items: &mut self.items,
-            key,
-        })
-    }
-
     pub fn get<Q>(&self, query: &Q) -> Option<&T>
     where
         T: Borrow<Q>,
@@ -558,6 +569,21 @@ where
     }
 }
 
+impl<T, S> ByKey<T> for HashSet1<T, S>
+where
+    T: UnsafeHash,
+    S: BuildHasher,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a T,
+    ) -> Result<Except<'a, Self, T>, KeyNotFoundError<&'a T>> {
+        self.contains(key)
+            .then_some(Except::unchecked(&mut self.items, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
 impl<T, S> ClosedHashSet for HashSet1<T, S> {
     type Item = T;
     type State = S;
@@ -574,6 +600,11 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
+}
+
+impl<T, S> Exception for HashSet1<T, S> {
+    type Kind = Self;
+    type Target = HashSet<T, S>;
 }
 
 impl<T, S> Extend<T> for HashSet1<T, S>
@@ -842,24 +873,12 @@ where
     }
 }
 
-// TODO: Generalize this type for other unordered collections. This is probably most useful for
-//       non-empty collections, but could be extended to maybe-empty collections too (just like
-//       `Segment`).
-// TODO: Support isomorphic keys.
-#[must_use]
-pub struct Except<'a, T, S> {
-    items: &'a mut HashSet<T, S>,
-    key: &'a T,
-}
+pub type Except<'a, K, Q> = except::Except<'a, K, HashSet<ItemFor<K>, StateFor<K>>, Q>;
 
-impl<T, S> Except<'_, T, S> {
-    pub fn key(&self) -> &T {
-        self.key
-    }
-}
-
-impl<T, S> Except<'_, T, S>
+// TODO: Support isomorphic keys. See segmentation and `UnsafeOrdIsomorph`.
+impl<K, T, S> Except<'_, K, T>
 where
+    K: ClosedHashSet<Item = T, State = S> + Exception<Target = HashSet<T, S>>,
     T: Eq + Hash,
 {
     pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = T> {
@@ -884,19 +903,6 @@ where
 
     pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
         self.items.iter().filter(|&item| item == self.key)
-    }
-}
-
-impl<T, S> Debug for Except<'_, T, S>
-where
-    T: Debug,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("Except")
-            .field("items", &self.items)
-            .field("key", self.key)
-            .finish()
     }
 }
 
@@ -928,6 +934,7 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde_test::Token;
 
+    use crate::except::ByKey;
     use crate::hash_set1::HashSet1;
     use crate::hash_set1::harness::xs1;
     #[cfg(feature = "schemars")]

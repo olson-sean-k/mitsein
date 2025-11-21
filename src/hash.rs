@@ -19,7 +19,7 @@ use ::core::hash::Hash;
 /// are not memory safe. For example, [`HashSet1::except`] requires consistent equivalence in its
 /// operations to maintain the non-empty guarantee.
 ///
-/// [`HashSet1::except`]: crate::hash_set1::HashSet1::except
+/// [`HashSet1::except`]: crate::except::ByKey::except
 #[diagnostic::on_unimplemented(
     message = "`{Self}` may not implement consistent hashing and equivalence",
     label = "types used here must implement consistent equivalence w.r.t. hashing for soundness"

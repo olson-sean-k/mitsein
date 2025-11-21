@@ -1,4 +1,4 @@
-//! Segmentation of ordered collections.
+//! Segmentation of items in ordered collections.
 
 // SAFETY: Though this module contains no unsafe code, an incorrect implementation is unsound. The
 //         segmentation APIs interact with non-empty collections and bugs here may break the
@@ -26,7 +26,7 @@ pub trait Segmentation: Sized {
 }
 
 // TODO: Support segmentation over a query type `Q` borrowed from a key or owned index type `K`.
-//       Note that any type `Q` must be isomorphic with `K` (i.e., implement `UnsafeIsomorph`),
+//       Note that any type `Q` must be isomorphic with `K` (i.e., implement `UnsafeOrdIsomorph`),
 //       because the `Ord` implementations can disagree and expose items outside of the segment's
 //       range. This can be unsound, such as removing an item from a non-empty collection that is
 //       out of the segment's range.
