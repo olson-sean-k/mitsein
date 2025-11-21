@@ -36,7 +36,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, Query, Segmentation, Tail};
+use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -60,6 +60,33 @@ impl<K, V, S> ClosedIndexMap for IndexMap<K, V, S> {
 
     fn as_index_map(&self) -> &IndexMap<Self::Key, Self::Value, Self::State> {
         self
+    }
+}
+
+impl<K, V, S, R> ByRange<usize, R> for IndexMap<K, V, S>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
+    }
+}
+
+impl<K, V, S> ByTail for IndexMap<K, V, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
     }
 }
 
@@ -89,36 +116,9 @@ unsafe impl<K, V, S> MaybeEmpty for IndexMap<K, V, S> {
     }
 }
 
-impl<K, V, S, R> Query<usize, R> for IndexMap<K, V, S>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.len();
-        Segment::intersected(self, n, range)
-    }
-}
-
 impl<K, V, S> Segmentation for IndexMap<K, V, S> {
     type Kind = Self;
     type Target = Self;
-}
-
-impl<K, V, S> Tail for IndexMap<K, V, S> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_tail_range(self, n)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_rtail_range(self, n)
-    }
 }
 
 pub type ManyEntry<'a, K, V> = index_map::OccupiedEntry<'a, K, V>;
@@ -1321,6 +1321,31 @@ where
     }
 }
 
+impl<K, V, S, R> ByRange<usize, R> for IndexMap1<K, V, S>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
+    }
+}
+
+impl<K, V, S> ByTail for IndexMap1<K, V, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        self.items.rtail().rekind()
+    }
+}
+
 impl<K, V, S> ClosedIndexMap for IndexMap1<K, V, S> {
     type Key = K;
     type Value = V;
@@ -1565,34 +1590,9 @@ where
     }
 }
 
-impl<K, V, S, R> Query<usize, R> for IndexMap1<K, V, S>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
-    }
-}
-
 impl<K, V, S> Segmentation for IndexMap1<K, V, S> {
     type Kind = Self;
     type Target = IndexMap<K, V, S>;
-}
-
-impl<K, V, S> Tail for IndexMap1<K, V, S> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        self.items.tail().rekind()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        self.items.rtail().rekind()
-    }
 }
 
 impl<K, V, S> TryFrom<IndexMap<K, V, S>> for IndexMap1<K, V, S> {
@@ -1710,7 +1710,7 @@ where
     }
 }
 
-impl<T, K, V, S, R> Query<usize, R> for Segment<'_, T>
+impl<T, K, V, S, R> ByRange<usize, R> for Segment<'_, T>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
     T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
@@ -1724,7 +1724,7 @@ where
     }
 }
 
-impl<T, K, V, S> Tail for Segment<'_, T>
+impl<T, K, V, S> ByTail for Segment<'_, T>
 where
     T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
 {
@@ -1767,7 +1767,7 @@ mod tests {
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::Tail;
+    use crate::segment::ByTail;
     #[cfg(feature = "serde")]
     use crate::{
         index_map1::harness::xs1,

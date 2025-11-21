@@ -31,7 +31,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, Query, Segmentation, Tail};
+use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::vec1::Vec1;
@@ -50,6 +50,33 @@ impl<T> ClosedVecDeque for VecDeque<T> {
 
     fn as_vec_deque(&self) -> &VecDeque<Self::Item> {
         self
+    }
+}
+
+impl<T, R> ByRange<usize, R> for VecDeque<T>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
+    }
+}
+
+impl<T> ByTail for VecDeque<T> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
     }
 }
 
@@ -75,36 +102,9 @@ unsafe impl<T> MaybeEmpty for VecDeque<T> {
     }
 }
 
-impl<T, R> Query<usize, R> for VecDeque<T>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.len();
-        Segment::intersected(self, n, range)
-    }
-}
-
 impl<T> Segmentation for VecDeque<T> {
     type Kind = Self;
     type Target = Self;
-}
-
-impl<T> Tail for VecDeque<T> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_tail_range(self, n)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_rtail_range(self, n)
-    }
 }
 
 type TakeIfMany<'a, T, U, N = ()> = take::TakeIfMany<'a, VecDeque<T>, U, N>;
@@ -418,6 +418,31 @@ where
     }
 }
 
+impl<T, R> ByRange<usize, R> for VecDeque1<T>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
+    }
+}
+
+impl<T> ByTail for VecDeque1<T> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        self.items.rtail().rekind()
+    }
+}
+
 impl<T> ClosedVecDeque for VecDeque1<T> {
     type Item = T;
 
@@ -665,34 +690,9 @@ crate::impl_partial_eq_for_non_empty!([for U in &mut [U]] <= [for T in VecDeque1
 crate::impl_partial_eq_for_non_empty!([for U in Vec<U>] <= [for T in VecDeque1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in VecDeque<T>]);
 
-impl<T, R> Query<usize, R> for VecDeque1<T>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
-    }
-}
-
 impl<T> Segmentation for VecDeque1<T> {
     type Kind = Self;
     type Target = VecDeque<T>;
-}
-
-impl<T> Tail for VecDeque1<T> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        self.items.tail().rekind()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        self.items.rtail().rekind()
-    }
 }
 
 impl<T> TryFrom<VecDeque<T>> for VecDeque1<T> {
@@ -891,6 +891,36 @@ where
     }
 }
 
+impl<K, T, R> ByRange<usize, R> for Segment<'_, K>
+where
+    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+        self.project_and_intersect(range)
+    }
+}
+
+impl<K, T> ByTail for Segment<'_, K>
+where
+    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
+{
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, K> {
+        self.project_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K> {
+        let n = self.len();
+        self.project_rtail_range(n)
+    }
+}
+
 impl<K, T> Eq for Segment<'_, K>
 where
     K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
@@ -948,36 +978,6 @@ where
     }
 }
 
-impl<K, T, R> Query<usize, R> for Segment<'_, K>
-where
-    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
-        self.project_and_intersect(range)
-    }
-}
-
-impl<K, T> Tail for Segment<'_, K>
-where
-    K: ClosedVecDeque<Item = T> + Segmentation<Target = VecDeque<T>>,
-{
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, K> {
-        self.project_tail_range()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, K> {
-        let n = self.len();
-        self.project_rtail_range(n)
-    }
-}
-
 #[cfg(test)]
 pub mod harness {
     use rstest::fixture;
@@ -1002,7 +1002,7 @@ mod tests {
     use crate::iter1::IntoIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::{Query, Tail};
+    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};

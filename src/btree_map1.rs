@@ -32,7 +32,7 @@ use crate::segment::range::{
     self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
     ResolveTrimRange, TrimRange, UnorderedError,
 };
-use crate::segment::{self, Query, Segmentation, Tail};
+use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -53,6 +53,42 @@ impl<K, V> ClosedBTreeMap for BTreeMap<K, V> {
 
     fn as_btree_map(&self) -> &BTreeMap<Self::Key, Self::Value> {
         self
+    }
+}
+
+impl<K, V, R> ByRange<K, R> for BTreeMap<K, V>
+where
+    K: Ord,
+    R: IntoRangeBounds<K>,
+{
+    type Range = Option<ItemRange<K>>;
+    type Error = UnorderedError<Bound<K>>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+        range::ordered_range_bounds(range)
+            .map(|range| {
+                let (start, end) = range.into_bounds();
+                Segment::unchecked(self, Some(ItemRange::unchecked(start, end)))
+            })
+            .map_err(|range| {
+                let (start, end) = range.into_bounds();
+                UnorderedError(start, end)
+            })
+    }
+}
+
+impl<K, V> ByTail for BTreeMap<K, V>
+where
+    K: Clone,
+{
+    type Range = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(self, TrimRange::TAIL1)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(self, TrimRange::RTAIL1)
     }
 }
 
@@ -103,45 +139,9 @@ where
     }
 }
 
-impl<K, V, R> Query<K, R> for BTreeMap<K, V>
-where
-    K: Ord,
-    R: IntoRangeBounds<K>,
-{
-    type Range = Option<ItemRange<K>>;
-    type Error = UnorderedError<Bound<K>>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
-        range::ordered_range_bounds(range)
-            .map(|range| {
-                let (start, end) = range.into_bounds();
-                Segment::unchecked(self, Some(ItemRange::unchecked(start, end)))
-            })
-            .map_err(|range| {
-                let (start, end) = range.into_bounds();
-                UnorderedError(start, end)
-            })
-    }
-}
-
 impl<K, V> Segmentation for BTreeMap<K, V> {
     type Kind = Self;
     type Target = Self;
-}
-
-impl<K, V> Tail for BTreeMap<K, V>
-where
-    K: Clone,
-{
-    type Range = TrimRange;
-
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::TAIL1)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::RTAIL1)
-    }
 }
 
 pub type ManyEntry<'a, K, V> = btree_map::OccupiedEntry<'a, K, V>;
@@ -835,6 +835,51 @@ where
     }
 }
 
+impl<K, V, R> ByRange<K, R> for BTreeMap1<K, V>
+where
+    K: UnsafeOrd,
+    R: IntoRangeBounds<K>,
+{
+    type Range = Option<ItemRange<K>>;
+    type Error = RangeError<Bound<K>>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+        range::ordered_range_bounds(range)
+            .map_err(|range| {
+                let (start, end) = range.into_bounds();
+                UnorderedError(start, end).into()
+            })
+            .and_then(|range| {
+                if range.contains(self.keys1().first()) && range.contains(self.keys1().last()) {
+                    let (start, end) = range.into_bounds();
+                    Err(OutOfBoundsError::Range(start, end).into())
+                }
+                else {
+                    let (start, end) = range.into_bounds();
+                    Ok(Segment::unchecked(
+                        &mut self.items,
+                        Some(ItemRange::unchecked(start, end)),
+                    ))
+                }
+            })
+    }
+}
+
+impl<K, V> ByTail for BTreeMap1<K, V>
+where
+    K: Clone,
+{
+    type Range = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
+    }
+}
+
 impl<K, V> ClosedBTreeMap for BTreeMap1<K, V> {
     type Key = K;
     type Value = V;
@@ -1073,54 +1118,9 @@ where
     }
 }
 
-impl<K, V, R> Query<K, R> for BTreeMap1<K, V>
-where
-    K: UnsafeOrd,
-    R: IntoRangeBounds<K>,
-{
-    type Range = Option<ItemRange<K>>;
-    type Error = RangeError<Bound<K>>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
-        range::ordered_range_bounds(range)
-            .map_err(|range| {
-                let (start, end) = range.into_bounds();
-                UnorderedError(start, end).into()
-            })
-            .and_then(|range| {
-                if range.contains(self.keys1().first()) && range.contains(self.keys1().last()) {
-                    let (start, end) = range.into_bounds();
-                    Err(OutOfBoundsError::Range(start, end).into())
-                }
-                else {
-                    let (start, end) = range.into_bounds();
-                    Ok(Segment::unchecked(
-                        &mut self.items,
-                        Some(ItemRange::unchecked(start, end)),
-                    ))
-                }
-            })
-    }
-}
-
 impl<K, V> Segmentation for BTreeMap1<K, V> {
     type Kind = Self;
     type Target = BTreeMap<K, V>;
-}
-
-impl<K, V> Tail for BTreeMap1<K, V>
-where
-    K: Clone,
-{
-    type Range = TrimRange;
-
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
-    }
 }
 
 impl<K, V> TryFrom<BTreeMap<K, V>> for BTreeMap1<K, V> {
@@ -1383,7 +1383,7 @@ impl<K, V> Segment<'_, BTreeMap1<K, V>, Option<ItemRange<K>>> {
     }
 }
 
-impl<T, K, V> Tail for Segment<'_, T, Option<ItemRange<K>>>
+impl<T, K, V> ByTail for Segment<'_, T, Option<ItemRange<K>>>
 where
     T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
     // A `K: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
@@ -1564,7 +1564,7 @@ where
     }
 }
 
-impl<T, K, V> Tail for Segment<'_, T, TrimRange>
+impl<T, K, V> ByTail for Segment<'_, T, TrimRange>
 where
     T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
@@ -1613,7 +1613,7 @@ mod tests {
     #[cfg(feature = "schemars")]
     use crate::schemars;
     use crate::segment::range::IntoRangeBounds;
-    use crate::segment::{Query, Tail};
+    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::{
         btree_map1::harness::xs1,

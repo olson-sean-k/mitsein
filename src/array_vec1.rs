@@ -30,7 +30,7 @@ use crate::array1::Array1;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, Query, Segmentation, Tail};
+use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::slice1::Slice1;
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -60,6 +60,33 @@ impl<T, const N: usize> ClosedArrayVec<N> for ArrayVec<T, N> {
 
     fn as_array_vec(&self) -> &ArrayVec<Self::Item, N> {
         self
+    }
+}
+
+impl<T, R, const N: usize> ByRange<usize, R> for ArrayVec<T, N>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, N>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
+    }
+}
+
+impl<T, const N: usize> ByTail for ArrayVec<T, N> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, N> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, N> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
     }
 }
 
@@ -93,36 +120,9 @@ unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
     }
 }
 
-impl<T, R, const N: usize> Query<usize, R> for ArrayVec<T, N>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, N>, Self::Error> {
-        let n = self.len();
-        Segment::intersected(self, n, range)
-    }
-}
-
 impl<T, const N: usize> Segmentation for ArrayVec<T, N> {
     type Kind = Self;
     type Target = Self;
-}
-
-impl<T, const N: usize> Tail for ArrayVec<T, N> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self, N> {
-        let n = self.len();
-        Segment::from_tail_range(self, n)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self, N> {
-        let n = self.len();
-        Segment::from_rtail_range(self, n)
-    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -555,6 +555,35 @@ where
     }
 }
 
+impl<T, R, const N: usize> ByRange<usize, R> for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, N>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
+    }
+}
+
+impl<T, const N: usize> ByTail for ArrayVec1<T, N>
+where
+    [T; N]: Array1,
+{
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, N> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, N> {
+        self.items.rtail().rekind()
+    }
+}
+
 impl<T, const N: usize> ClosedArrayVec<N> for ArrayVec1<T, N>
 where
     [T; N]: Array1,
@@ -740,41 +769,12 @@ where
     }
 }
 
-impl<T, R, const N: usize> Query<usize, R> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, N>, Self::Error> {
-        let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
-    }
-}
-
 impl<T, const N: usize> Segmentation for ArrayVec1<T, N>
 where
     [T; N]: Array1,
 {
     type Kind = Self;
     type Target = ArrayVec<T, N>;
-}
-
-impl<T, const N: usize> Tail for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-{
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self, N> {
-        self.items.tail().rekind()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self, N> {
-        self.items.rtail().rekind()
-    }
 }
 
 impl<'a, T, const N: usize> TryFrom<&'a [T]> for ArrayVec1<T, N>
@@ -1001,6 +1001,36 @@ where
     }
 }
 
+impl<K, T, R, const N: usize> ByRange<usize, R> for Segment<'_, K, N>
+where
+    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, K, N>, Self::Error> {
+        self.project_and_intersect(range)
+    }
+}
+
+impl<K, T, const N: usize> ByTail for Segment<'_, K, N>
+where
+    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
+{
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, K, N> {
+        self.project_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K, N> {
+        let n = self.len();
+        self.project_rtail_range(n)
+    }
+}
+
 impl<K, T, const N: usize> Deref for Segment<'_, K, N>
 where
     K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
@@ -1077,36 +1107,6 @@ where
     }
 }
 
-impl<K, T, R, const N: usize> Query<usize, R> for Segment<'_, K, N>
-where
-    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, K, N>, Self::Error> {
-        self.project_and_intersect(range)
-    }
-}
-
-impl<K, T, const N: usize> Tail for Segment<'_, K, N>
-where
-    K: ClosedArrayVec<N, Item = T> + Segmentation<Target = ArrayVec<T, N>>,
-{
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, K, N> {
-        self.project_tail_range()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, K, N> {
-        let n = self.len();
-        self.project_rtail_range(n)
-    }
-}
-
 #[cfg(test)]
 pub mod harness {
     use rstest::fixture;
@@ -1132,7 +1132,7 @@ mod tests {
     use crate::array_vec1::harness::{self, CAPACITY};
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::Tail;
+    use crate::segment::ByTail;
     #[cfg(feature = "serde")]
     use crate::{
         array_vec1::harness::xs1,

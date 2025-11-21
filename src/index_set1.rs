@@ -35,7 +35,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Intersect, Project, RangeError};
-use crate::segment::{self, Query, Segmentation, Tail};
+use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -55,6 +55,33 @@ impl<T, S> ClosedIndexSet for IndexSet<T, S> {
 
     fn as_index_set(&self) -> &IndexSet<Self::Item, Self::State> {
         self
+    }
+}
+
+impl<T, S, R> ByRange<usize, R> for IndexSet<T, S>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
+    }
+}
+
+impl<T, S> ByTail for IndexSet<T, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
     }
 }
 
@@ -84,36 +111,9 @@ unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
     }
 }
 
-impl<T, S, R> Query<usize, R> for IndexSet<T, S>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.len();
-        Segment::intersected(self, n, range)
-    }
-}
-
 impl<T, S> Segmentation for IndexSet<T, S> {
     type Kind = Self;
     type Target = Self;
-}
-
-impl<T, S> Tail for IndexSet<T, S> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_tail_range(self, n)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_rtail_range(self, n)
-    }
 }
 
 type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, IndexSet<T, S>, U, N>;
@@ -996,6 +996,31 @@ where
     }
 }
 
+impl<T, S, R> ByRange<usize, R> for IndexSet1<T, S>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
+    }
+}
+
+impl<T, S> ByTail for IndexSet1<T, S> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        self.items.rtail().rekind()
+    }
+}
+
 impl<T, S> ClosedIndexSet for IndexSet1<T, S> {
     type Item = T;
     type State = S;
@@ -1193,19 +1218,6 @@ where
     }
 }
 
-impl<T, S, R> Query<usize, R> for IndexSet1<T, S>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
-    }
-}
-
 impl<T, S> Segmentation for IndexSet1<T, S> {
     type Kind = Self;
     type Target = IndexSet<T, S>;
@@ -1235,18 +1247,6 @@ where
 
     fn sub(self, rhs: &'_ IndexSet1<T, S1>) -> Self::Output {
         self - rhs.as_index_set()
-    }
-}
-
-impl<T, S> Tail for IndexSet1<T, S> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        self.items.tail().rekind()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        self.items.rtail().rekind()
     }
 }
 
@@ -1368,7 +1368,7 @@ where
     }
 }
 
-impl<K, T, S, R> Query<usize, R> for Segment<'_, K>
+impl<K, T, S, R> ByRange<usize, R> for Segment<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
     K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
@@ -1383,7 +1383,7 @@ where
     }
 }
 
-impl<K, T, S> Tail for Segment<'_, K>
+impl<K, T, S> ByTail for Segment<'_, K>
 where
     K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
 {

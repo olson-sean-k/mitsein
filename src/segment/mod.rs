@@ -36,7 +36,7 @@ pub trait Segmentation: Sized {
     note = "positional collections are typically segmented by ranges over `usize`",
     note = "relational collections are typically segmented by ranges over the item type"
 )]
-pub trait Query<N, R>: Segmentation
+pub trait ByRange<N, R>: Segmentation
 where
     N: ?Sized,
 {
@@ -52,7 +52,7 @@ where
     ) -> Result<Segment<'_, Self::Kind, Self::Target, Self::Range>, Self::Error>;
 }
 
-pub trait Tail: Segmentation {
+pub trait ByTail: Segmentation {
     type Range;
 
     fn tail(&mut self) -> Segment<'_, Self::Kind, Self::Target, Self::Range>;

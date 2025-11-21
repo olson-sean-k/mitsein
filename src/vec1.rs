@@ -32,7 +32,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Intersect, Project, RangeError};
-use crate::segment::{self, Query, Segmentation, Tail};
+use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::string1::String1;
@@ -56,6 +56,33 @@ impl<T> ClosedVec for Vec<T> {
     }
 }
 
+impl<T, R> ByRange<usize, R> for Vec<T>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.len();
+        Segment::intersected(self, n, range)
+    }
+}
+
+impl<T> ByTail for Vec<T> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_tail_range(self, n)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        let n = self.len();
+        Segment::from_rtail_range(self, n)
+    }
+}
+
 impl<T> Extend1<T> for Vec<T> {
     fn extend_non_empty<I>(mut self, items: I) -> Vec1<T>
     where
@@ -74,36 +101,9 @@ unsafe impl<T> MaybeEmpty for Vec<T> {
     }
 }
 
-impl<T, R> Query<usize, R> for Vec<T>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.len();
-        Segment::intersected(self, n, range)
-    }
-}
-
 impl<T> Segmentation for Vec<T> {
     type Kind = Self;
     type Target = Self;
-}
-
-impl<T> Tail for Vec<T> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_tail_range(self, n)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        let n = self.len();
-        Segment::from_rtail_range(self, n)
-    }
 }
 
 type TakeIfMany<'a, T, N = ()> = take::TakeIfMany<'a, Vec<T>, T, N>;
@@ -472,6 +472,31 @@ impl<T> BorrowMut<Slice1<T>> for Vec1<T> {
     }
 }
 
+impl<T, R> ByRange<usize, R> for Vec1<T>
+where
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+        let n = self.items.len();
+        Segment::intersected_strict_subset(&mut self.items, n, range)
+    }
+}
+
+impl<T> ByTail for Vec1<T> {
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, Self> {
+        self.items.tail().rekind()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self> {
+        self.items.rtail().rekind()
+    }
+}
+
 impl<T> ClosedVec for Vec1<T> {
     type Item = T;
 
@@ -827,34 +852,9 @@ crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in &mut [T]])
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &Slice1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &mut Slice1<T>]);
 
-impl<T, R> Query<usize, R> for Vec1<T>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
-        let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
-    }
-}
-
 impl<T> Segmentation for Vec1<T> {
     type Kind = Self;
     type Target = Vec<T>;
-}
-
-impl<T> Tail for Vec1<T> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, Self> {
-        self.items.tail().rekind()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self> {
-        self.items.rtail().rekind()
-    }
 }
 
 impl<'a, T> TryFrom<&'a [T]> for Vec1<T>
@@ -1264,6 +1264,36 @@ where
     }
 }
 
+impl<K, T, R> ByRange<usize, R> for Segment<'_, K>
+where
+    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    R: RangeBounds<usize>,
+{
+    type Range = IndexRange;
+    type Error = RangeError<usize>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+        self.project_and_intersect(range)
+    }
+}
+
+impl<K, T> ByTail for Segment<'_, K>
+where
+    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+{
+    type Range = IndexRange;
+
+    fn tail(&mut self) -> Segment<'_, K> {
+        self.project_tail_range()
+    }
+
+    fn rtail(&mut self) -> Segment<'_, K> {
+        let n = self.len();
+        self.project_rtail_range(n)
+    }
+}
+
 impl<K, T> Deref for Segment<'_, K>
 where
     K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
@@ -1361,36 +1391,6 @@ where
     }
 }
 
-impl<K, T, R> Query<usize, R> for Segment<'_, K>
-where
-    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
-        self.project_and_intersect(range)
-    }
-}
-
-impl<K, T> Tail for Segment<'_, K>
-where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
-{
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> Segment<'_, K> {
-        self.project_tail_range()
-    }
-
-    fn rtail(&mut self) -> Segment<'_, K> {
-        let n = self.len();
-        self.project_rtail_range(n)
-    }
-}
-
 #[derive(Debug)]
 struct DrainRange {
     intersection: IndexRange,
@@ -1474,7 +1474,7 @@ mod tests {
     #[cfg(feature = "schemars")]
     use crate::schemars;
     use crate::segment::range::{IndexRange, Project, RangeError};
-    use crate::segment::{Query, Tail};
+    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};

@@ -29,7 +29,7 @@ use crate::segment::range::{
     self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
     ResolveTrimRange, TrimRange, UnorderedError,
 };
-use crate::segment::{self, Query, Segmentation, Tail};
+use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -46,6 +46,39 @@ impl<T> ClosedBTreeSet for BTreeSet<T> {
 
     fn as_btree_set(&self) -> &BTreeSet<Self::Item> {
         self
+    }
+}
+
+impl<T, R> ByRange<T, R> for BTreeSet<T>
+where
+    T: Ord,
+    R: IntoRangeBounds<T>,
+{
+    type Range = Option<ItemRange<T>>;
+    type Error = UnorderedError<Bound<T>>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+        range::ordered_range_bounds(range)
+            .map(|range| {
+                let (start, end) = range.into_bounds();
+                Segment::unchecked(self, Some(ItemRange::unchecked(start, end)))
+            })
+            .map_err(|range| {
+                let (start, end) = range.into_bounds();
+                UnorderedError(start, end)
+            })
+    }
+}
+
+impl<T> ByTail for BTreeSet<T> {
+    type Range = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(self, TrimRange::TAIL1)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(self, TrimRange::RTAIL1)
     }
 }
 
@@ -93,39 +126,6 @@ where
                 let (start, end) = range.into_bounds();
                 ItemRange::unchecked(start, end)
             })
-    }
-}
-
-impl<T, R> Query<T, R> for BTreeSet<T>
-where
-    T: Ord,
-    R: IntoRangeBounds<T>,
-{
-    type Range = Option<ItemRange<T>>;
-    type Error = UnorderedError<Bound<T>>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
-        range::ordered_range_bounds(range)
-            .map(|range| {
-                let (start, end) = range.into_bounds();
-                Segment::unchecked(self, Some(ItemRange::unchecked(start, end)))
-            })
-            .map_err(|range| {
-                let (start, end) = range.into_bounds();
-                UnorderedError(start, end)
-            })
-    }
-}
-
-impl<T> Tail for BTreeSet<T> {
-    type Range = TrimRange;
-
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::TAIL1)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::RTAIL1)
     }
 }
 
@@ -583,6 +583,48 @@ where
     }
 }
 
+impl<T, R> ByRange<T, R> for BTreeSet1<T>
+where
+    T: UnsafeOrd,
+    R: IntoRangeBounds<T>,
+{
+    type Range = Option<ItemRange<T>>;
+    type Error = RangeError<Bound<T>>;
+
+    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+        range::ordered_range_bounds(range)
+            .map_err(|range| {
+                let (start, end) = range.into_bounds();
+                UnorderedError(start, end).into()
+            })
+            .and_then(|range| {
+                if range.contains(self.first()) && range.contains(self.last()) {
+                    let (start, end) = range.into_bounds();
+                    Err(OutOfBoundsError::Range(start, end).into())
+                }
+                else {
+                    let (start, end) = range.into_bounds();
+                    Ok(Segment::unchecked(
+                        &mut self.items,
+                        Some(ItemRange::unchecked(start, end)),
+                    ))
+                }
+            })
+    }
+}
+
+impl<T> ByTail for BTreeSet1<T> {
+    type Range = TrimRange;
+
+    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
+    }
+
+    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
+        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
+    }
+}
+
 impl<T> ClosedBTreeSet for BTreeSet1<T> {
     type Item = T;
 
@@ -770,36 +812,6 @@ where
     }
 }
 
-impl<T, R> Query<T, R> for BTreeSet1<T>
-where
-    T: UnsafeOrd,
-    R: IntoRangeBounds<T>,
-{
-    type Range = Option<ItemRange<T>>;
-    type Error = RangeError<Bound<T>>;
-
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
-        range::ordered_range_bounds(range)
-            .map_err(|range| {
-                let (start, end) = range.into_bounds();
-                UnorderedError(start, end).into()
-            })
-            .and_then(|range| {
-                if range.contains(self.first()) && range.contains(self.last()) {
-                    let (start, end) = range.into_bounds();
-                    Err(OutOfBoundsError::Range(start, end).into())
-                }
-                else {
-                    let (start, end) = range.into_bounds();
-                    Ok(Segment::unchecked(
-                        &mut self.items,
-                        Some(ItemRange::unchecked(start, end)),
-                    ))
-                }
-            })
-    }
-}
-
 impl<T> Segmentation for BTreeSet1<T> {
     type Kind = Self;
     type Target = BTreeSet<T>;
@@ -825,18 +837,6 @@ where
 
     fn sub(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
         self - rhs.as_btree_set()
-    }
-}
-
-impl<T> Tail for BTreeSet1<T> {
-    type Range = TrimRange;
-
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
-    }
-
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
     }
 }
 
@@ -1112,7 +1112,7 @@ where
     }
 }
 
-impl<K, T> Tail for Segment<'_, K, Option<ItemRange<T>>>
+impl<K, T> ByTail for Segment<'_, K, Option<ItemRange<T>>>
 where
     K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
     // A `T: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
@@ -1310,7 +1310,7 @@ where
     }
 }
 
-impl<K, T> Tail for Segment<'_, K, TrimRange>
+impl<K, T> ByTail for Segment<'_, K, TrimRange>
 where
     K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
 {
@@ -1356,7 +1356,7 @@ mod tests {
     #[cfg(feature = "schemars")]
     use crate::schemars;
     use crate::segment::range::IntoRangeBounds;
-    use crate::segment::{Query, Tail};
+    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
 
