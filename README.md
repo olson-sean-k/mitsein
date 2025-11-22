@@ -162,7 +162,7 @@ non-empty APIs.
 use mitsein::prelude::*;
 
 let mut xs = vec![0i32, 1, 2, 3, 4];
-let xs1 = Vec1::try_from_mut_ref(&mut xs).unwrap();
+let xs1 = Vec1::try_from_mut(&mut xs).unwrap();
 xs1.tail().clear();
 assert_eq!(xs.as_slice(), &[0]);
 ```

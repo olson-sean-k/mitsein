@@ -156,7 +156,7 @@ impl<T, S> HashSet1<T, S> {
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
+    pub fn try_from_mut(
         items: &mut HashSet<T, S>,
     ) -> Result<&'_ mut Self, EmptyError<&'_ mut HashSet<T, S>>> {
         items.try_into()

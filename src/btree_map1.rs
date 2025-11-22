@@ -501,7 +501,7 @@ impl<K, V> BTreeMap1<K, V> {
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
+    pub fn try_from_mut(
         items: &mut BTreeMap<K, V>,
     ) -> Result<&'_ mut Self, EmptyError<&'_ mut BTreeMap<K, V>>> {
         items.try_into()

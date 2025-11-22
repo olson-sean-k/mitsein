@@ -204,7 +204,7 @@ impl<T> VecDeque1<T> {
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
+    pub fn try_from_mut(
         items: &mut VecDeque<T>,
     ) -> Result<&'_ mut Self, EmptyError<&'_ mut VecDeque<T>>> {
         items.try_into()

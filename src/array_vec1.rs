@@ -304,7 +304,7 @@ where
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
+    pub fn try_from_mut(
         items: &mut ArrayVec<T, N>,
     ) -> Result<&'_ mut Self, EmptyError<&'_ mut ArrayVec<T, N>>> {
         items.try_into()

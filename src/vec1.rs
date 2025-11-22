@@ -199,9 +199,7 @@ impl<T> Vec1<T> {
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
-        items: &mut Vec<T>,
-    ) -> Result<&'_ mut Self, EmptyError<&'_ mut Vec<T>>> {
+    pub fn try_from_mut(items: &mut Vec<T>) -> Result<&'_ mut Self, EmptyError<&'_ mut Vec<T>>> {
         items.try_into()
     }
 

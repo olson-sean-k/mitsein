@@ -245,7 +245,7 @@ impl<T, S> IndexSet1<T, S> {
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
+    pub fn try_from_mut(
         items: &mut IndexSet<T, S>,
     ) -> Result<&'_ mut Self, EmptyError<&'_ mut IndexSet<T, S>>> {
         items.try_into()

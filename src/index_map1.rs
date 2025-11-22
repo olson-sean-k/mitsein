@@ -708,7 +708,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
+    pub fn try_from_mut(
         items: &mut IndexMap<K, V, S>,
     ) -> Result<&'_ mut Self, EmptyError<&'_ mut IndexMap<K, V, S>>> {
         items.try_into()

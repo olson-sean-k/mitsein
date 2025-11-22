@@ -168,9 +168,7 @@ impl String1 {
         items.try_into()
     }
 
-    pub fn try_from_mut_ref(
-        items: &mut String,
-    ) -> Result<&'_ mut Self, EmptyError<&'_ mut String>> {
+    pub fn try_from_mut(items: &mut String) -> Result<&'_ mut Self, EmptyError<&'_ mut String>> {
         items.try_into()
     }
 
