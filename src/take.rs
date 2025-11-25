@@ -2,7 +2,7 @@
 #![cfg_attr(docsrs, doc(cfg(any(feature = "arrayvec", feature = "alloc"))))]
 
 use core::fmt::{self, Debug, Formatter};
-use core::mem::{self, ManuallyDrop, MaybeUninit};
+use core::mem::{self, MaybeUninit};
 
 use crate::{Cardinality, MaybeEmpty, NonEmpty};
 
@@ -31,19 +31,17 @@ pub struct TakeIfMany<'a, T, U, N = ()>
 where
     T: MaybeEmpty,
 {
-    // This field wraps `Target` in both `ManuallyDrop` and `MaybeUninit`.
+    // This field wraps `Target` in `MaybeUninit`.
     //
-    // `ManuallyDrop` not only prevents dropping the `Target` without explicit code, but also
-    // provides `ManuallyDrop::take`, which uses `ptr::read` to provide a shallow copy of the
-    // `Target` and to essentially move the `Target` out through a mutable reference.
-    //
-    // `MaybeUninit` prevents the compiler from making assumptions about `Target`. In particular,
-    // using `ManuallyDrop::take` constructs a mutable alias of the `Target::items` field. Without
-    // `MaybeUninit`, this is undefined behavior, because the compiler would assume that these
-    // fields refer to different data when they actually alias the same data.
-    target: ManuallyDrop<MaybeUninit<Target<'a, T, N>>>,
+    // `MaybeUninit` prevents dropping the `Target` without explicit code and also prevents the
+    // compiler from making assumptions about `Target`. In particular, using
+    // `MaybeUninit::assume_init_read` constructs a mutable alias of the `Target::items` field.
+    // Without `MaybeUninit`, this is undefined behavior, because the compiler would assume that
+    // `TakeIfMany::target` is valid and that `Target::items` refers to different data even though
+    // these fields actually alias the same data.
+    target: MaybeUninit<Target<'a, T, N>>,
     // This field need not be a part of `Target`, because it is `Copy`. There's no need to copy it
-    // through `ManuallyDrop::take` and `ptr::read`.
+    // through `MaybeUninit::assume_init_read`.
     many: FnMany<T, U, N>,
 }
 
@@ -53,27 +51,27 @@ where
 {
     pub(crate) fn with(items: &'a mut NonEmpty<T>, index: N, many: FnMany<T, U, N>) -> Self {
         TakeIfMany {
-            target: ManuallyDrop::new(MaybeUninit::new(Target { items, index })),
+            target: MaybeUninit::new(Target { items, index }),
             many,
         }
     }
 
-    fn read_and_forget<O, F>(mut self, f: F) -> O
+    fn read_and_forget<O, F>(self, f: F) -> O
     where
         F: FnOnce(Target<'a, T, N>, FnMany<T, U, N>) -> O,
     {
         let many = self.many;
-        // SAFETY: `target` must be initialized and must not have been taken before this call.
-        //         Moreover, `Drop::drop` must not be called after taking `target`, because it also
-        //         takes `target`. This is safe here, because `Drop::drop` cannot have been called
-        //         before reaching this code and `self` is forgotten (via `mem::forget`) below.
-        //         `target` is always initialized through `TakeIfMany::with`.
+        // SAFETY: `target` must be initialized and must not have been read before this call.
+        //         Moreover, `Drop::drop` must not be called after reading `target`, because it
+        //         also reads `target`. This is safe here, because `Drop::drop` cannot have been
+        //         called before reaching this code and `self` is forgotten (via `mem::forget`)
+        //         below. `target` is always initialized through `TakeIfMany::with`.
         //
-        //         Note too that `mem::forget` must be reached after taking `target` here. For
+        //         Note too that `mem::forget` must be reached after reading `target` here. For
         //         example, a panic just before `mem::forget` would cause `Drop::drop` to take
         //         `target` a second time and therefore a double-drop. It is important no fallible
         //         operations occur between taking and forgetting!
-        let target = unsafe { ManuallyDrop::take(&mut self.target).assume_init() };
+        let target = unsafe { self.target.assume_init_read() };
         mem::forget(self);
         // This may panic, but this is okay, because `self` has already been forgotten.
         f(target, many)
@@ -165,13 +163,13 @@ where
     T: MaybeEmpty,
 {
     fn drop(&mut self) {
-        // SAFETY: `target` must be initialized and must not have been taken before this call.
-        //         `TakeIfMany::read_and_forget` also takes `target`, but it also forgets `self`
+        // SAFETY: `target` must be initialized and must not have been read before this call.
+        //         `TakeIfMany::read_and_forget` also reads `target`, but it also forgets `self`
         //         (via `mem::forget`) to prevent this code from being reached. Note too that the
-        //         contents of `ManuallyDrop` are never dropped, so there is no double-drop, even
-        //         if `target`'s fields are not `Copy`. `target` is always initialized through
+        //         contents of `MaybeUninit` are never dropped, so there is no double-drop, even if
+        //         `target`'s fields are not `Copy`. `target` is always initialized through
         //         `TakeIfMany::with`.
-        let target = unsafe { ManuallyDrop::take(&mut self.target).assume_init() };
+        let target = unsafe { self.target.assume_init_read() };
         if let Cardinality::Many(_) = target.items.cardinality() {
             (self.many)(target.items, target.index);
         }
