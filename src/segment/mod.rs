@@ -20,7 +20,7 @@ use crate::segment::range::{IndexRange, Intersect, Project};
 
 pub use crate::segment::range::{IntoRangeBounds, OutOfBoundsError, RangeError, UnorderedError};
 
-pub trait Segmentation: Sized {
+pub trait Segmentation {
     type Kind: Segmentation<Target = Self::Target>;
     type Target;
 }
@@ -71,7 +71,7 @@ where
 
 impl<'a, K, T, R> Segment<'a, K, T, R>
 where
-    K: Segmentation<Target = T> + ?Sized,
+    K: Segmentation<Target = T>,
 {
     pub(crate) fn unchecked(items: &'a mut K::Target, range: R) -> Self {
         Segment { items, range }
@@ -88,7 +88,7 @@ where
 
 impl<K, T> Segment<'_, K, T, IndexRange>
 where
-    K: Segmentation<Target = T> + ?Sized,
+    K: Segmentation<Target = T>,
 {
     pub(crate) fn from_tail_range(items: &mut T, n: usize) -> Segment<'_, K, T, IndexRange> {
         // A segment over the range `[1,n)` is always valid for a positional (indexed) collection.
@@ -162,7 +162,7 @@ where
 #[cfg(feature = "alloc")]
 impl<K, T> Segment<'_, K, T, TrimRange>
 where
-    K: Segmentation<Target = T> + ?Sized,
+    K: Segmentation<Target = T>,
 {
     pub(crate) fn advance_tail_range(&mut self) -> Segment<'_, K, T, TrimRange> {
         let range = self.range.tail();

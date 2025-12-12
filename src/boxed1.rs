@@ -5,6 +5,8 @@
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer};
 use alloc::boxed::Box;
 use alloc::vec::{self, Vec};
 use core::slice;
@@ -13,8 +15,6 @@ use crate::EmptyError;
 use crate::array1::Array1;
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 use crate::rc1::{RcSlice1, RcSlice1Ext as _};
-#[cfg(feature = "serde")]
-use crate::serde::Serde;
 use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::string1::String1;
@@ -128,6 +128,23 @@ impl<T> AsRef<[T]> for BoxedSlice1<T> {
     }
 }
 
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+impl<'de, T> Deserialize<'de> for BoxedSlice1<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use ::serde::de::Error;
+
+        let items = Box::<[T]>::deserialize(deserializer)?;
+        BoxedSlice1::try_from(items).map_err(D::Error::custom)
+    }
+}
+
 impl<T, const N: usize> From<[T; N]> for BoxedSlice1<T>
 where
     [T; N]: Array1,
@@ -231,16 +248,6 @@ impl<T> TryFrom<Box<[T]>> for BoxedSlice1<T> {
     }
 }
 
-#[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-impl<T> TryFrom<Serde<Box<[T]>>> for BoxedSlice1<T> {
-    type Error = EmptyError<Box<[T]>>;
-
-    fn try_from(serde: Serde<Box<[T]>>) -> Result<Self, Self::Error> {
-        BoxedSlice1::try_from_boxed_slice(serde.items)
-    }
-}
-
 pub type BoxedStr1 = Box<Str1>;
 
 pub trait BoxedStr1Ext {
@@ -285,5 +292,46 @@ where
         I: IntoIterator1<Item = T>,
     {
         String1::from_iter1(items).into_boxed_str1()
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+pub mod harness {
+    use rstest::fixture;
+
+    use crate::boxed1::BoxedSlice1;
+    use crate::slice1::slice1;
+
+    #[fixture]
+    pub fn xs1() -> BoxedSlice1<u8> {
+        BoxedSlice1::from(slice1![0, 1, 2, 3, 4])
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use alloc::vec::Vec;
+    use rstest::rstest;
+    #[cfg(feature = "serde")]
+    use serde_test::Token;
+
+    use crate::boxed1::BoxedSlice1;
+    use crate::boxed1::harness::xs1;
+    use crate::serde::{self, harness::sequence};
+
+    #[rstest]
+    fn de_serialize_boxed_slice1_into_and_from_tokens_eq(
+        xs1: BoxedSlice1<u8>,
+        sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_into_and_from_tokens_eq::<_, Vec<_>>(xs1, sequence)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn deserialize_boxed_slice1_from_empty_tokens_then_empty_error(
+        #[with(0)] sequence: impl Iterator<Item = Token>,
+    ) {
+        serde::harness::assert_deserialize_error_eq_empty_error::<BoxedSlice1<u8>, Vec<_>>(sequence)
     }
 }

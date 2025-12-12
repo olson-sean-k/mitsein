@@ -1,5 +1,7 @@
 //! A non-empty [slice][`prim@slice`].
 
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer};
 use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
@@ -223,6 +225,23 @@ impl<T> DerefMut for Slice1<T> {
     }
 }
 
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+impl<'a, 'de> Deserialize<'de> for &'a Slice1<u8>
+where
+    'de: 'a,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use ::serde::de::Error;
+
+        let items = <&[u8]>::deserialize(deserializer)?;
+        <&Slice1<u8>>::try_from(items).map_err(D::Error::custom)
+    }
+}
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl<'a, T> From<&'a Slice1<T>> for Vec<T>
@@ -416,17 +435,61 @@ macro_rules! slice1 {
 }
 pub use slice1;
 
-#[cfg(all(test, feature = "schemars"))]
-mod tests {
-    use rstest::rstest;
+#[cfg(test)]
+pub mod harness {
+    use rstest::fixture;
 
-    use crate::schemars;
     use crate::slice1::Slice1;
 
+    #[fixture]
+    pub fn xs1() -> &'static Slice1<u8> {
+        slice1![0, 1, 2, 3, 4]
+    }
+}
+
+#[cfg(all(
+    test,
+    any(feature = "schemars", all(feature = "alloc", feature = "serde"))
+))]
+mod tests {
+    use rstest::rstest;
+    #[cfg(feature = "serde")]
+    use {alloc::vec::Vec, serde_test::Token};
+
+    #[cfg(feature = "schemars")]
+    use crate::schemars;
+    use crate::slice1::Slice1;
+    #[cfg(feature = "serde")]
+    use {
+        crate::serde::{
+            self,
+            harness::{borrowed_bytes, sequence},
+        },
+        crate::slice1::harness::xs1,
+    };
+
+    #[cfg(feature = "schemars")]
     #[rstest]
     fn slice1_json_schema_has_non_empty_property() {
         schemars::harness::assert_json_schema_has_non_empty_property::<Slice1<u8>>(
             schemars::NON_EMPTY_KEY_ARRAY,
         );
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn deserialize_ref_slice1_u8_from_tokens_eq(
+        xs1: &Slice1<u8>,
+        #[with(xs1)] borrowed_bytes: impl Iterator<Item = Token>,
+    ) {
+        let borrowed_bytes: Vec<_> = borrowed_bytes.collect();
+        let borrowed_bytes = borrowed_bytes.as_slice();
+        serde::harness::assert_ref_from_tokens_eq(xs1, borrowed_bytes)
+    }
+
+    #[cfg(feature = "serde")]
+    #[rstest]
+    fn serialize_slice1_into_tokens_eq(xs1: &Slice1<u8>, sequence: impl Iterator<Item = Token>) {
+        serde::harness::assert_into_tokens_eq::<_, Vec<_>>(xs1, sequence)
     }
 }

@@ -141,3 +141,24 @@ impl PartialEq<String1> for CowStr1<'_> {
         PartialEq::eq(self.as_ref().as_str(), other.as_string())
     }
 }
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use alloc::vec::Vec;
+    use rstest::rstest;
+    use serde_test::Token;
+
+    use crate::borrow1::CowSlice1;
+    use crate::serde::{self, harness::sequence};
+    use crate::slice1::Slice1;
+    use crate::slice1::harness::xs1;
+
+    #[rstest]
+    fn serialize_cow_slice1_from_tokens_eq(
+        xs1: &Slice1<u8>,
+        sequence: impl Iterator<Item = Token>,
+    ) {
+        let xs1 = CowSlice1::from(xs1);
+        serde::harness::assert_into_tokens_eq::<_, Vec<_>>(xs1, sequence)
+    }
+}
