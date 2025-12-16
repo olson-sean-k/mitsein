@@ -9,7 +9,7 @@ use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, FlatMap, Flatten, Inspect, Map, Peekable,
-    Repeat, Rev, Skip, StepBy, Take,
+    Repeat, Rev, Skip, StepBy, Take, Zip,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -39,7 +39,7 @@ use crate::safety::OptionExt as _;
 use crate::vec1::Vec1;
 #[cfg(feature = "itertools")]
 use crate::{Cardinality, safety};
-use crate::{EmptyError, NonEmpty, NonZeroExt as _};
+use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty, NonZeroExt as _};
 
 // Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
 // implementation. In particular, the `IntoIterator::IntoIter` type for `Either` is itself, and so
@@ -619,6 +619,15 @@ where
         unsafe { self.and_then_unchecked(move |items| items.chain(chained)) }
     }
 
+    pub fn zip<T>(self, zipped: T) -> Iterator1<Zip<I, T::IntoIter>>
+    where
+        T: IntoIterator1<Item = I::Item>,
+    {
+        // SAFETY: Both input iterators are non-empty, and so this combinator function cannot
+        //         reduce the cardinality to zero.
+        unsafe { self.and_then_unchecked(move |items| items.zip(zipped)) }
+    }
+
     pub fn step_by(self, step: usize) -> Iterator1<StepBy<I>> {
         // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
         unsafe { self.and_then_unchecked(move |items| items.step_by(step)) }
@@ -667,6 +676,30 @@ where
         T: FromIterator1<I::Item>,
     {
         T::from_iter1(self)
+    }
+
+    // `Iterator::unzip` relies on tuple implementations for `Extend`, but this isn't possible for
+    // `Extend1`, since it is a morphism from `Self` to `NonEmpty<Self>` (it consumes `self` and
+    // cannot produce a tuple of `NonEmpty` types as its output). `Itertor1::unzip` therefore
+    // relies on these same tuple implementations of `Extend` and then constructs the `NonEmpty`
+    // outputs.
+    pub fn unzip<L, R, FromL, FromR>(self) -> (NonEmpty<FromL>, NonEmpty<FromR>)
+    where
+        I: Iterator<Item = (L, R)>,
+        FromL: Default + Extend<L> + MaybeEmpty,
+        FromR: Default + Extend<R> + MaybeEmpty,
+    {
+        let mut unzipped: (FromL, FromR) = Default::default();
+        unzipped.extend(self);
+        let (left, right) = unzipped;
+        // SAFETY: `self` is non-empty and, given that, the `Extend` implementation over tuples
+        //         produces two non-empty collections.
+        unsafe {
+            (
+                NonEmpty::from_maybe_empty_unchecked(left),
+                NonEmpty::from_maybe_empty_unchecked(right),
+            )
+        }
     }
 }
 
@@ -1182,7 +1215,14 @@ mod tests {
     use crate::iter1::{IntoIterator1, ThenIterator1};
     use crate::slice1::{Slice1, slice1};
     #[cfg(feature = "alloc")]
-    use crate::vec1::Vec1;
+    use crate::vec1::{Vec1, vec1};
+
+    #[cfg(feature = "alloc")]
+    #[rstest]
+    fn unzip_iter1_into_vec1_then_eq() {
+        let xs: (Vec1<u8>, Vec1<u8>) = [(0, 1); 4].into_iter1().unzip();
+        assert_eq!(xs, (vec1![0; 4], vec1![1; 4]));
+    }
 
     #[cfg(feature = "alloc")]
     #[rstest]
