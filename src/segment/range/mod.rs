@@ -1,4 +1,4 @@
-#![cfg(any(feature = "alloc", feature = "arrayvec"))]
+#![cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
 
 mod index;
 mod item;

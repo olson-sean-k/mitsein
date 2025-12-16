@@ -194,9 +194,11 @@ the non-empty invariant when manipulating non-empty types.
 
 Mitsein is a `no_std` library and both `alloc` and `std` are optional.
 **Non-empty slices, iterators, and arrays can be used in contexts where OS
-features or allocation are not available.** This also includes the integration
-with [`arrayvec`]. There are also optional integrations with foundational and
-popular crates like [`itertools`], [`rayon`], and [`serde`].
+features or allocation are not available.** This also includes the integrations
+with [`arrayvec`] and [`heapless`].
+
+There are also optional integrations with foundational crates like
+[`itertools`], [`rayon`], and [`serde`].
 
 ## Memory Safety
 
@@ -230,6 +232,7 @@ feature flags.
 | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
 | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
 | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
+| `heapless`  |              | No      | [`heapless`]  | Non-empty implementations of [`heapless`] types.               |
 | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
 | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
 | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                       |
@@ -241,6 +244,7 @@ feature flags.
 [`arbitrary`]: https://crates.io/crates/arbitrary
 [`arrayvec`]: https://crates.io/crates/arrayvec
 [`either`]: https://crates.io/crates/either
+[`heapless`]: https://crates.io/crates/heapless
 [`indexmap`]: https://crates.io/crates/indexmap
 [`itertools`]: https://crates.io/crates/itertools
 [`miri`]: https://github.com/rust-lang/miri

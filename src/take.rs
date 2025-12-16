@@ -1,5 +1,8 @@
-#![cfg(any(feature = "arrayvec", feature = "alloc"))]
-#![cfg_attr(docsrs, doc(cfg(any(feature = "arrayvec", feature = "alloc"))))]
+#![cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
+#![cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless")))
+)]
 
 use core::fmt::{self, Debug, Formatter};
 use core::mem::{self, MaybeUninit};
@@ -8,7 +11,10 @@ use crate::{Cardinality, MaybeEmpty, NonEmpty};
 
 pub type FnMany<T, U, N> = fn(&mut NonEmpty<T>, N) -> U;
 
-struct Target<'a, T, N> {
+struct Target<'a, T, N>
+where
+    T: ?Sized,
+{
     items: &'a mut NonEmpty<T>,
     index: N,
 }
@@ -29,7 +35,7 @@ where
 
 pub struct TakeIfMany<'a, T, U, N = ()>
 where
-    T: MaybeEmpty,
+    T: MaybeEmpty + ?Sized,
 {
     // This field wraps `Target` in `MaybeUninit`.
     //
@@ -47,7 +53,7 @@ where
 
 impl<'a, T, U, N> TakeIfMany<'a, T, U, N>
 where
-    T: MaybeEmpty,
+    T: MaybeEmpty + ?Sized,
 {
     pub(crate) fn with(items: &'a mut NonEmpty<T>, index: N, many: FnMany<T, U, N>) -> Self {
         TakeIfMany {
@@ -129,7 +135,7 @@ where
 
 impl<'a, T, U, N> TakeIfMany<'a, T, Option<U>, N>
 where
-    T: MaybeEmpty,
+    T: MaybeEmpty + ?Sized,
 {
     #[cfg(any(feature = "alloc", feature = "arrayvec"))]
     pub(crate) fn try_take_or_else<E, F>(self, one: F) -> Option<Result<U, E>>
@@ -146,7 +152,7 @@ where
 impl<T, U, N> Debug for TakeIfMany<'_, T, U, N>
 where
     NonEmpty<T>: Debug,
-    T: MaybeEmpty,
+    T: MaybeEmpty + ?Sized,
     N: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
@@ -160,7 +166,7 @@ where
 
 impl<T, U, N> Drop for TakeIfMany<'_, T, U, N>
 where
-    T: MaybeEmpty,
+    T: MaybeEmpty + ?Sized,
 {
     fn drop(&mut self) {
         // SAFETY: `target` must be initialized and must not have been read before this call.

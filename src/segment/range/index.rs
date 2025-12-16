@@ -91,6 +91,7 @@ impl IndexRange {
         self.take_from_start(n);
     }
 
+    #[cfg(any(feature = "alloc", feature = "arrayvec", feature = "smallvec"))]
     pub(crate) fn truncate_from_end(&mut self, len: usize) -> Option<Range<usize>> {
         let from = self.len();
         let to = len;

@@ -45,6 +45,7 @@ arrayvec = [
     "schemars?/arrayvec07",
 ]
 either = ["dep:either"]
+heapless = ["dep:heapless"]
 indexmap = [
     "dep:indexmap",
     "alloc",
@@ -67,6 +68,7 @@ schemars = [
 serde = [
     "dep:serde",
     "arrayvec?/serde",
+    "heapless?/serde",
     "indexmap?/serde",
     "smallvec?/serde",
 ]
@@ -99,6 +101,11 @@ optional = true
 
 [dependencies.either]
 version = "^1.15.0"
+default-features = false
+optional = true
+
+[dependencies.heapless]
+version = "^0.9.0"
 default-features = false
 optional = true
 

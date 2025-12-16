@@ -40,7 +40,10 @@ where
     }
 }
 
-#[cfg(all(test, any(feature = "alloc", feature = "arrayvec")))]
+#[cfg(all(
+    test,
+    any(feature = "alloc", feature = "arrayvec", feature = "heapless")
+))]
 pub mod harness {
     use core::fmt::Debug;
     use rstest::fixture;

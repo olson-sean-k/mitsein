@@ -49,6 +49,7 @@
 //! - [`String1`][`string1`]
 //! - [`Vec1`][`mod@vec1`]
 //! - [`VecDeque1`][`vec_deque1`]
+//! - [`heapless`](crate::heapless#collections)
 //!
 //! Non-empty collections are represented with the [`NonEmpty`] type constructor. These types are
 //! exported as type definitions in their respective modules. Similarly to `std::prelude`, the
@@ -220,6 +221,7 @@
 //! | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
 //! | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
 //! | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
+//! | `heapless`  |              | No      | [`heapless`]  | Non-empty implementations of [`heapless`] types.               |
 //! | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
 //! | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
 //! | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                       |
@@ -240,6 +242,7 @@
 //! [`CowStr1Ext`]: crate::borrow1::CowStr1Ext
 //! [`either`]: https://crates.io/crates/either
 //! [`Except`]: crate::except
+//! [`heapless`]: https://crates.io/crates/heapless
 //! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`Iterator1`]: crate::iter1::Iterator1
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
@@ -332,6 +335,7 @@ pub mod cmp;
 pub mod except;
 pub mod hash;
 pub mod hash_set1;
+pub mod heapless;
 pub mod index_map1;
 pub mod index_set1;
 pub mod iter1;
@@ -635,7 +639,7 @@ where
     }
 }
 
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
 impl<T> NonEmpty<T>
 where
     T: MaybeEmpty + ?Sized,
@@ -865,13 +869,13 @@ pub(crate) use with_unzipped_tuples;
 
 macro_rules! impl_partial_eq_for_non_empty {
     (
-        [$(for $right:ident$(,)?)? in $rhs:ty]$(,)?
+        [$(for $ritem:ident $(,)?)? in $rhs:ty]
         ==
-        [$(for $left:ident$(,)?)? in $lhs:ty]$(,)?
+        [$(for $litem:ident $(,)?)? in $lhs:ty] $(,)?
     ) => {
-        impl<$($right,)? $($left)?> ::core::cmp::PartialEq<$rhs> for $lhs
-        $(where
-            $left: ::core::cmp::PartialEq<$right>,)?
+        impl<$($ritem,)? $($litem)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        where
+            $($litem: ::core::cmp::PartialEq<$ritem>,)?
         {
             fn eq(&self, rhs: &$rhs) -> bool {
                 ::core::cmp::PartialEq::eq(&self.items, &rhs.items)
@@ -879,13 +883,13 @@ macro_rules! impl_partial_eq_for_non_empty {
         }
     };
     (
-        [$(for $right:ident $(,const $n:ident: usize)?$(,)?)? in $rhs:ty]
+        [$(for $ritem:ident $(,const $rn:ident: usize)? $(,)?)? in $rhs:ty]
         <=
-        [$(for $left:ident$(,)?)? in $lhs:ty]$(,)?
+        [$(for $litem:ident $(,)?)? in $lhs:ty] $(,)?
     ) => {
-        impl<$($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
-        $(where
-            $left: ::core::cmp::PartialEq<$right>,)?
+        impl<$($ritem,)? $($litem,)? $($(const $rn: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        where
+            $($litem: ::core::cmp::PartialEq<$ritem>,)?
         {
             fn eq(&self, rhs: &$rhs) -> bool {
                 ::core::cmp::PartialEq::eq(&self.items, rhs)
@@ -893,13 +897,13 @@ macro_rules! impl_partial_eq_for_non_empty {
         }
     };
     (
-        [$(for $right:ident$(,)?)? in $rhs:ty]
+        [$(for $ritem:ident $(,)?)? in $rhs:ty]
         =>
-        [$(for $left:ident $(,const $n:ident: usize)?$(,)?)? in $lhs:ty]$(,)?
+        [$(for $litem:ident $(,const $ln:ident: usize)? $(,)?)? in $lhs:ty] $(,)?
     ) => {
-        impl<$($right,)? $($left,)? $($(const $n: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
+        impl<$($ritem,)? $($litem,)? $($(const $ln: usize)?)?> ::core::cmp::PartialEq<$rhs> for $lhs
         $(where
-            $left: ::core::cmp::PartialEq<$right>,)?
+            $litem: ::core::cmp::PartialEq<$ritem>,)?
         {
             fn eq(&self, rhs: &$rhs) -> bool {
                 ::core::cmp::PartialEq::eq(self, &rhs.items)

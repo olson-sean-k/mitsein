@@ -5,8 +5,11 @@
 //         non-empty invariant. In particular, range types, intersection, and projection must be
 //         correct.
 
-#![cfg(any(feature = "arrayvec", feature = "alloc"))]
-#![cfg_attr(docsrs, doc(cfg(any(feature = "arrayvec", feature = "alloc"))))]
+#![cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
+#![cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless")))
+)]
 
 pub(crate) mod range;
 
@@ -21,8 +24,8 @@ use crate::segment::range::{IndexRange, Intersect, Project};
 pub use crate::segment::range::{IntoRangeBounds, OutOfBoundsError, RangeError, UnorderedError};
 
 pub trait Segmentation {
-    type Kind: Segmentation<Target = Self::Target>;
-    type Target;
+    type Kind: Segmentation<Target = Self::Target> + ?Sized;
+    type Target: ?Sized;
 }
 
 // TODO: Support segmentation over a query type `Q` borrowed from a key or owned index type `K`.
@@ -63,7 +66,8 @@ pub trait ByTail: Segmentation {
 #[must_use]
 pub struct Segment<'a, K, T, R>
 where
-    K: Segmentation<Target = T>,
+    K: Segmentation<Target = T> + ?Sized,
+    T: ?Sized,
 {
     pub(crate) items: &'a mut K::Target,
     pub(crate) range: R,
@@ -71,7 +75,8 @@ where
 
 impl<'a, K, T, R> Segment<'a, K, T, R>
 where
-    K: Segmentation<Target = T>,
+    K: Segmentation<Target = T> + ?Sized,
+    T: ?Sized,
 {
     pub(crate) fn unchecked(items: &'a mut K::Target, range: R) -> Self {
         Segment { items, range }
@@ -79,7 +84,7 @@ where
 
     pub(crate) fn rekind<L>(self) -> Segment<'a, L, T, R>
     where
-        L: Segmentation<Target = T>,
+        L: Segmentation<Target = T> + ?Sized,
     {
         let Segment { items, range } = self;
         Segment::unchecked(items, range)
@@ -88,7 +93,8 @@ where
 
 impl<K, T> Segment<'_, K, T, IndexRange>
 where
-    K: Segmentation<Target = T>,
+    K: Segmentation<Target = T> + ?Sized,
+    T: ?Sized,
 {
     pub(crate) fn from_tail_range(items: &mut T, n: usize) -> Segment<'_, K, T, IndexRange> {
         // A segment over the range `[1,n)` is always valid for a positional (indexed) collection.
@@ -162,7 +168,8 @@ where
 #[cfg(feature = "alloc")]
 impl<K, T> Segment<'_, K, T, TrimRange>
 where
-    K: Segmentation<Target = T>,
+    K: Segmentation<Target = T> + ?Sized,
+    T: ?Sized,
 {
     pub(crate) fn advance_tail_range(&mut self) -> Segment<'_, K, T, TrimRange> {
         let range = self.range.tail();
@@ -181,7 +188,7 @@ where
 
 impl<K, T, R> Debug for Segment<'_, K, T, R>
 where
-    K: Segmentation<Target = T>,
+    K: Segmentation<Target = T> + ?Sized,
     K::Target: Debug,
     T: Debug,
     R: Debug,
@@ -197,7 +204,8 @@ where
 
 impl<K, T, R> Segmentation for Segment<'_, K, T, R>
 where
-    K: Segmentation<Target = T>,
+    K: Segmentation<Target = T> + ?Sized,
+    T: ?Sized,
 {
     type Kind = K;
     type Target = K::Target;
