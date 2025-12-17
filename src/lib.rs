@@ -839,6 +839,30 @@ macro_rules! with_tuples {
 }
 pub(crate) use with_tuples;
 
+// This macro is similar to `with_tuples`, but accepts a zipped tuple and unzips it into two
+// congruent tuples that are then forwarded to the given macro named by `f`. This is necessary to
+// work around a limitation: given the tuples from `with_tuples`, it is not possible to hygenically
+// concatenate or otherwise form a distinct but congruent item for a given element `T`.
+//
+// Accepting a zipped tuple ensures congruency between the two unzipped tuples forwarded to the
+// given macro.
+//
+// See the `iter1::impl_from_iterator1_for_tuple` macro.
+macro_rules! with_unzipped_tuples {
+    ($f:ident, (($headX:ident, $headY:ident $(,)?) $(,)?) $(,)?) => {
+        $f!(($headX,), ($headY,));
+    };
+    (
+        $f:ident,
+        (($headX:ident, $headY:ident $(,)?), $(($tailX:ident, $tailY:ident $(,)?) $(,)?)+)
+        $(,)?
+    ) => {
+        $f!(($headX, $($tailX,)+), ($headY, $($tailY,)+));
+        $crate::with_unzipped_tuples!($f, ($(($tailX, $tailY),)+));
+    };
+}
+pub(crate) use with_unzipped_tuples;
+
 macro_rules! impl_partial_eq_for_non_empty {
     (
         [$(for $right:ident$(,)?)? in $rhs:ty]$(,)?

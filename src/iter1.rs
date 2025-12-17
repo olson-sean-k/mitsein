@@ -117,6 +117,45 @@ pub trait FromIterator1<T> {
 //     }
 // }
 
+macro_rules! impl_from_iterator1_for_tuple {
+    (($($T:ident $(,)?)+), ($($ExtendT:ident $(,)?)+) $(,)?) => {
+        impl<$($T,)+ $($ExtendT,)+> $crate::iter1::FromIterator1<($($T,)+)>
+        for ($($crate::NonEmpty<$ExtendT>,)+)
+        where
+            $(
+                $ExtendT: Default + ::core::iter::Extend<$T> + $crate::MaybeEmpty,
+            )+
+        {
+            fn from_iter1<I>(items: I) -> Self
+            where
+                I: IntoIterator1<Item = ($($T,)+)>,
+            {
+                #[allow(non_snake_case)]
+                let ($($ExtendT,)+): ($($ExtendT,)+) = items.into_iter().collect();
+                // SAFETY: The input iterator `items` is non-empty and, given that, the
+                //         `FromIterator` implementation over tuples produces non-empty
+                //         collections for each tuple element.
+                unsafe {
+                    ($(NonEmpty::from_maybe_empty_unchecked($ExtendT),)+)
+                }
+            }
+        }
+    };
+}
+crate::with_unzipped_tuples!(
+    impl_from_iterator1_for_tuple,
+    (
+        (T1, U1),
+        (T2, U2),
+        (T3, U3),
+        (T4, U4),
+        (T5, U5),
+        (T6, U6),
+        (T7, U7),
+        (T8, U8),
+    ),
+);
+
 impl<T, U> FromIterator1<Option<T>> for Option<U>
 where
     U: FromIterator1<T>,
@@ -1221,6 +1260,13 @@ mod tests {
     #[rstest]
     fn unzip_iter1_into_vec1_then_eq() {
         let xs: (Vec1<u8>, Vec1<u8>) = [(0, 1); 4].into_iter1().unzip();
+        assert_eq!(xs, (vec1![0; 4], vec1![1; 4]));
+    }
+
+    #[cfg(feature = "alloc")]
+    #[rstest]
+    fn collect1_tuples_into_vec1_tuple_then_eq() {
+        let xs: (Vec1<u8>, Vec1<u8>) = [(0, 1); 4].into_iter1().collect1();
         assert_eq!(xs, (vec1![0; 4], vec1![1; 4]));
     }
 
