@@ -1259,15 +1259,19 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[rstest]
     fn unzip_iter1_into_vec1_then_eq() {
-        let xs: (Vec1<u8>, Vec1<u8>) = [(0, 1); 4].into_iter1().unzip();
-        assert_eq!(xs, (vec1![0; 4], vec1![1; 4]));
+        const N: usize = 4;
+
+        let xs: (Vec1<u8>, Vec1<u8>) = [(0, 1); N].into_iter1().unzip();
+        assert_eq!(xs, (vec1![0; N], vec1![1; N]));
     }
 
     #[cfg(feature = "alloc")]
     #[rstest]
     fn collect1_tuples_into_vec1_tuple_then_eq() {
-        let xs: (Vec1<u8>, Vec1<u8>) = [(0, 1); 4].into_iter1().collect1();
-        assert_eq!(xs, (vec1![0; 4], vec1![1; 4]));
+        const N: usize = 4;
+
+        let xs: (Vec1<u8>, Vec1<u8>) = [(0, 1); N].into_iter1().collect1();
+        assert_eq!(xs, (vec1![0; N], vec1![1; N]));
     }
 
     #[cfg(feature = "alloc")]

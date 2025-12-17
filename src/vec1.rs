@@ -1428,7 +1428,7 @@ macro_rules! vec1 {
         // SAFETY: There must be one or more `item` metavariables in the repetition.
         unsafe { $crate::vec1::Vec1::from_vec_unchecked(items) }
     }};
-    ($item:expr ; $N:literal) => {{
+    ($item:expr ; $N:expr) => {{
         extern crate alloc;
 
         const fn non_zero_usize_capacity<const N: usize>()
@@ -1790,5 +1790,5 @@ mod _compile_fail_tests {
     /// let xs = mitsein::vec1![0u8; 0];
     /// ```
     #[doc(hidden)]
-    const fn _empty_expr_literal_metaparameters_then_vec1_compilation_fails() {}
+    const fn _empty_expr_count_metaparameters_then_vec1_compilation_fails() {}
 }
