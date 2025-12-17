@@ -149,7 +149,16 @@ mod core {
     unsafe impl UnsafeHash for crate::str1::Str1 {}
 
     macro_rules! impl_unsafe_hash_for_tuple {
+        (($T:ident,) $(,)?) => {
+            #[cfg_attr(docsrs, doc(fake_variadic))]
+            unsafe impl<$T> $crate::hash::UnsafeHash for ($T,)
+            where
+                $T: UnsafeHash,
+            {
+            }
+        };
         (($($T:ident $(,)?)+) $(,)?) => {
+            #[cfg_attr(docsrs, doc(hidden))]
             unsafe impl<$($T,)+> $crate::hash::UnsafeHash for ($($T,)+)
             where
                 $(
@@ -159,7 +168,7 @@ mod core {
             }
         };
     }
-    crate::with_tuples!(impl_unsafe_hash_for_tuple, (T1, T2, T3, T4, T5, T6, T7, T8));
+    crate::with_tuples!(impl_unsafe_hash_for_tuple, (T1, T2, T3, T4, T5, T6, T7, T));
 }
 
 #[cfg(feature = "smallvec")]

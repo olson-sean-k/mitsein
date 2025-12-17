@@ -292,7 +292,7 @@
 //         behavior that this crate relies upon for memory safety would be a major bug in the
 //         upstream package and is very unlikely to occur.
 
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, allow(internal_features), feature(doc_cfg, rustdoc_internals))]
 #![deny(
     clippy::cast_lossless,
     clippy::checked_conversions,
@@ -819,7 +819,6 @@ impl<T> Cardinality<T, T> {
 }
 
 macro_rules! with_literals {
-    ($f:ident$(,)?) => {};
     ($f:ident, [$($N:literal $(,)?)+]$(,)?) => {
         $(
             $f!($N);

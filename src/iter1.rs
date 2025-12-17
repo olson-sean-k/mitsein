@@ -118,7 +118,22 @@ pub trait FromIterator1<T> {
 // }
 
 macro_rules! impl_from_iterator1_for_tuple {
+    (($T:ident $(,)?), ($ExtendT:ident $(,)?) $(,)?) => {
+        #[cfg_attr(docsrs, doc(fake_variadic))]
+        impl<$T, $ExtendT> $crate::iter1::FromIterator1<($T,)> for ($crate::NonEmpty<$ExtendT>,)
+        where
+            $ExtendT: Default + ::core::iter::Extend<$T> + $crate::MaybeEmpty,
+        {
+            fn from_iter1<I>(items: I) -> Self
+            where
+                I: IntoIterator1<Item = ($T,)>,
+            {
+                impl_from_iterator1_for_tuple!(items => ($ExtendT,))
+            }
+        }
+    };
     (($($T:ident $(,)?)+), ($($ExtendT:ident $(,)?)+) $(,)?) => {
+        #[cfg_attr(docsrs, doc(hidden))]
         impl<$($T,)+ $($ExtendT,)+> $crate::iter1::FromIterator1<($($T,)+)>
         for ($($crate::NonEmpty<$ExtendT>,)+)
         where
@@ -130,29 +145,32 @@ macro_rules! impl_from_iterator1_for_tuple {
             where
                 I: IntoIterator1<Item = ($($T,)+)>,
             {
-                #[allow(non_snake_case)]
-                let ($($ExtendT,)+): ($($ExtendT,)+) = items.into_iter().collect();
-                // SAFETY: The input iterator `items` is non-empty and, given that, the
-                //         `FromIterator` implementation over tuples produces non-empty
-                //         collections for each tuple element.
-                unsafe {
-                    ($(NonEmpty::from_maybe_empty_unchecked($ExtendT),)+)
-                }
+                impl_from_iterator1_for_tuple!(items => ($($ExtendT,)+))
             }
         }
     };
+    ($items:expr => ($($ExtendT:ident $(,)?)+) $(,)?) => {{
+        #[allow(non_snake_case)]
+        let ($($ExtendT,)+): ($($ExtendT,)+) = $items.into_iter().collect();
+        // SAFETY: The input iterator `items` is non-empty and, given that, the
+        //         `FromIterator` implementation over tuples produces non-empty
+        //         collections for each tuple element.
+        unsafe {
+            ($(NonEmpty::from_maybe_empty_unchecked($ExtendT),)+)
+        }
+    }}
 }
 crate::with_unzipped_tuples!(
     impl_from_iterator1_for_tuple,
     (
-        (T1, U1),
-        (T2, U2),
-        (T3, U3),
-        (T4, U4),
-        (T5, U5),
-        (T6, U6),
-        (T7, U7),
-        (T8, U8),
+        (T1, ExtendT1),
+        (T2, ExtendT2),
+        (T3, ExtendT3),
+        (T4, ExtendT4),
+        (T5, ExtendT5),
+        (T6, ExtendT6),
+        (T7, ExtendT7),
+        (T, ExtendT),
     ),
 );
 

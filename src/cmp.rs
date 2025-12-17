@@ -187,7 +187,16 @@ mod core {
     }
 
     macro_rules! impl_unsafe_ord_for_tuple {
+        (($T:ident,) $(,)?) => {
+            #[cfg_attr(docsrs, doc(fake_variadic))]
+            unsafe impl<$T> $crate::cmp::UnsafeOrd for ($T,)
+            where
+                $T: UnsafeOrd,
+            {
+            }
+        };
         (($($T:ident $(,)?)+) $(,)?) => {
+            #[cfg_attr(docsrs, doc(hidden))]
             unsafe impl<$($T,)+> $crate::cmp::UnsafeOrd for ($($T,)+)
             where
                 $(
@@ -197,7 +206,7 @@ mod core {
             }
         };
     }
-    crate::with_tuples!(impl_unsafe_ord_for_tuple, (T1, T2, T3, T4, T5, T6, T7, T8));
+    crate::with_tuples!(impl_unsafe_ord_for_tuple, (T1, T2, T3, T4, T5, T6, T7, T));
 }
 
 #[cfg(feature = "smallvec")]
