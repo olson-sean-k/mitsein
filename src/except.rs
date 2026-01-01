@@ -83,8 +83,9 @@ where
 impl<'a, K, T, Q> Except<'a, K, T, Q>
 where
     K: Exception<Target = T>,
+    Q: ?Sized,
 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     pub(crate) fn unchecked(items: &'a mut T, key: &'a Q) -> Self {
         Except { items, key }
     }
@@ -98,13 +99,13 @@ impl<K, T, Q> Debug for Except<'_, K, T, Q>
 where
     K: Exception<Target = T>,
     T: Debug,
-    Q: Debug,
+    Q: Debug + ?Sized,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("Except")
             .field("items", self.items)
-            .field("key", self.key)
+            .field("key", &self.key)
             .finish()
     }
 }
