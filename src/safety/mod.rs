@@ -105,3 +105,24 @@ pub trait SliceExt<T> {
     where
         I: SliceIndex<[T]>;
 }
+
+/// Tells the compiler to assume that `items` is non-empty. This function is extremely unsafe and
+/// should be used only when it has unambiguous performance benefits. See the
+/// [documentation for `core::hint::unreachable_unchecked`](core::hint::unreachable_unchecked) for
+/// more details.
+///
+/// # Safety
+/// [`items.is_empty()`](crate::MaybeEmptyExt::is_empty) must be false. 
+#[inline(always)]
+pub unsafe fn assume_is_non_empty_unchecked<T>(items: &T)
+    where
+        T: crate::sealed::MaybeEmpty,
+{
+    debug_assert!(!crate::MaybeEmptyExt::is_empty(items));
+
+    if crate::MaybeEmptyExt::is_empty(items) {
+        // SAFETY: we inherit the safety guarantees of the function, and so this branch can never be
+        // reached
+        unsafe { core::hint::unreachable_unchecked() }
+    }
+}
