@@ -177,10 +177,10 @@
 //! [`Except`]s and [`Segment`]s are views over a subset of a collection that can mutate both the
 //! items and topology of the target. This is somewhat similar to a mutable slice, but items can
 //! also be inserted and removed. This crate implements exception and segmentation for both
-//! standard and non-empty collections and is one of the most efficient ways to remove and drain
+//! standard and non-empty collections. This is one of the most efficient ways to remove and drain
 //! items from non-empty collections.
 //!
-//! Segmentation is only supported by ordered collection and relies on that ordering to isolate a
+//! Segmentation is only supported by ordered collections and relies on that ordering to isolate a
 //! subset. See the [`segment`] module.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]

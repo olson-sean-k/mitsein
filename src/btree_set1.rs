@@ -8,9 +8,9 @@ use alloc::collections::btree_set::{self, BTreeSet};
 use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{Skip, Take};
+use core::iter::{FusedIterator, Skip, Take};
 use core::num::NonZeroUsize;
-use core::ops::{BitAnd, BitOr, BitXor, Bound, RangeBounds, Sub};
+use core::ops::{BitAnd, BitOr, BitXor, Bound, RangeBounds, RangeFull, Sub};
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "schemars")]
@@ -21,6 +21,7 @@ use {
 
 use crate::array1::Array1;
 use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
+use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -46,6 +47,21 @@ impl<T> ClosedBTreeSet for BTreeSet<T> {
 
     fn as_btree_set(&self) -> &BTreeSet<Self::Item> {
         self
+    }
+}
+
+impl<T, Q> ByKey<Q> for BTreeSet<T>
+where
+    T: Borrow<Q> + Ord,
+    Q: Ord + ?Sized,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a Q,
+    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+        self.contains(key)
+            .then_some(Except::unchecked(self, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
 
@@ -80,6 +96,11 @@ impl<T> ByTail for BTreeSet<T> {
     fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
         Segment::unchecked(self, TrimRange::RTAIL1)
     }
+}
+
+impl<T> Exception for BTreeSet<T> {
+    type Kind = Self;
+    type Target = Self;
 }
 
 impl<T> Extend1<T> for BTreeSet<T>
@@ -583,6 +604,21 @@ where
     }
 }
 
+impl<T, Q> ByKey<Q> for BTreeSet1<T>
+where
+    T: Borrow<Q> + UnsafeOrdIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a Q,
+    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+        self.contains(key)
+            .then_some(Except::unchecked(&mut self.items, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
 impl<T, R> ByRange<T, R> for BTreeSet1<T>
 where
     T: UnsafeOrd,
@@ -640,6 +676,11 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
+}
+
+impl<T> Exception for BTreeSet1<T> {
+    type Kind = Self;
+    type Target = BTreeSet<T>;
 }
 
 impl<T> Extend<T> for BTreeSet1<T>
@@ -917,6 +958,94 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         self.items.pop_last_if_many().or_none()
+    }
+}
+
+// Unfortunately, the type of the `ExtractIf` predicate `F` cannot be named in `Except::drain` and
+// so prevents returning a complete type.
+struct DrainExcept<'a, T, F>
+where
+    T: Ord,
+    F: FnMut(&T) -> bool,
+{
+    input: btree_set::ExtractIf<'a, T, RangeFull, F>,
+}
+
+impl<T, F> Debug for DrainExcept<'_, T, F>
+where
+    T: Debug + Ord,
+    F: FnMut(&T) -> bool,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DrainExcept")
+            .field("input", &self.input)
+            .finish()
+    }
+}
+
+impl<T, F> Drop for DrainExcept<'_, T, F>
+where
+    T: Ord,
+    F: FnMut(&T) -> bool,
+{
+    fn drop(&mut self) {
+        self.input.by_ref().for_each(|_| {});
+    }
+}
+
+impl<T, F> FusedIterator for DrainExcept<'_, T, F>
+where
+    T: Ord,
+    F: FnMut(&T) -> bool,
+{
+}
+
+impl<T, F> Iterator for DrainExcept<'_, T, F>
+where
+    T: Ord,
+    F: FnMut(&T) -> bool,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.input.next()
+    }
+}
+
+pub type Except<'a, K, Q> = except::Except<'a, K, BTreeSet<ItemFor<K>>, Q>;
+
+// This implementation need not require `UnsafeOrdIsomorph` (even for `BTreeSet1`), because it is
+// not possible to construct an `Except` from a `BTreeSet1` where this is not already true. See the
+// `Exception` implementation for `BTreeSet1`, which enforces this requirement.
+impl<K, T, Q> Except<'_, K, Q>
+where
+    K: ClosedBTreeSet<Item = T> + Exception<Target = BTreeSet<T>>,
+    T: Borrow<Q> + Ord,
+    Q: Ord + ?Sized,
+{
+    pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = T> {
+        DrainExcept {
+            input: self.items.extract_if(.., |item| item.borrow() != self.key),
+        }
+    }
+
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.items.retain(|item| {
+            let is_retained = item.borrow() == self.key;
+            is_retained || f(item)
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.retain(|_| false)
+    }
+
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
+        self.items.iter().filter(|&item| item.borrow() == self.key)
     }
 }
 
