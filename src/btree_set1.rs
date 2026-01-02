@@ -1015,9 +1015,6 @@ where
 
 pub type Except<'a, K, Q> = except::Except<'a, K, BTreeSet<ItemFor<K>>, Q>;
 
-// This implementation need not require `UnsafeOrdIsomorph` (even for `BTreeSet1`), because it is
-// not possible to construct an `Except` from a `BTreeSet1` where this is not already true. See the
-// `Exception` implementation for `BTreeSet1`, which enforces this requirement.
 impl<K, T, Q> Except<'_, K, Q>
 where
     K: ClosedBTreeSet<Item = T> + Exception<Target = BTreeSet<T>>,
@@ -1481,6 +1478,7 @@ mod tests {
 
     use crate::btree_set1::BTreeSet1;
     use crate::btree_set1::harness::{self, terminals1, xs1};
+    use crate::except::ByKey;
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
@@ -1521,6 +1519,32 @@ mod tests {
         //       u8` and unsafe code in cases for `f`? If so, do that instead!
         let x = xs1.retain_until_only(|x| f(x as *const u8)).copied();
         assert_eq!((x, xs1), expected);
+    }
+
+    #[rstest]
+    #[case(0, &[1, 2, 3, 4])]
+    #[case(1, &[0, 2, 3, 4])]
+    #[case(2, &[0, 1, 3, 4])]
+    #[case(3, &[0, 1, 2, 4])]
+    #[case(4, &[0, 1, 2, 3])]
+    fn drain_except_of_btree_set1_then_drained_eq(
+        mut xs1: BTreeSet1<u8>,
+        #[case] key: u8,
+        #[case] expected: &[u8],
+    ) {
+        let xs: Vec<_> = xs1.except(&key).unwrap().drain().collect();
+        assert_eq!(xs.as_slice(), expected);
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    fn clear_except_of_btree_set1_then_btree_set1_eq_key(mut xs1: BTreeSet1<u8>, #[case] key: u8) {
+        xs1.except(&key).unwrap().clear();
+        assert_eq!(xs1, BTreeSet1::from_one(key));
     }
 
     #[rstest]

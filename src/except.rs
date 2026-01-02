@@ -85,7 +85,7 @@ where
     K: Exception<Target = T>,
     Q: ?Sized,
 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     pub(crate) fn unchecked(items: &'a mut T, key: &'a Q) -> Self {
         Except { items, key }
     }
