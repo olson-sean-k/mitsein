@@ -112,11 +112,11 @@ pub trait SliceExt<T> {
 /// more details.
 ///
 /// # Safety
-/// [`items.is_empty()`](crate::MaybeEmptyExt::is_empty) must be false. 
+/// [`items.is_empty()`](crate::MaybeEmptyExt::is_empty) must be false.
 #[inline(always)]
 pub unsafe fn assume_is_non_empty_unchecked<T>(items: &T)
-    where
-        T: crate::sealed::MaybeEmpty,
+where
+    T: crate::sealed::MaybeEmpty,
 {
     debug_assert!(!crate::MaybeEmptyExt::is_empty(items));
 
