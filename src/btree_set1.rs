@@ -1015,9 +1015,6 @@ where
 
 pub type Except<'a, K, Q> = except::Except<'a, K, BTreeSet<ItemFor<K>>, Q>;
 
-// This implementation need not require `UnsafeOrdIsomorph` (even for `BTreeSet1`), because it is
-// not possible to construct an `Except` from a `BTreeSet1` where this is not already true. See the
-// `Exception` implementation for `BTreeSet1`, which enforces this requirement.
 impl<K, T, Q> Except<'_, K, Q>
 where
     K: ClosedBTreeSet<Item = T> + Exception<Target = BTreeSet<T>>,

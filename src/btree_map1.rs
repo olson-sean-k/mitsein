@@ -8,10 +8,10 @@ use alloc::collections::btree_map::{self, BTreeMap, VacantEntry};
 use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{Skip, Take};
+use core::iter::{FusedIterator, Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
-use core::ops::{Bound, RangeBounds};
+use core::ops::{Bound, RangeBounds, RangeFull};
 #[cfg(feature = "rayon")]
 use rayon::iter::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
@@ -24,6 +24,7 @@ use {
 
 use crate::array1::Array1;
 use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
+use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -53,6 +54,21 @@ impl<K, V> ClosedBTreeMap for BTreeMap<K, V> {
 
     fn as_btree_map(&self) -> &BTreeMap<Self::Key, Self::Value> {
         self
+    }
+}
+
+impl<K, V, Q> ByKey<Q> for BTreeMap<K, V>
+where
+    K: Borrow<Q> + Ord,
+    Q: Ord + ?Sized,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a Q,
+    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+        self.contains_key(key)
+            .then_some(Except::unchecked(self, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
 
@@ -90,6 +106,11 @@ where
     fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
         Segment::unchecked(self, TrimRange::RTAIL1)
     }
+}
+
+impl<K, V> Exception for BTreeMap<K, V> {
+    type Kind = Self;
+    type Target = Self;
 }
 
 impl<K, V> Extend1<(K, V)> for BTreeMap<K, V>
@@ -835,6 +856,21 @@ where
     }
 }
 
+impl<K, V, Q> ByKey<Q> for BTreeMap1<K, V>
+where
+    K: Borrow<Q> + UnsafeOrdIsomorph<Q>,
+    Q: ?Sized + UnsafeOrd,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a Q,
+    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+        self.contains_key(key)
+            .then_some(Except::unchecked(&mut self.items, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
 impl<K, V, R> ByRange<K, R> for BTreeMap1<K, V>
 where
     K: UnsafeOrd,
@@ -897,6 +933,11 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
+}
+
+impl<K, V> Exception for BTreeMap1<K, V> {
+    type Kind = Self;
+    type Target = BTreeMap<K, V>;
 }
 
 impl<K, V> Extend<(K, V)> for BTreeMap1<K, V>
@@ -1200,6 +1241,94 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         self.items.pop_first_if_many().or_none()
+    }
+}
+
+// Unfortunately, the type of the `ExtractIf` predicate `F` cannot be named in `Except::drain` and
+// so prevents returning a complete type.
+struct DrainExcept<'a, K, V, F>
+where
+    K: Ord,
+    F: FnMut(&K, &mut V) -> bool,
+{
+    input: btree_map::ExtractIf<'a, K, V, RangeFull, F>,
+}
+
+impl<K, V, F> Debug for DrainExcept<'_, K, V, F>
+where
+    K: Debug + Ord,
+    V: Debug,
+    F: FnMut(&K, &mut V) -> bool,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DrainExcept")
+            .field("input", &self.input)
+            .finish()
+    }
+}
+
+impl<K, V, F> Drop for DrainExcept<'_, K, V, F>
+where
+    K: Ord,
+    F: FnMut(&K, &mut V) -> bool,
+{
+    fn drop(&mut self) {
+        self.input.by_ref().for_each(|_| {});
+    }
+}
+
+impl<K, V, F> FusedIterator for DrainExcept<'_, K, V, F>
+where
+    K: Ord,
+    F: FnMut(&K, &mut V) -> bool,
+{
+}
+
+impl<K, V, F> Iterator for DrainExcept<'_, K, V, F>
+where
+    K: Ord,
+    F: FnMut(&K, &mut V) -> bool,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.input.next()
+    }
+}
+
+pub type Except<'a, T, Q> = except::Except<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, Q>;
+
+impl<T, K, V, Q> Except<'_, T, Q>
+where
+    T: ClosedBTreeMap<Key = K, Value = V> + Exception<Target = BTreeMap<K, V>>,
+    K: Borrow<Q> + Ord,
+    Q: Ord + ?Sized,
+{
+    pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = (K, V)> {
+        DrainExcept {
+            input: self.items.extract_if(.., |key, _| key.borrow() != self.key),
+        }
+    }
+
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        self.items.retain(|key, value| {
+            let is_retained = key.borrow() == self.key;
+            is_retained || f(key, value)
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.retain(|_, _| false)
+    }
+
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = (&'_ K, &'_ V)> {
+        self.items
+            .iter()
+            .filter(|&(key, _)| key.borrow() != self.key)
     }
 }
 
@@ -1602,12 +1731,14 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use rstest::rstest;
     #[cfg(feature = "serde")]
-    use {alloc::vec::Vec, serde_test::Token};
+    use serde_test::Token;
 
     use crate::btree_map1::BTreeMap1;
-    use crate::btree_map1::harness::{self, VALUE, terminals1};
+    use crate::btree_map1::harness::{self, VALUE, terminals1, xs1};
+    use crate::except::ByKey;
     use crate::harness::KeyValueRef;
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
@@ -1615,10 +1746,51 @@ mod tests {
     use crate::segment::range::IntoRangeBounds;
     use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
-    use crate::{
-        btree_map1::harness::xs1,
-        serde::{self, harness::map},
-    };
+    use crate::serde::{self, harness::map};
+
+    #[rstest]
+    #[case(0, &[(1, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]
+    #[case(1, &[(0, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]
+    #[case(2, &[(0, VALUE), (1, VALUE), (3, VALUE), (4, VALUE)])]
+    #[case(3, &[(0, VALUE), (1, VALUE), (2, VALUE), (4, VALUE)])]
+    #[case(4, &[(0, VALUE), (1, VALUE), (2, VALUE), (3, VALUE)])]
+    fn drain_except_of_btree_map1_then_drained_eq(
+        mut xs1: BTreeMap1<u8, char>,
+        #[case] key: u8,
+        #[case] expected: &[(u8, char)],
+    ) {
+        let xs: Vec<_> = xs1.except(&key).unwrap().drain().collect();
+        assert_eq!(xs.as_slice(), expected);
+    }
+
+    #[rstest]
+    #[case((0, VALUE))]
+    #[case((1, VALUE))]
+    #[case((2, VALUE))]
+    #[case((3, VALUE))]
+    #[case((4, VALUE))]
+    fn clear_except_of_btree_map1_then_btree_map1_eq_key_value(
+        mut xs1: BTreeMap1<u8, char>,
+        #[case] entry: (u8, char),
+    ) {
+        let (key, value) = entry;
+        xs1.except(&key).unwrap().clear();
+        assert_eq!(xs1, BTreeMap1::from_one((key, value)));
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    fn iter_except_of_btree_map1_then_iter_does_not_contain_key(
+        mut xs1: BTreeMap1<u8, char>,
+        #[case] key: u8,
+    ) {
+        let xs = xs1.except(&key).unwrap();
+        assert!(!xs.iter().any(|(&x, _)| x == key));
+    }
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
