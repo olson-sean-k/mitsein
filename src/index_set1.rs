@@ -12,7 +12,7 @@ use core::borrow::Borrow;
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::hash::{BuildHasher, Hash};
-use core::iter::{Skip, Take};
+use core::iter::{FusedIterator, Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{BitAnd, BitOr, BitXor, Deref, RangeBounds, Sub};
@@ -30,6 +30,8 @@ use {
 
 #[cfg(feature = "std")]
 use crate::array1::Array1;
+use crate::except::{self, ByKey, Exception, KeyNotFoundError};
+use crate::hash::UnsafeHash;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -58,6 +60,21 @@ impl<T, S> ClosedIndexSet for IndexSet<T, S> {
     }
 }
 
+impl<T, S, Q> ByKey<Q> for IndexSet<T, S>
+where
+    S: BuildHasher,
+    Q: Equivalent<T> + Hash + ?Sized,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a Q,
+    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+        self.contains(key)
+            .then_some(Except::unchecked(self, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
 impl<T, S, R> ByRange<usize, R> for IndexSet<T, S>
 where
     R: RangeBounds<usize>,
@@ -83,6 +100,11 @@ impl<T, S> ByTail for IndexSet<T, S> {
         let n = self.len();
         Segment::from_rtail_range(self, n)
     }
+}
+
+impl<T, S> Exception for IndexSet<T, S> {
+    type Kind = Self;
+    type Target = Self;
 }
 
 impl<T, S> Extend1<T> for IndexSet<T, S>
@@ -220,7 +242,8 @@ impl<T> Deref for Slice1<T> {
     }
 }
 
-// TODO: Remove unnecessary bounds on `Borrow`. The `Equivalent` trait encapsulates this.
+// TODO: Remove unnecessary bounds on `Borrow`. The `Equivalent` trait encapsulates this. Use
+//       `Equivalent::equivalent` where possible.
 
 #[cfg(feature = "std")]
 pub type IndexSet1<T, S = RandomState> = NonEmpty<IndexSet<T, S>>;
@@ -996,6 +1019,22 @@ where
     }
 }
 
+// TODO: Support isomorphic key types (via an `UnsafeHashIsomorph` trait).
+impl<T, S> ByKey<T> for IndexSet1<T, S>
+where
+    T: UnsafeHash,
+    S: BuildHasher,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a T,
+    ) -> Result<Except<'a, Self, T>, KeyNotFoundError<&'a T>> {
+        self.contains(key)
+            .then_some(Except::unchecked(&mut self.items, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
 impl<T, S, R> ByRange<usize, R> for IndexSet1<T, S>
 where
     R: RangeBounds<usize>,
@@ -1037,6 +1076,11 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
+}
+
+impl<T, S> Exception for IndexSet1<T, S> {
+    type Kind = Self;
+    type Target = IndexSet<T, S>;
 }
 
 impl<T, S> Extend<T> for IndexSet1<T, S>
@@ -1274,6 +1318,82 @@ impl<'a, T, S> TryFrom<&'a mut IndexSet<T, S>> for &'a mut IndexSet1<T, S> {
     }
 }
 
+// Unfortunately, the type of the `ExtractIf` predicate `F` cannot be named in `Except::drain` and
+// so prevents returning a complete type.
+struct DrainExcept<'a, T, F>
+where
+    F: FnMut(&T) -> bool,
+{
+    input: index_set::ExtractIf<'a, T, F>,
+}
+
+impl<T, F> Debug for DrainExcept<'_, T, F>
+where
+    T: Debug,
+    F: FnMut(&T) -> bool,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DrainExcept")
+            .field("input", &self.input)
+            .finish()
+    }
+}
+
+impl<T, F> Drop for DrainExcept<'_, T, F>
+where
+    F: FnMut(&T) -> bool,
+{
+    fn drop(&mut self) {
+        self.input.by_ref().for_each(|_| {});
+    }
+}
+
+impl<T, F> FusedIterator for DrainExcept<'_, T, F> where F: FnMut(&T) -> bool {}
+
+impl<T, F> Iterator for DrainExcept<'_, T, F>
+where
+    F: FnMut(&T) -> bool,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.input.next()
+    }
+}
+
+pub type Except<'a, K, Q> = except::Except<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, Q>;
+
+impl<K, T, S, Q> Except<'_, K, Q>
+where
+    K: ClosedIndexSet<Item = T, State = S> + Exception<Target = IndexSet<T, S>>,
+    Q: Equivalent<T> + Hash + ?Sized,
+{
+    pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = T> {
+        DrainExcept {
+            input: self.items.extract_if(.., |item| !self.key.equivalent(item)),
+        }
+    }
+
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.items.retain(|item| {
+            let is_retained = self.key.equivalent(item);
+            is_retained || f(item)
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.retain(|_| false)
+    }
+
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
+        self.items.iter().filter(|item| !self.key.equivalent(item))
+    }
+}
+
 pub type Segment<'a, K> = segment::Segment<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, IndexRange>;
 
 // TODO: It should be possible to safely implement `swap_drain` for segments over `IndexSet1`. The
@@ -1414,10 +1534,53 @@ pub mod harness {
 
 #[cfg(all(test, feature = "schemars", feature = "std"))]
 mod tests {
+    use alloc::vec::Vec;
     use rstest::rstest;
 
+    use crate::except::ByKey;
     use crate::index_set1::IndexSet1;
+    use crate::index_set1::harness::xs1;
     use crate::schemars;
+
+    #[rstest]
+    #[case(0, &[1, 2, 3, 4])]
+    #[case(1, &[0, 2, 3, 4])]
+    #[case(2, &[0, 1, 3, 4])]
+    #[case(3, &[0, 1, 2, 4])]
+    #[case(4, &[0, 1, 2, 3])]
+    fn drain_except_of_index_set1_then_drained_eq(
+        mut xs1: IndexSet1<u8>,
+        #[case] key: u8,
+        #[case] expected: &[u8],
+    ) {
+        let xs: Vec<_> = xs1.except(&key).unwrap().drain().collect();
+        assert_eq!(xs.as_slice(), expected);
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    fn clear_except_of_index_set1_then_index_set1_eq_key(mut xs1: IndexSet1<u8>, #[case] key: u8) {
+        xs1.except(&key).unwrap().clear();
+        assert_eq!(xs1, IndexSet1::<_>::from_one(key));
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    fn iter_except_of_index_set1_then_iter_does_not_contain_key(
+        mut xs1: IndexSet1<u8>,
+        #[case] key: u8,
+    ) {
+        let xs = xs1.except(&key).unwrap();
+        assert!(!xs.iter().any(|&x| x == key));
+    }
 
     #[rstest]
     fn index_set1_json_schema_has_non_empty_property() {
