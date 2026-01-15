@@ -1881,23 +1881,21 @@ pub mod harness {
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
+    use alloc::vec::Vec;
     use rstest::rstest;
     #[cfg(feature = "serde")]
-    use {alloc::vec::Vec, serde_test::Token};
+    use serde_test::Token;
 
     use crate::except::ByKey;
     use crate::harness::KeyValueRef;
     use crate::index_map1::IndexMap1;
-    use crate::index_map1::harness::{self, VALUE};
+    use crate::index_map1::harness::{self, VALUE, xs1};
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
     use crate::segment::ByTail;
     #[cfg(feature = "serde")]
-    use crate::{
-        index_map1::harness::xs1,
-        serde::{self, harness::map},
-    };
+    use crate::serde::{self, harness::map};
 
     #[rstest]
     #[case(0, &[(1, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]

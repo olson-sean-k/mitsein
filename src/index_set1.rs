@@ -1532,7 +1532,7 @@ pub mod harness {
     }
 }
 
-#[cfg(all(test, feature = "schemars", feature = "std"))]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use alloc::vec::Vec;
     use rstest::rstest;
@@ -1540,6 +1540,7 @@ mod tests {
     use crate::except::ByKey;
     use crate::index_set1::IndexSet1;
     use crate::index_set1::harness::xs1;
+    #[cfg(feature = "schemars")]
     use crate::schemars;
 
     #[rstest]
@@ -1582,6 +1583,7 @@ mod tests {
         assert!(!xs.iter().any(|&x| x == key));
     }
 
+    #[cfg(feature = "schemars")]
     #[rstest]
     fn index_set1_json_schema_has_non_empty_property() {
         schemars::harness::assert_json_schema_has_non_empty_property::<IndexSet1<u8>>(
