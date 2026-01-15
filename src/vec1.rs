@@ -204,11 +204,15 @@ impl<T> Vec1<T> {
     }
 
     pub fn into_head_and_tail(mut self) -> (T, Vec<T>) {
+        // SAFETY: Vec1 guarantees that the underlying Vec is non-empty
+        unsafe { crate::safety::assume_is_non_empty_unchecked(&self.items) };
         let head = self.items.remove(0);
         (head, self.items)
     }
 
     pub fn into_rtail_and_head(mut self) -> (Vec<T>, T) {
+        // SAFETY: Vec1 guarantees that the underlying Vec is non-empty
+        unsafe { crate::safety::assume_is_non_empty_unchecked(&self.items) };
         // SAFETY: `self` must be non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
