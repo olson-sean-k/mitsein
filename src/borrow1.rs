@@ -5,6 +5,7 @@
 
 use alloc::borrow::{Cow, ToOwned};
 
+use crate::EmptyError;
 use crate::rc1::{RcSlice1, RcSlice1Ext as _, RcStr1, RcStr1Ext as _};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
@@ -15,10 +16,12 @@ use crate::vec1::Vec1;
 
 pub type CowSlice1<'a, T> = Cow<'a, Slice1<T>>;
 
-pub trait CowSlice1Ext<'a, T>
+pub trait CowSlice1Ext<'a, T>: Sized
 where
     T: Clone,
 {
+    fn try_from_cow_slice(items: Cow<'a, [T]>) -> Result<Self, EmptyError<Cow<'a, [T]>>>;
+
     #[cfg(target_has_atomic = "ptr")]
     #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
     fn into_arc_slice1(self) -> ArcSlice1<T>;
@@ -32,6 +35,17 @@ impl<'a, T> CowSlice1Ext<'a, T> for CowSlice1<'a, T>
 where
     T: Clone,
 {
+    fn try_from_cow_slice(items: Cow<'a, [T]>) -> Result<Self, EmptyError<Cow<'a, [T]>>> {
+        match items {
+            Cow::Borrowed(borrowed) => Slice1::try_from_slice(borrowed)
+                .map(From::from)
+                .map_err(|error| error.map(From::from)),
+            Cow::Owned(owned) => Vec1::try_from(owned)
+                .map(From::from)
+                .map_err(|error| error.map(From::from)),
+        }
+    }
+
     #[cfg(target_has_atomic = "ptr")]
     #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
     fn into_arc_slice1(self) -> ArcSlice1<T> {
@@ -89,7 +103,9 @@ where
 
 pub type CowStr1<'a> = Cow<'a, Str1>;
 
-pub trait CowStr1Ext<'a> {
+pub trait CowStr1Ext<'a>: Sized {
+    fn try_from_cow_str(items: Cow<'a, str>) -> Result<Self, EmptyError<Cow<'a, str>>>;
+
     #[cfg(target_has_atomic = "ptr")]
     #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
     fn into_arc_str1(self) -> ArcStr1;
@@ -100,6 +116,17 @@ pub trait CowStr1Ext<'a> {
 }
 
 impl<'a> CowStr1Ext<'a> for CowStr1<'a> {
+    fn try_from_cow_str(items: Cow<'a, str>) -> Result<Self, EmptyError<Cow<'a, str>>> {
+        match items {
+            Cow::Borrowed(borrowed) => Str1::try_from_str(borrowed)
+                .map(From::from)
+                .map_err(|error| error.map(From::from)),
+            Cow::Owned(owned) => String1::try_from(owned)
+                .map(From::from)
+                .map_err(|error| error.map(From::from)),
+        }
+    }
+
     #[cfg(target_has_atomic = "ptr")]
     #[cfg_attr(docsrs, doc(cfg(target_has_atomic = "ptr")))]
     fn into_arc_str1(self) -> ArcStr1 {

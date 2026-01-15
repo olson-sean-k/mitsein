@@ -543,6 +543,14 @@ impl<T> EmptyError<T> {
         self.items
     }
 
+    #[cfg(feature = "alloc")]
+    fn map<U, F>(self, f: F) -> EmptyError<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        EmptyError::from_empty(f(self.items))
+    }
+
     /// Takes the empty value out of the error, returning it and a unit error.
     pub fn take(self) -> (T, EmptyError<()>) {
         (self.items, EmptyError::from_empty(()))

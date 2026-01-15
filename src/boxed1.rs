@@ -12,6 +12,7 @@ use alloc::vec::{self, Vec};
 use core::slice;
 
 use crate::EmptyError;
+use crate::MaybeEmpty;
 use crate::array1::Array1;
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 use crate::rc1::{RcSlice1, RcSlice1Ext as _};
@@ -66,8 +67,8 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
     }
 
     fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, EmptyError<Box<[T]>>> {
-        match items.len() {
-            0 => Err(EmptyError::from_empty(items)),
+        match items.as_ref().cardinality() {
+            None => Err(EmptyError::from_empty(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(items) }),
         }
@@ -250,7 +251,7 @@ impl<T> TryFrom<Box<[T]>> for BoxedSlice1<T> {
 
 pub type BoxedStr1 = Box<Str1>;
 
-pub trait BoxedStr1Ext {
+pub trait BoxedStr1Ext: Sized {
     /// # Safety
     ///
     /// `items` must be non-empty. For example, it is unsound to call this function with
@@ -258,6 +259,8 @@ pub trait BoxedStr1Ext {
     ///
     /// [`Box::from`]: alloc::boxed::Box::from
     unsafe fn from_boxed_str_unchecked(items: Box<str>) -> Self;
+
+    fn try_from_boxed_str(items: Box<str>) -> Result<Self, EmptyError<Box<str>>>;
 
     fn into_boxed_str(self) -> Box<str>;
 }
@@ -271,6 +274,14 @@ impl BoxedStr1Ext for BoxedStr1 {
         //         the allocator only requires that the memory location and layout are the same
         //         when deallocating, so dropping the transmuted `Box` is sound.
         unsafe { Box::from_raw(items as *mut Str1) }
+    }
+
+    fn try_from_boxed_str(items: Box<str>) -> Result<Self, EmptyError<Box<str>>> {
+        match items.as_ref().cardinality() {
+            None => Err(EmptyError::from_empty(items)),
+            // SAFETY: `items` is non-empty.
+            _ => Ok(unsafe { BoxedStr1::from_boxed_str_unchecked(items) }),
+        }
     }
 
     fn into_boxed_str(self) -> Box<str> {
