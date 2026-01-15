@@ -902,7 +902,7 @@ where
     }
 
     pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = &'_ T> {
-        self.items.iter().filter(|&item| item == self.key)
+        self.items.iter().filter(|&item| item != self.key)
     }
 }
 
@@ -1035,6 +1035,20 @@ mod tests {
     fn clear_except_of_hash_set1_then_hash_set1_eq_key(mut xs1: HashSet1<u8>, #[case] key: u8) {
         xs1.except(&key).unwrap().clear();
         assert_eq!(xs1, HashSet1::from_one(key));
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    fn iter_except_of_hash_set1_then_iter_does_not_contain_key(
+        mut xs1: HashSet1<u8>,
+        #[case] key: u8,
+    ) {
+        let xs = xs1.except(&key).unwrap();
+        assert!(!xs.iter().any(|&x| x == key));
     }
 
     #[cfg(feature = "schemars")]
