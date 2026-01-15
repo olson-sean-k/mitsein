@@ -11,7 +11,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::hash::{BuildHasher, Hash};
-use core::iter::{Skip, Take};
+use core::iter::{FusedIterator, Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, RangeBounds};
@@ -31,6 +31,8 @@ use {
 
 #[cfg(feature = "std")]
 use crate::array1::Array1;
+use crate::except::{self, ByKey, Exception, KeyNotFoundError};
+use crate::hash::UnsafeHash;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
@@ -63,6 +65,21 @@ impl<K, V, S> ClosedIndexMap for IndexMap<K, V, S> {
     }
 }
 
+impl<K, V, S, Q> ByKey<Q> for IndexMap<K, V, S>
+where
+    S: BuildHasher,
+    Q: Equivalent<K> + Hash + ?Sized,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a Q,
+    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+        self.contains_key(key)
+            .then_some(Except::unchecked(self, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
 impl<K, V, S, R> ByRange<usize, R> for IndexMap<K, V, S>
 where
     R: RangeBounds<usize>,
@@ -88,6 +105,11 @@ impl<K, V, S> ByTail for IndexMap<K, V, S> {
         let n = self.len();
         Segment::from_rtail_range(self, n)
     }
+}
+
+impl<K, V, S> Exception for IndexMap<K, V, S> {
+    type Kind = Self;
+    type Target = Self;
 }
 
 impl<K, V, S> Extend1<(K, V)> for IndexMap<K, V, S>
@@ -1321,6 +1343,22 @@ where
     }
 }
 
+// TODO: Support isomorphic key types (via an `UnsafeHashIsomorph` trait).
+impl<K, V, S> ByKey<K> for IndexMap1<K, V, S>
+where
+    K: UnsafeHash,
+    S: BuildHasher,
+{
+    fn except<'a>(
+        &'a mut self,
+        key: &'a K,
+    ) -> Result<Except<'a, Self, K>, KeyNotFoundError<&'a K>> {
+        self.contains_key(key)
+            .then_some(Except::unchecked(&mut self.items, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
+    }
+}
+
 impl<K, V, S, R> ByRange<usize, R> for IndexMap1<K, V, S>
 where
     R: RangeBounds<usize>,
@@ -1364,6 +1402,11 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
+}
+
+impl<K, V, S> Exception for IndexMap1<K, V, S> {
+    type Kind = Self;
+    type Target = IndexMap<K, V, S>;
 }
 
 impl<K, V, S> Extend<(K, V)> for IndexMap1<K, V, S>
@@ -1619,6 +1662,87 @@ impl<'a, K, V, S> TryFrom<&'a mut IndexMap<K, V, S>> for &'a mut IndexMap1<K, V,
     }
 }
 
+// Unfortunately, the type of the `ExtractIf` predicate `F` cannot be named in `Except::drain` and
+// so prevents returning a complete type.
+struct DrainExcept<'a, K, V, F>
+where
+    F: FnMut(&K, &mut V) -> bool,
+{
+    input: index_map::ExtractIf<'a, K, V, F>,
+}
+
+impl<K, V, F> Debug for DrainExcept<'_, K, V, F>
+where
+    K: Debug,
+    V: Debug,
+    F: FnMut(&K, &mut V) -> bool,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DrainExcept")
+            .field("input", &self.input)
+            .finish()
+    }
+}
+
+impl<K, V, F> Drop for DrainExcept<'_, K, V, F>
+where
+    F: FnMut(&K, &mut V) -> bool,
+{
+    fn drop(&mut self) {
+        self.input.by_ref().for_each(|_| {});
+    }
+}
+
+impl<K, V, F> FusedIterator for DrainExcept<'_, K, V, F> where F: FnMut(&K, &mut V) -> bool {}
+
+impl<K, V, F> Iterator for DrainExcept<'_, K, V, F>
+where
+    F: FnMut(&K, &mut V) -> bool,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.input.next()
+    }
+}
+
+pub type Except<'a, T, Q> = except::Except<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>, Q>;
+
+impl<T, K, V, S, Q> Except<'_, T, Q>
+where
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + Exception<Target = IndexMap<K, V, S>>,
+    Q: Equivalent<K> + Hash + ?Sized,
+{
+    pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = (K, V)> {
+        DrainExcept {
+            input: self
+                .items
+                .extract_if(.., |key, _| !self.key.equivalent(key)),
+        }
+    }
+
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        self.items.retain(|key, value| {
+            let is_retained = self.key.equivalent(key);
+            is_retained || f(key, value)
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.retain(|_, _| false)
+    }
+
+    pub fn iter(&self) -> impl '_ + Clone + Iterator<Item = (&'_ K, &'_ V)> {
+        self.items
+            .iter()
+            .filter(|&(key, _)| !self.key.equivalent(key))
+    }
+}
+
 pub type Segment<'a, T> =
     segment::Segment<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>, IndexRange>;
 
@@ -1761,6 +1885,7 @@ mod tests {
     #[cfg(feature = "serde")]
     use {alloc::vec::Vec, serde_test::Token};
 
+    use crate::except::ByKey;
     use crate::harness::KeyValueRef;
     use crate::index_map1::IndexMap1;
     use crate::index_map1::harness::{self, VALUE};
@@ -1773,6 +1898,50 @@ mod tests {
         index_map1::harness::xs1,
         serde::{self, harness::map},
     };
+
+    #[rstest]
+    #[case(0, &[(1, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]
+    #[case(1, &[(0, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]
+    #[case(2, &[(0, VALUE), (1, VALUE), (3, VALUE), (4, VALUE)])]
+    #[case(3, &[(0, VALUE), (1, VALUE), (2, VALUE), (4, VALUE)])]
+    #[case(4, &[(0, VALUE), (1, VALUE), (2, VALUE), (3, VALUE)])]
+    fn drain_except_of_index_map1_then_drained_eq(
+        mut xs1: IndexMap1<u8, char>,
+        #[case] key: u8,
+        #[case] expected: &[(u8, char)],
+    ) {
+        let xs: Vec<_> = xs1.except(&key).unwrap().drain().collect();
+        assert_eq!(xs.as_slice(), expected);
+    }
+
+    #[rstest]
+    #[case((0, VALUE))]
+    #[case((1, VALUE))]
+    #[case((2, VALUE))]
+    #[case((3, VALUE))]
+    #[case((4, VALUE))]
+    fn clear_except_of_index_map1_then_index_map1_eq_key_value(
+        mut xs1: IndexMap1<u8, char>,
+        #[case] entry: (u8, char),
+    ) {
+        let (key, value) = entry;
+        xs1.except(&key).unwrap().clear();
+        assert_eq!(xs1, IndexMap1::<_, _>::from_one((key, value)));
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    fn iter_except_of_index_map1_then_iter_does_not_contain_key(
+        mut xs1: IndexMap1<u8, char>,
+        #[case] key: u8,
+    ) {
+        let xs = xs1.except(&key).unwrap();
+        assert!(!xs.iter().any(|(&x, _)| x == key));
+    }
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
