@@ -38,7 +38,10 @@ mod maybe;
 #[path = "unchecked.rs"]
 mod maybe;
 
+use core::hint;
 use core::slice::SliceIndex;
+
+use crate::MaybeEmpty;
 
 // TODO: At time of writing, traits cannot expose `const` functions. Remove this in favor of
 //       extension traits when this is possible.
@@ -106,23 +109,31 @@ pub trait SliceExt<T> {
         I: SliceIndex<[T]>;
 }
 
-/// Tells the compiler to assume that `items` is non-empty. This function is extremely unsafe and
-/// should be used only when it has unambiguous performance benefits. See the
-/// [documentation for `core::hint::unreachable_unchecked`](core::hint::unreachable_unchecked) for
-/// more details.
+/// Hints to the compiler that a non-empty condition must be true.
+///
+/// This function is an unsafe optimization and must only be used when it has unambiguous
+/// performance benefits. See the [`unreachable_unchecked` documentation][`unreachable_unchecked`]
+/// for more details.
 ///
 /// # Safety
-/// [`items.is_empty()`](crate::MaybeEmptyExt::is_empty) must be false.
+///
+/// [`items.is_empty()`][`is_empty`] **must** be `false`. See the [`MaybeEmpty`] and
+/// [`MaybeEmptyExt`] traits.
+///
+/// [`is_empty`]: crate::MaybeEmptyExt::is_empty
+/// [`MaybeEmptyExt`]: crate::MaybeEmptyExt
+/// [`unreachable_unchecked`]: hint::unreachable_unchecked
 #[inline(always)]
 pub unsafe fn assume_is_non_empty_unchecked<T>(items: &T)
 where
-    T: crate::sealed::MaybeEmpty,
+    T: MaybeEmpty,
 {
     debug_assert!(!crate::MaybeEmptyExt::is_empty(items));
 
     if crate::MaybeEmptyExt::is_empty(items) {
-        // SAFETY: we inherit the safety guarantees of the function, and so this branch can never be
-        // reached
-        unsafe { core::hint::unreachable_unchecked() }
+        // SAFETY: Callers must ensure the safety requirements of this function, and so this branch
+        //         cannot be reached (without unsound usage of the function that violates its
+        //         safety contract).
+        unsafe { hint::unreachable_unchecked() }
     }
 }

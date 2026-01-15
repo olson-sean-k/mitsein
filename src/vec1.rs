@@ -30,7 +30,7 @@ use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
-use crate::safety::{NonZeroExt as _, OptionExt as _};
+use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::segment::range::{self, IndexRange, Intersect, Project, RangeError};
 use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::slice1::Slice1;
@@ -204,15 +204,15 @@ impl<T> Vec1<T> {
     }
 
     pub fn into_head_and_tail(mut self) -> (T, Vec<T>) {
-        // SAFETY: Vec1 guarantees that the underlying Vec is non-empty
-        unsafe { crate::safety::assume_is_non_empty_unchecked(&self.items) };
+        // SAFETY: `self` must be non-empty.
+        unsafe { safety::assume_is_non_empty_unchecked(&self.items) };
         let head = self.items.remove(0);
         (head, self.items)
     }
 
     pub fn into_rtail_and_head(mut self) -> (Vec<T>, T) {
-        // SAFETY: Vec1 guarantees that the underlying Vec is non-empty
-        unsafe { crate::safety::assume_is_non_empty_unchecked(&self.items) };
+        // SAFETY: `self` must be non-empty.
+        unsafe { safety::assume_is_non_empty_unchecked(&self.items) };
         // SAFETY: `self` must be non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
