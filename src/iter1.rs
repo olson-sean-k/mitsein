@@ -634,6 +634,12 @@ where
         self.map_first_and_then(|first| first, f)
     }
 
+    pub fn take(self, n: NonZeroUsize) -> Iterator1<Take<I>> {
+        // SAFETY: Since n > 0, this combinator function cannot reduce the cardinality of the
+        //         iterator to 0.
+        unsafe { self.and_then_unchecked(|iter| iter.take(n.get())) }
+    }
+
     pub fn first_and_then_take(self, n: usize) -> HeadAndTail<Take<I>> {
         self.first_and_then(|items| items.take(n))
     }
