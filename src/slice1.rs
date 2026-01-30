@@ -6,7 +6,7 @@ use core::fmt::{self, Debug, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
-use core::slice::{self, Chunks, ChunksMut, RChunks, RChunksMut};
+use core::slice::{self, ChunkBy, ChunkByMut, Chunks, ChunksMut, RChunks, RChunksMut};
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
 #[cfg(feature = "schemars")]
@@ -147,6 +147,22 @@ impl<T> Slice1<T> {
     pub fn rchunks1_mut(&mut self, n: usize) -> Iterator1<RChunksMut<'_, T>> {
         // SAFETY: This iterator cannot have a cardinality of zero.
         unsafe { Iterator1::from_iter_unchecked(self.items.rchunks_mut(n)) }
+    }
+
+    pub fn chunk_by1<F>(&self, f: F) -> Iterator1<ChunkBy<'_, T, F>>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        // SAFETY: This iterator cannot have a cardinality of zero.
+        unsafe { Iterator1::from_iter_unchecked(self.items.chunk_by(f)) }
+    }
+
+    pub fn chunk_by1_mut<F>(&mut self, f: F) -> Iterator1<ChunkByMut<'_, T, F>>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        // SAFETY: This iterator cannot have a cardinality of zero.
+        unsafe { Iterator1::from_iter_unchecked(self.items.chunk_by_mut(f)) }
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
