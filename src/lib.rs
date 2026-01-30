@@ -407,12 +407,12 @@ pub mod prelude {
     #[cfg(feature = "either")]
     pub use crate::iter1::EitherExt as _;
     pub use crate::iter1::{
-        Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1,
+        Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1 as _,
     };
     #[cfg(feature = "rayon")]
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
     #[cfg(any(feature = "arrayvec", feature = "alloc"))]
-    pub use crate::segment::{ByRange, ByTail};
+    pub use crate::segment::{ByRange as _, ByTail as _};
     pub use crate::slice1::{Slice1, slice1};
     pub use crate::str1::Str1;
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
