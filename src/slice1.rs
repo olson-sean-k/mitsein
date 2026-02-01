@@ -3,6 +3,7 @@
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer};
 use core::fmt::{self, Debug, Formatter};
+use core::iter::{DoubleEndedIterator, FusedIterator};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
@@ -31,6 +32,36 @@ unsafe impl<T> MaybeEmpty for [T] {
             0 => None,
             1 => Some(Cardinality::One(())),
             _ => Some(Cardinality::Many(())),
+        }
+    }
+}
+
+pub trait SliceExt<T> {
+    fn chunk_by1<F>(&self, f: F) -> ChunkBy1<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool;
+
+    fn chunk_by1_mut<F>(&mut self, f: F) -> ChunkBy1Mut<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool;
+}
+
+impl<T> SliceExt<T> for [T] {
+    fn chunk_by1<F>(&self, f: F) -> ChunkBy1<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        ChunkBy1 {
+            chunks: self.chunk_by(f),
+        }
+    }
+
+    fn chunk_by1_mut<F>(&mut self, f: F) -> ChunkBy1Mut<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        ChunkBy1Mut {
+            chunks: self.chunk_by_mut(f),
         }
     }
 }
@@ -149,20 +180,24 @@ impl<T> Slice1<T> {
         unsafe { Iterator1::from_iter_unchecked(self.items.rchunks_mut(n)) }
     }
 
-    pub fn chunk_by1<F>(&self, f: F) -> Iterator1<ChunkBy<'_, T, F>>
+    // Unlike other `1`-postfixed functions, `chunk_by1` and `chunk_by1_mut` shadow
+    // `SliceExt::chunk_by1` and `SliceExt::chunk_by1_mut`, respectively. Generally, the postfix is
+    // used for clarity and to avoid shadowing maybe-empty counterparts, but that would require yet
+    // another distinction here and would likely just cause a lot more confusion.
+    pub fn chunk_by1<F>(&self, f: F) -> Iterator1<ChunkBy1<'_, T, F>>
     where
         F: FnMut(&T, &T) -> bool,
     {
         // SAFETY: This iterator cannot have a cardinality of zero.
-        unsafe { Iterator1::from_iter_unchecked(self.items.chunk_by(f)) }
+        unsafe { Iterator1::from_iter_unchecked(self.items.chunk_by1(f)) }
     }
 
-    pub fn chunk_by1_mut<F>(&mut self, f: F) -> Iterator1<ChunkByMut<'_, T, F>>
+    pub fn chunk_by1_mut<F>(&mut self, f: F) -> Iterator1<ChunkBy1Mut<'_, T, F>>
     where
         F: FnMut(&T, &T) -> bool,
     {
         // SAFETY: This iterator cannot have a cardinality of zero.
-        unsafe { Iterator1::from_iter_unchecked(self.items.chunk_by_mut(f)) }
+        unsafe { Iterator1::from_iter_unchecked(self.items.chunk_by1_mut(f)) }
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
@@ -428,6 +463,109 @@ impl<'a, T> TryFrom<&'a mut [T]> for &'a mut Slice1<T> {
 
     fn try_from(items: &'a mut [T]) -> Result<Self, Self::Error> {
         FromMaybeEmpty::try_from_maybe_empty(items)
+    }
+}
+
+pub struct ChunkBy1<'a, T, F> {
+    chunks: ChunkBy<'a, T, F>,
+}
+
+impl<T, F> Clone for ChunkBy1<'_, T, F>
+where
+    F: Clone,
+{
+    fn clone(&self) -> Self {
+        ChunkBy1 {
+            chunks: self.chunks.clone(),
+        }
+    }
+}
+
+impl<T, F> Debug for ChunkBy1<'_, T, F>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ChunkBy1")
+            .field("chunks", &self.chunks)
+            .finish()
+    }
+}
+
+impl<'a, T, F> DoubleEndedIterator for ChunkBy1<'a, T, F>
+where
+    F: FnMut(&T, &T) -> bool,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.chunks
+            .next_back()
+            // SAFETY: `slice::chunk_by` never outputs empty chunks, so each chunk can be safely
+            //         converted into a `Slice1`.
+            .map(|chunk| unsafe { Slice1::from_slice_unchecked(chunk) })
+    }
+}
+
+impl<'a, T, F> FusedIterator for ChunkBy1<'a, T, F> where F: FnMut(&T, &T) -> bool {}
+
+impl<'a, T, F> Iterator for ChunkBy1<'a, T, F>
+where
+    F: FnMut(&T, &T) -> bool,
+{
+    type Item = &'a Slice1<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.chunks
+            .next()
+            // SAFETY: `slice::chunk_by` never outputs empty chunks, so each chunk can be safely
+            //         converted into a `Slice1`.
+            .map(|chunk| unsafe { Slice1::from_slice_unchecked(chunk) })
+    }
+}
+
+pub struct ChunkBy1Mut<'a, T, F> {
+    chunks: ChunkByMut<'a, T, F>,
+}
+
+impl<T, F> Debug for ChunkBy1Mut<'_, T, F>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ChunkBy1Mut")
+            .field("chunks", &self.chunks)
+            .finish()
+    }
+}
+
+impl<'a, T, F> DoubleEndedIterator for ChunkBy1Mut<'a, T, F>
+where
+    F: FnMut(&T, &T) -> bool,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.chunks
+            .next_back()
+            // SAFETY: `slice::chunk_by_mut` never outputs empty chunks, so each chunk can be
+            //         safely converted into a `Slice1`.
+            .map(|chunk| unsafe { Slice1::from_mut_slice_unchecked(chunk) })
+    }
+}
+
+impl<'a, T, F> FusedIterator for ChunkBy1Mut<'a, T, F> where F: FnMut(&T, &T) -> bool {}
+
+impl<'a, T, F> Iterator for ChunkBy1Mut<'a, T, F>
+where
+    F: FnMut(&T, &T) -> bool,
+{
+    type Item = &'a mut Slice1<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.chunks
+            .next()
+            // SAFETY: `slice::chunk_by_mut` never outputs empty chunks, so each chunk can be
+            //         safely converted into a `Slice1`.
+            .map(|chunk| unsafe { Slice1::from_mut_slice_unchecked(chunk) })
     }
 }
 
