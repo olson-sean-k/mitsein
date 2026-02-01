@@ -35,7 +35,7 @@ use {
 };
 
 use crate::safety::OptionExt as _;
-#[cfg(feature = "rayon")]
+#[cfg(any(feature = "rayon", all(feature = "alloc", feature = "itertools")))]
 use crate::vec1::Vec1;
 #[cfg(feature = "itertools")]
 use crate::{Cardinality, safety};
@@ -967,6 +967,68 @@ where
         let item = self.items.find_or_last(f);
         // SAFETY: `self` must be non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn min_set(self) -> Vec1<I::Item>
+    where
+        I::Item: Ord,
+    {
+        // SAFETY: This combinator function produces a non-empty vector if the input is non-empty.
+        unsafe { Vec1::from_vec_unchecked(self.items.min_set()) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn min_set_by<F>(self, compare: F) -> Vec1<I::Item>
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        // SAFETY: This combinator function produces a non-empty vector if the input is non-empty.
+        unsafe { Vec1::from_vec_unchecked(self.items.min_set_by(compare)) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn min_set_by_key<K, F>(self, key: F) -> Vec1<I::Item>
+    where
+        F: FnMut(&I::Item) -> K,
+        K: Ord,
+    {
+        // SAFETY: This combinator function produces a non-empty vector if the input is non-empty.
+        unsafe { Vec1::from_vec_unchecked(self.items.min_set_by_key(key)) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn max_set(self) -> Vec1<I::Item>
+    where
+        I::Item: Ord,
+    {
+        // SAFETY: This combinator function produces a non-empty vector if the input is non-empty.
+        unsafe { Vec1::from_vec_unchecked(self.items.max_set()) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn max_set_by<F>(self, compare: F) -> Vec1<I::Item>
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        // SAFETY: This combinator function produces a non-empty vector if the input is non-empty.
+        unsafe { Vec1::from_vec_unchecked(self.items.max_set_by(compare)) }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn max_set_by_key<K, F>(self, key: F) -> Vec1<I::Item>
+    where
+        F: FnMut(&I::Item) -> K,
+        K: Ord,
+    {
+        // SAFETY: This combinator function produces a non-empty vector if the input is non-empty.
+        unsafe { Vec1::from_vec_unchecked(self.items.max_set_by_key(key)) }
     }
 }
 
