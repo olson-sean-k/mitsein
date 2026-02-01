@@ -642,6 +642,12 @@ where
         self.first_and_then(|items| items.skip(n))
     }
 
+    pub fn take_non_zero(self, n: NonZeroUsize) -> Iterator1<Take<I>> {
+        // SAFETY: `n` must be greater than zero, so this combinator function cannot reduce the
+        //         cardinality of the iterator to zero.
+        unsafe { self.and_then_unchecked(move |items| items.take(n.get())) }
+    }
+
     pub fn cycle(self) -> Iterator1<Cycle<I>>
     where
         I: Clone,

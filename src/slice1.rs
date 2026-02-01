@@ -130,6 +130,16 @@ impl<T> Slice1<T> {
         }
     }
 
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn repeat_non_zero(&self, n: NonZeroUsize) -> Vec1<T>
+    where
+        T: Copy,
+    {
+        // SAFETY: `self` must be non-empty and `n` must be greater than zero.
+        unsafe { Vec1::from_vec_unchecked(self.items.repeat(n.get())) }
+    }
+
     pub const fn split_first(&self) -> (&T, &[T]) {
         // SAFETY: `self` must be non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_first()) }
