@@ -9,7 +9,7 @@ use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, FlatMap, Flatten, Inspect, Map, Peekable,
-    Repeat, Rev, Skip, StepBy, Take, Zip,
+    Repeat, Rev, Skip, StepBy, Successors, Take, Zip,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -1304,6 +1304,14 @@ where
 {
     // SAFETY: The output `Repeat` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(iter::repeat(item)) }
+}
+
+pub fn successors<T, F>(first: T, f: F) -> Iterator1<Successors<T, F>>
+where
+    F: FnMut(&T) -> Option<T>,
+{
+    // SAFETY: `Some(first)` is non-empty, so the output `Successors` is also non-empty.
+    unsafe { Iterator1::from_iter_unchecked(iter::successors(Some(first), f)) }
 }
 
 fn empty_or_into<T>(items: Option<T>) -> EmptyOrInto<T>
