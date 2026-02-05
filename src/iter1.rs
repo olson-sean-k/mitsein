@@ -405,6 +405,20 @@ where
 #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
 pub type MinMax<T> = Cardinality<T, (T, T)>;
 
+#[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+impl<T> MinMax<T> {
+    pub fn pair(self) -> (T, T)
+    where
+        T: Clone,
+    {
+        match self {
+            MinMax::One(one) => (one.clone(), one),
+            MinMax::Many(many) => many,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct Iterator1<I> {
