@@ -204,32 +204,32 @@ impl<T> Slice1<T> {
     }
 
     pub fn split_first(&self) -> (&T, &Slice<T>) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.split_first().unwrap_maybe_unchecked() }
     }
 
     pub fn split_last(&self) -> (&T, &Slice<T>) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.split_last().unwrap_maybe_unchecked() }
     }
 
     pub fn first(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
     pub fn last(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<index_set::Iter<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub const fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 }
@@ -445,27 +445,27 @@ impl<T, S> IndexSet1<T, S> {
     }
 
     pub fn first(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
     pub fn last(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
     pub fn iter1(&self) -> Iterator1<index_set::Iter<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
@@ -699,8 +699,8 @@ where
         R: ClosedIndexSet<Item = T, State = SR>,
         SR: 'a + BuildHasher,
     {
-        // SAFETY: `self` must be non-empty and `IndexSet::union` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `self` is non-empty and `IndexSet::union` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_index_set())) }
     }
 
@@ -789,8 +789,8 @@ where
         R: ClosedIndexSet<Item = T, State = SR>,
         SR: 'a + BuildHasher + Sync,
     {
-        // SAFETY: `self` must be non-empty and `IndexSet::par_union` cannot reduce the cardinality
-        //         of its inputs.
+        // SAFETY: `self` is non-empty and `IndexSet::par_union` cannot reduce the cardinality of
+        //         its inputs.
         unsafe {
             ParallelIterator1::from_par_iter_unchecked(self.items.par_union(other.as_index_set()))
         }
@@ -854,8 +854,8 @@ where
     where
         F: Fn(&T, &T) -> Ordering + Sync,
     {
-        // SAFETY: `self` must be non-empty and `IndexSet::par_sorted_by` cannot reduce the
-        //         cardinality of its inputs.
+        // SAFETY: `self` is non-empty and `IndexSet::par_sorted_by` cannot reduce the cardinality
+        //         of its inputs.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_sorted_by(f)) }
     }
 
@@ -880,8 +880,8 @@ where
     where
         F: Fn(&T, &T) -> Ordering + Sync,
     {
-        // SAFETY: `self` must be non-empty and `IndexSet::par_sorted_unstable_by` cannot reduce
-        //         the cardinality of its inputs.
+        // SAFETY: `self` is non-empty and `IndexSet::par_sorted_unstable_by` cannot reduce the
+        //         cardinality of its inputs.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_sorted_unstable_by(f)) }
     }
 
@@ -971,8 +971,8 @@ where
     type Output = IndexSet1<T, S>;
 
     fn bitor(self, rhs: &'_ R) -> Self::Output {
-        // SAFETY: `self` must be non-empty and `IndexSet::bitor` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `self` is non-empty and `IndexSet::bitor` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { IndexSet1::from_index_set_unchecked(self.as_index_set() | rhs.as_index_set()) }
     }
 }
@@ -986,8 +986,8 @@ where
     type Output = IndexSet1<T, S>;
 
     fn bitor(self, rhs: &'_ IndexSet1<T, S1>) -> Self::Output {
-        // SAFETY: `rhs` must be non-empty and `IndexSet::bitor` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `rhs` is non-empty and `IndexSet::bitor` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { IndexSet1::from_index_set_unchecked(self | rhs.as_index_set()) }
     }
 }
@@ -1167,7 +1167,7 @@ impl<'a, T, S> IntoIterator for &'a IndexSet1<T, S> {
 
 impl<T, S> IntoIterator1 for IndexSet1<T, S> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -1216,7 +1216,7 @@ where
     S: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
@@ -1229,7 +1229,7 @@ where
     S: Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }

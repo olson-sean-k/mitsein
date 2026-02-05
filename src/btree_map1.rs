@@ -533,12 +533,12 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn into_keys1(self) -> Iterator1<btree_map::IntoKeys<K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.into_keys()) }
     }
 
     pub fn into_values1(self) -> Iterator1<btree_map::IntoValues<K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
@@ -701,7 +701,7 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
@@ -709,7 +709,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.first_key_value().unwrap_maybe_unchecked() }
     }
 
@@ -718,7 +718,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         self.as_cardinality_items_mut()
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             .map(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() })
             .map_one(OnlyEntry::from_occupied_entry)
             .map_one(From::from)
@@ -729,7 +729,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         OnlyEntry::from_occupied_entry(unsafe { self.items.first_entry().unwrap_maybe_unchecked() })
     }
 
@@ -737,7 +737,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last_key_value().unwrap_maybe_unchecked() }
     }
 
@@ -746,7 +746,7 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
     {
         self.as_cardinality_items_mut()
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             .map(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() })
             .map_one(OnlyEntry::from_occupied_entry)
             .map_one(From::from)
@@ -754,27 +754,27 @@ impl<K, V> BTreeMap1<K, V> {
     }
 
     pub fn iter1(&self) -> Iterator1<btree_map::Iter<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<btree_map::IterMut<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
     pub fn keys1(&self) -> Iterator1<btree_map::Keys<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.keys()) }
     }
 
     pub fn values1(&self) -> Iterator1<btree_map::Values<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.values()) }
     }
 
     pub fn values1_mut(&mut self) -> Iterator1<btree_map::ValuesMut<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.values_mut()) }
     }
 
@@ -1029,7 +1029,7 @@ impl<'a, K, V> IntoIterator for &'a mut BTreeMap1<K, V> {
 
 impl<K, V> IntoIterator1 for BTreeMap1<K, V> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -1099,7 +1099,7 @@ where
     V: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
@@ -1112,7 +1112,7 @@ where
     V: Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }
@@ -1125,7 +1125,7 @@ where
     V: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
     }
 }

@@ -273,7 +273,7 @@ where
 
     pub fn from_one(item: T) -> Self {
         unsafe {
-            // SAFETY: `items` must contain `item` and therefore is non-empty here.
+            // SAFETY: `items` contains `item`, and is therefore non-empty here.
             ArrayVec1::from_array_vec_unchecked({
                 let mut items = ArrayVec::new();
                 // SAFETY: The bound on `[T; N]: Array1` guarantees that `items` has vacancy for a
@@ -316,7 +316,7 @@ where
     }
 
     pub fn into_rtail_and_head(mut self) -> (ArrayVec<T, N>, T) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
     }
@@ -328,7 +328,7 @@ where
     pub fn try_into_array(self) -> Result<[T; N], Self> {
         self.items
             .into_inner()
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             .map_err(|items| unsafe { ArrayVec1::from_array_vec_unchecked(items) })
     }
 
@@ -416,12 +416,12 @@ where
     }
 
     pub const fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 
     pub const fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -450,12 +450,12 @@ where
     }
 
     pub fn as_slice1(&self) -> &Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }
 
     pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 
@@ -707,7 +707,7 @@ where
     [T; N]: Array1,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }

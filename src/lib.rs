@@ -655,7 +655,7 @@ where
     /// Gets the [cardinality][`Cardinality`] of the `NonEmpty`.
     fn cardinality(&self) -> Cardinality<(), ()> {
         match self.items.cardinality() {
-            // SAFETY: `self.items` must be non-empty.
+            // SAFETY: `self.items` is non-empty.
             None => unsafe { safety::unreachable_maybe_unchecked() },
             Some(cardinality) => cardinality,
         }

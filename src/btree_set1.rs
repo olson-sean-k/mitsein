@@ -374,7 +374,7 @@ impl<T> BTreeSet1<T> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
@@ -382,7 +382,7 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
@@ -390,7 +390,7 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
@@ -435,13 +435,13 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         R: ClosedBTreeSet<Item = T>,
     {
-        // SAFETY: `self` must be non-empty and `BTreeSet::union` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `self` is non-empty and `BTreeSet::union` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_btree_set())) }
     }
 
     pub fn iter1(&self) -> Iterator1<btree_set::Iter<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
@@ -562,8 +562,8 @@ where
     type Output = BTreeSet1<T>;
 
     fn bitor(self, rhs: &'_ R) -> Self::Output {
-        // SAFETY: `self` must be non-empty and `BTreeSet::bitor` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `self` is non-empty and `BTreeSet::bitor` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { BTreeSet1::from_btree_set_unchecked(self.as_btree_set() | rhs.as_btree_set()) }
     }
 }
@@ -575,8 +575,8 @@ where
     type Output = BTreeSet1<T>;
 
     fn bitor(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
-        // SAFETY: `rhs` must be non-empty and `BTreeSet::bitor` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `rhs` is non-empty and `BTreeSet::bitor` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { BTreeSet1::from_btree_set_unchecked(self | rhs.as_btree_set()) }
     }
 }
@@ -762,7 +762,7 @@ impl<'a, T> IntoIterator for &'a BTreeSet1<T> {
 
 impl<T> IntoIterator1 for BTreeSet1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -808,7 +808,7 @@ where
     T: Ord + Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
@@ -820,7 +820,7 @@ where
     T: Ord + Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }

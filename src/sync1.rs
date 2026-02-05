@@ -89,7 +89,7 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
     fn try_into_arc_array<const N: usize>(self) -> Result<Arc<[T; N]>, Self> {
         match self.into_arc_slice().try_into() {
             Ok(items) => Ok(items),
-            // SAFETY: `self` and therefore `items` must be non-empty.
+            // SAFETY: `self` and therefore `items` are non-empty.
             Err(items) => Err(unsafe { ArcSlice1::from_arc_slice_unchecked(items) }),
         }
     }

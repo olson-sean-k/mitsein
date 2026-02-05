@@ -96,7 +96,7 @@ impl Str1 {
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn once_and_then_repeat(&self, n: usize) -> String1 {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe {
             String1::from_string_unchecked(
                 self.items
@@ -106,7 +106,7 @@ impl Str1 {
     }
 
     pub fn encode1_utf16(&self) -> Iterator1<EncodeUtf16<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.encode_utf16()) }
     }
 
@@ -114,7 +114,7 @@ impl Str1 {
     where
         P: 'a + AsRef<[char]>,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.split(separator.as_ref())) }
     }
 
@@ -125,7 +125,7 @@ impl Str1 {
     where
         P: 'a + AsRef<[char]>,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.split_inclusive(separator.as_ref())) }
     }
 
@@ -136,7 +136,7 @@ impl Str1 {
     where
         P: 'a + AsRef<[char]>,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.split_terminator(separator.as_ref())) }
     }
 
@@ -144,42 +144,42 @@ impl Str1 {
     pub(crate) fn first(&self) -> char {
         use crate::safety::OptionExt as _;
 
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.chars().next().unwrap_maybe_unchecked() }
     }
 
     pub fn chars1(&self) -> Iterator1<Chars<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_str().chars()) }
     }
 
     pub fn char_indices1(&self) -> Iterator1<CharIndices<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_str().char_indices()) }
     }
 
     pub fn bytes1(&self) -> Iterator1<Bytes<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_str().bytes()) }
     }
 
     pub fn lines1(&self) -> Iterator1<Lines<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_str().lines()) }
     }
 
     pub const fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 
     pub const fn as_bytes1(&self) -> &Slice1<u8> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_slice_unchecked(self.as_str().as_bytes()) }
     }
 
     pub const fn as_bytes1_mut(&mut self) -> &mut Slice1<u8> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.as_mut_str().as_bytes_mut()) }
     }
 
@@ -196,7 +196,7 @@ impl Str1 {
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 impl Str1 {
     pub fn par_encode1_utf16(&self) -> ParallelIterator1<rayon::str::EncodeUtf16<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_encode_utf16()) }
     }
 
@@ -207,7 +207,7 @@ impl Str1 {
     where
         P: 'a + AsRef<[char]>,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_split(separator.as_ref())) }
     }
 
@@ -218,7 +218,7 @@ impl Str1 {
     where
         P: 'a + AsRef<[char]>,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe {
             ParallelIterator1::from_par_iter_unchecked(self.par_split_inclusive(separator.as_ref()))
         }
@@ -231,7 +231,7 @@ impl Str1 {
     where
         P: 'a + AsRef<[char]>,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe {
             ParallelIterator1::from_par_iter_unchecked(
                 self.par_split_terminator(separator.as_ref()),
@@ -240,22 +240,22 @@ impl Str1 {
     }
 
     pub fn par_chars1(&self) -> ParallelIterator1<rayon::str::Chars<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_chars()) }
     }
 
     pub fn par_char_indices1(&self) -> ParallelIterator1<rayon::str::CharIndices<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_char_indices()) }
     }
 
     pub fn par_bytes1(&self) -> ParallelIterator1<rayon::str::Bytes<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_bytes()) }
     }
 
     pub fn par_lines1(&self) -> ParallelIterator1<rayon::str::Lines<'_>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_lines()) }
     }
 }

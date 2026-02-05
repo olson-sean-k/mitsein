@@ -232,7 +232,7 @@ where
     }
 
     pub fn into_rtail_and_head(mut self) -> (SmallVec<A>, T) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
     }
@@ -244,12 +244,12 @@ where
     pub fn try_into_array(self) -> Result<A, Self> {
         self.items
             .into_inner()
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             .map_err(|items| unsafe { SmallVec1::from_small_vec_unchecked(items) })
     }
 
     pub fn into_boxed_slice1(self) -> BoxedSlice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice()) }
     }
 
@@ -354,12 +354,12 @@ where
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -392,12 +392,12 @@ where
     }
 
     pub fn as_slice1(&self) -> &Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }
 
     pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 
@@ -612,7 +612,7 @@ where
     [T; N]: Array<Item = T> + Array1,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { SmallVec1::from_small_vec_unchecked(SmallVec::from(items)) }
     }
 }
@@ -623,7 +623,7 @@ where
     T: Copy,
 {
     fn from(items: &'a [T; N]) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { SmallVec1::from_small_vec_unchecked(items.iter().copied().collect()) }
     }
 }
@@ -644,7 +644,7 @@ where
     T: Clone,
 {
     fn from(items: &'a Slice1<T>) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { SmallVec1::from_small_vec_unchecked(SmallVec::from(items.as_slice())) }
     }
 }
@@ -673,7 +673,7 @@ where
     A: Array<Item = T>,
 {
     fn from(items: Vec1<T>) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { SmallVec1::from_small_vec_unchecked(SmallVec::from(items.into_vec())) }
     }
 }
@@ -686,7 +686,7 @@ where
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { SmallVec1::from_small_vec_unchecked(items.into_iter().collect()) }
     }
 }
@@ -756,7 +756,7 @@ where
     A: Array,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }

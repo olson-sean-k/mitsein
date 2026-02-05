@@ -175,7 +175,7 @@ impl<T, S> HashSet1<T, S> {
     }
 
     pub fn iter1(&self) -> Iterator1<hash_set::Iter<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
@@ -184,12 +184,12 @@ impl<T, S> HashSet1<T, S> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -277,7 +277,7 @@ where
     where
         F: 'a + FnMut(&T) -> bool,
     {
-        // `self` must be non-empty, so subtracting one from its length cannot underflow.
+        // `self` is non-empty, so subtracting one from its length cannot underflow.
         let mut n = self.items.len() - 1;
         let mut has_retained = false;
         self.items.extract_if(move |item| {
@@ -323,7 +323,7 @@ where
                 f(item)
             }
         });
-        // SAFETY: `self` must be non-empty, so a first item is always observed in `retain`.
+        // SAFETY: `self` is non-empty, so a first item is always observed in `retain`.
         let first = unsafe { first.unwrap_maybe_unchecked() };
         if self.len().get() == 1 {
             if f(&first) {
@@ -406,8 +406,8 @@ where
     where
         R: ClosedHashSet<Item = T, State = S>,
     {
-        // SAFETY: `self` must be non-empty and `HashSet::union` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `self` is non-empty and `HashSet::union` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { Iterator1::from_iter_unchecked(self.items.union(other.as_hash_set())) }
     }
 
@@ -524,8 +524,8 @@ where
     type Output = HashSet1<T, S>;
 
     fn bitor(self, rhs: &'_ R) -> Self::Output {
-        // SAFETY: `self` must be non-empty and `HashSet::bitor` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `self` is non-empty and `HashSet::bitor` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { HashSet1::from_hash_set_unchecked(self.as_hash_set() | rhs.as_hash_set()) }
     }
 }
@@ -538,8 +538,8 @@ where
     type Output = HashSet1<T, S>;
 
     fn bitor(self, rhs: &'_ HashSet1<T, S>) -> Self::Output {
-        // SAFETY: `rhs` must be non-empty and `HashSet::bitor` cannot reduce the cardinality of
-        //         its inputs.
+        // SAFETY: `rhs` is non-empty and `HashSet::bitor` cannot reduce the cardinality of its
+        //         inputs.
         unsafe { HashSet1::from_hash_set_unchecked(self | rhs.as_hash_set()) }
     }
 }
@@ -689,7 +689,7 @@ impl<'a, T, S> IntoIterator for &'a HashSet1<T, S> {
 
 impl<T, S> IntoIterator1 for HashSet1<T, S> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -735,7 +735,7 @@ where
     T: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
@@ -747,7 +747,7 @@ where
     T: Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }

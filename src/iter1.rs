@@ -72,7 +72,7 @@ where
                 .chain(self::empty_or_into::<R>(Some(items.into_iter()))),
         };
         // SAFETY: Both the left and right values are non-empty iterators, so one of the iterators
-        //         in the chain in `items` is non-empty and therefore `items` is non-empty.
+        //         in the chain in `items` is non-empty, and therefore `items` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(items) }
     }
 }
@@ -520,17 +520,17 @@ where
     }
 
     pub fn first(mut self) -> I::Item {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.next().unwrap_maybe_unchecked() }
     }
 
     pub fn last(self) -> I::Item {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn into_head_and_tail(mut self) -> (I::Item, I) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         let head = unsafe { self.items.next().unwrap_maybe_unchecked() };
         (head, self.items)
     }
@@ -539,7 +539,7 @@ where
     where
         I: DoubleEndedIterator,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         let head = unsafe { self.items.next_back().unwrap_maybe_unchecked() };
         (self.items, head)
     }
@@ -548,7 +548,7 @@ where
     where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.min_by(f).unwrap_maybe_unchecked() }
     }
 
@@ -571,7 +571,7 @@ where
     where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.max_by(f).unwrap_maybe_unchecked() }
     }
 
@@ -594,7 +594,7 @@ where
     where
         F: FnMut(I::Item, I::Item) -> I::Item,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.reduce(f).unwrap_maybe_unchecked() }
     }
 
@@ -635,7 +635,7 @@ where
         H: FnOnce(I::Item) -> J::Item,
         T: FnOnce(I) -> J,
     {
-        // SAFETY: `self` must be non-empty so that `next` yields `Some` here.
+        // SAFETY: `self` is non-empty, so `next` must yield `Some` here.
         let first = unsafe { self.items.next().map(head).unwrap_maybe_unchecked() };
         self::head_and_tail(first, tail(self.items))
     }
@@ -773,7 +773,7 @@ where
         I::Item: PartialOrd,
     {
         match self.into_iter().minmax() {
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             MinMaxResult::NoElements => unsafe { safety::unreachable_maybe_unchecked() },
             MinMaxResult::OneElement(item) => MinMax::One(item),
             MinMaxResult::MinMax(min, max) => MinMax::Many((min, max)),
@@ -1038,7 +1038,7 @@ where
         F: FnMut(&I::Item) -> bool,
     {
         let item = self.items.find_or_first(f);
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
     }
 
@@ -1047,7 +1047,7 @@ where
         F: FnMut(&I::Item) -> bool,
     {
         let item = self.items.find_or_last(f);
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
     }
 }
@@ -1082,7 +1082,7 @@ where
     I: Iterator,
 {
     pub fn peek(&mut self) -> &I::Item {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.peek().unwrap_maybe_unchecked() }
     }
 }
@@ -1181,7 +1181,7 @@ where
     where
         F: Fn(&I::Item, &I::Item) -> Ordering + Send + Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.min_by(f).unwrap_maybe_unchecked() }
     }
 
@@ -1204,7 +1204,7 @@ where
     where
         F: Fn(&I::Item, &I::Item) -> Ordering + Send + Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.max_by(f).unwrap_maybe_unchecked() }
     }
 
@@ -1227,7 +1227,7 @@ where
     where
         F: Fn(I::Item, I::Item) -> I::Item + Send + Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.reduce_with(f).unwrap_maybe_unchecked() }
     }
 

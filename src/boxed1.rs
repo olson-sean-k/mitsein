@@ -213,7 +213,7 @@ impl<'a, T> IntoIterator for &'a mut BoxedSlice1<T> {
 
 impl<T> IntoIterator1 for BoxedSlice1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self) }
     }
 }

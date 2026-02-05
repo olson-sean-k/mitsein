@@ -89,7 +89,7 @@ impl<T> RcSlice1Ext<T> for RcSlice1<T> {
     fn try_into_rc_array<const N: usize>(self) -> Result<Rc<[T; N]>, Self> {
         match self.into_rc_slice().try_into() {
             Ok(items) => Ok(items),
-            // SAFETY: `self` and therefore `items` must be non-empty.
+            // SAFETY: `self` and therefore `items` are non-empty.
             Err(items) => Err(unsafe { RcSlice1::from_rc_slice_unchecked(items) }),
         }
     }

@@ -248,7 +248,7 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn make_contiguous(&mut self) -> &mut Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.make_contiguous()) }
     }
 
@@ -319,42 +319,42 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
     pub fn front(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.front().unwrap_maybe_unchecked() }
     }
 
     pub fn front_mut(&mut self) -> &mut T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.front_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn back(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.back().unwrap_maybe_unchecked() }
     }
 
     pub fn back_mut(&mut self) -> &mut T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.back_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<vec_deque::Iter<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<vec_deque::IterMut<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
@@ -474,7 +474,7 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { VecDeque1::from_vec_deque_unchecked(VecDeque::from(items)) }
     }
 }
@@ -490,7 +490,7 @@ impl<T> FromIterator1<T> for VecDeque1<T> {
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { VecDeque1::from_vec_deque_unchecked(items.into_iter().collect()) }
     }
 }
@@ -505,7 +505,7 @@ where
     where
         I: IntoParallelIterator1<Item = T>,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { VecDeque1::from_vec_deque_unchecked(items.into_par_iter().collect()) }
     }
 }
@@ -559,7 +559,7 @@ impl<'a, T> IntoIterator for &'a mut VecDeque1<T> {
 
 impl<T> IntoIterator1 for VecDeque1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -625,7 +625,7 @@ where
     T: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
@@ -637,7 +637,7 @@ where
     T: Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }
@@ -649,7 +649,7 @@ where
     T: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
     }
 }

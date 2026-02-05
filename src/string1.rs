@@ -208,12 +208,12 @@ impl String1 {
     }
 
     pub fn into_boxed_str1(self) -> BoxedStr1 {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { BoxedStr1::from_boxed_str_unchecked(self.items.into_boxed_str()) }
     }
 
     pub fn leak<'a>(self) -> &'a mut Str1 {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Str1::from_mut_str_unchecked(self.items.leak()) }
     }
 
@@ -242,7 +242,7 @@ impl String1 {
 
     pub fn split_off_tail(&mut self) -> String {
         let index = unsafe {
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             self.items
                 .char_indices()
                 .take(2)
@@ -277,12 +277,12 @@ impl String1 {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -320,12 +320,12 @@ impl String1 {
     }
 
     pub fn as_str1(&self) -> &Str1 {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Str1::from_str_unchecked(self.items.as_str()) }
     }
 
     pub fn as_mut_str1(&mut self) -> &mut Str1 {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Str1::from_mut_str_unchecked(self.items.as_mut_str()) }
     }
 
@@ -471,7 +471,7 @@ where
 
 impl From<BoxedStr1> for String1 {
     fn from(items: BoxedStr1) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { String1::from_string_unchecked(String::from(items.into_boxed_str())) }
     }
 }
@@ -491,14 +491,14 @@ impl<'a> From<CowStr1<'a>> for String1 {
 
 impl<'a> From<&'a Str1> for String1 {
     fn from(items: &'a Str1) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { String1::from_string_unchecked(String::from(items.as_str())) }
     }
 }
 
 impl<'a> From<&'a mut Str1> for String1 {
     fn from(items: &'a mut Str1) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { String1::from_string_unchecked(String::from(items.as_str())) }
     }
 }

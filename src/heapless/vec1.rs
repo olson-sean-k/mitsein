@@ -199,17 +199,17 @@ where
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
     pub fn as_slice1(&self) -> &Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }
 
     pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 
@@ -398,7 +398,7 @@ where
     S: ?Sized + VecStorage<T>,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self) }
     }
 }
@@ -408,7 +408,7 @@ where
     S: ?Sized + VecStorage<T>,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self) }
     }
 }
@@ -464,14 +464,14 @@ where
     where
         [T; M]: Array1,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from_array(items)) }
     }
 
     pub fn into_array<const M: usize>(self) -> Result<[T; M], Self> {
         self.into_vec()
             .into_array::<M>()
-            // SAFETY: `self` and therefore `items` must be non-empty.
+            // SAFETY: `self` and therefore `items` are non-empty.
             .map_err(|items| unsafe { Vec1::from_vec_unchecked(items) })
     }
 
@@ -533,7 +533,7 @@ where
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(items.into_iter().collect()) }
     }
 }
@@ -549,7 +549,7 @@ impl<T, const N: usize> IntoIterator for Vec1<T, N> {
 
 impl<T, const N: usize> IntoIterator1 for Vec1<T, N> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }

@@ -669,32 +669,32 @@ impl<K, V> Slice1<K, V> {
     }
 
     pub fn split_first(&self) -> ((&K, &V), &Slice<K, V>) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.split_first().unwrap_maybe_unchecked() }
     }
 
     pub fn split_last(&self) -> ((&K, &V), &Slice<K, V>) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.split_last().unwrap_maybe_unchecked() }
     }
 
     pub fn first(&self) -> (&K, &V) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
     pub fn last(&self) -> (&K, &V) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn iter1(&self) -> Iterator1<index_map::Iter<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub const fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 }
@@ -750,12 +750,12 @@ impl<K, V, S> IndexMap1<K, V, S> {
     }
 
     pub fn into_keys1(self) -> Iterator1<index_map::IntoKeys<K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.into_keys()) }
     }
 
     pub fn into_values1(self) -> Iterator1<index_map::IntoValues<K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.into_values()) }
     }
 
@@ -763,7 +763,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
     where
         F: FnMut(&K, &V, &K, &V) -> Ordering,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.sorted_by(f)) }
     }
 
@@ -771,7 +771,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
     where
         F: FnMut(&K, &V, &K, &V) -> Ordering,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.sorted_unstable_by(f)) }
     }
 
@@ -886,37 +886,37 @@ impl<K, V, S> IndexMap1<K, V, S> {
     }
 
     pub fn iter1(&self) -> Iterator1<index_map::Iter<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<index_map::IterMut<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.iter_mut()) }
     }
 
     pub fn keys1(&self) -> Iterator1<index_map::Keys<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.keys()) }
     }
 
     pub fn values1(&self) -> Iterator1<index_map::Values<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.values()) }
     }
 
     pub fn values1_mut(&mut self) -> Iterator1<index_map::ValuesMut<'_, K, V>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items.values_mut()) }
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -1055,18 +1055,18 @@ where
     }
 
     pub fn first(&self) -> (&K, &V) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.first().unwrap_maybe_unchecked() }
     }
 
     pub fn first_mut(&mut self) -> (&K, &mut V) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.first_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn first_entry(&mut self) -> IndexedEntry<'_, K, V> {
         self.as_cardinality_items_mut()
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             .map(|items| unsafe { items.first_entry().unwrap_maybe_unchecked() })
             .map_one(IndexedOnlyEntry::from_indexed_entry)
             .map_one(From::from)
@@ -1074,25 +1074,25 @@ where
     }
 
     fn first_entry_as_only(&mut self) -> IndexedOnlyEntry<'_, K, V> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         IndexedOnlyEntry::from_indexed_entry(unsafe {
             self.items.first_entry().unwrap_maybe_unchecked()
         })
     }
 
     pub fn last(&self) -> (&K, &V) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last().unwrap_maybe_unchecked() }
     }
 
     pub fn last_mut(&mut self) -> (&K, &mut V) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { self.items.last_mut().unwrap_maybe_unchecked() }
     }
 
     pub fn last_entry(&mut self) -> IndexedEntry<'_, K, V> {
         self.as_cardinality_items_mut()
-            // SAFETY: `self` must be non-empty.
+            // SAFETY: `self` is non-empty.
             .map(|items| unsafe { items.last_entry().unwrap_maybe_unchecked() })
             .map_one(IndexedOnlyEntry::from_indexed_entry)
             .map_one(From::from)
@@ -1199,7 +1199,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         V: Send,
         F: Fn(&K, &V, &K, &V) -> Ordering + Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_sorted_by(f)) }
     }
 
@@ -1212,7 +1212,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         V: Send,
         F: Fn(&K, &V, &K, &V) -> Ordering + Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_sorted_unstable_by(f)) }
     }
 
@@ -1265,7 +1265,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         K: Sync,
         V: Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter()) }
     }
 
@@ -1276,7 +1276,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         K: Send + Sync,
         V: Send,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.par_iter_mut()) }
     }
 
@@ -1285,7 +1285,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         K: Sync,
         V: Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_keys()) }
     }
 
@@ -1294,7 +1294,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         K: Sync,
         V: Sync,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_values()) }
     }
 
@@ -1303,7 +1303,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         K: Send,
         V: Send,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items.par_values_mut()) }
     }
 
@@ -1503,7 +1503,7 @@ impl<'a, K, V, S> IntoIterator for &'a mut IndexMap1<K, V, S> {
 
 impl<K, V, S> IntoIterator1 for IndexMap1<K, V, S> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -1573,7 +1573,7 @@ where
     V: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
@@ -1586,7 +1586,7 @@ where
     V: Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }
@@ -1599,7 +1599,7 @@ where
     V: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
     }
 }

@@ -121,7 +121,7 @@ impl<T> Slice1<T> {
     where
         T: Copy,
     {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe {
             Vec1::from_vec_unchecked(
                 self.items
@@ -136,37 +136,37 @@ impl<T> Slice1<T> {
     where
         T: Copy,
     {
-        // SAFETY: `self` must be non-empty and `n` must be greater than zero.
+        // SAFETY: `self` is non-empty and `n` must be greater than zero.
         unsafe { Vec1::from_vec_unchecked(self.items.repeat(n.get())) }
     }
 
     pub const fn split_first(&self) -> (&T, &[T]) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_first()) }
     }
 
     pub const fn split_first_mut(&mut self) -> (&mut T, &mut [T]) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_first_mut()) }
     }
 
     pub const fn first(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.first()) }
     }
 
     pub const fn first_mut(&mut self) -> &mut T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.first_mut()) }
     }
 
     pub const fn last(&self) -> &T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.last()) }
     }
 
     pub const fn last_mut(&mut self) -> &mut T {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.last_mut()) }
     }
 
@@ -211,17 +211,17 @@ impl<T> Slice1<T> {
     }
 
     pub fn iter1(&self) -> Iterator1<slice::Iter<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_slice().iter()) }
     }
 
     pub fn iter1_mut(&mut self) -> Iterator1<slice::IterMut<'_, T>> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.as_mut_slice().iter_mut()) }
     }
 
     pub const fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::non_zero_from_usize_maybe_unchecked(self.items.len()) }
     }
 
@@ -399,7 +399,7 @@ where
     T: Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }
@@ -411,7 +411,7 @@ where
     T: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
     }
 }

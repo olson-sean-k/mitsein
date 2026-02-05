@@ -204,16 +204,16 @@ impl<T> Vec1<T> {
     }
 
     pub fn into_head_and_tail(mut self) -> (T, Vec<T>) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::assume_is_non_empty_unchecked(&self.items) };
         let head = self.items.remove(0);
         (head, self.items)
     }
 
     pub fn into_rtail_and_head(mut self) -> (Vec<T>, T) {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { safety::assume_is_non_empty_unchecked(&self.items) };
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         let head = unsafe { self.items.pop().unwrap_maybe_unchecked() };
         (self.items, head)
     }
@@ -223,12 +223,12 @@ impl<T> Vec1<T> {
     }
 
     pub fn into_boxed_slice1(self) -> BoxedSlice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { BoxedSlice1::from_boxed_slice_unchecked(self.items.into_boxed_slice()) }
     }
 
     pub fn leak<'a>(self) -> &'a mut Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.leak()) }
     }
 
@@ -349,12 +349,12 @@ impl<T> Vec1<T> {
     }
 
     pub fn len(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.len()) }
     }
 
     pub fn capacity(&self) -> NonZeroUsize {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { NonZeroUsize::new_maybe_unchecked(self.items.capacity()) }
     }
 
@@ -383,12 +383,12 @@ impl<T> Vec1<T> {
     }
 
     pub fn as_slice1(&self) -> &Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_slice_unchecked(self.items.as_slice()) }
     }
 
     pub fn as_mut_slice1(&mut self) -> &mut Slice1<T> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Slice1::from_mut_slice_unchecked(self.items.as_mut_slice()) }
     }
 
@@ -405,7 +405,7 @@ impl<T> Vec1<T> {
 // zero. See below.
 impl<T, const N: usize> Vec1<[T; N]> {
     pub fn into_flattened(self) -> Vec1<T> {
-        // SAFETY: `self` must be non-empty and `Vec::into_flattened` panics if `N` is zero, so the
+        // SAFETY: `self` is non-empty and `Vec::into_flattened` panics if `N` is zero, so the
         //         flattened `Vec` cannot be empty.
         unsafe { Vec1::from_vec_unchecked(self.items.into_flattened()) }
     }
@@ -556,7 +556,7 @@ where
     [T; N]: Array1,
 {
     fn from(items: [T; N]) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items)) }
     }
 }
@@ -567,7 +567,7 @@ where
     T: Copy,
 {
     fn from(items: &'a [T; N]) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(items.iter().copied().collect()) }
     }
 }
@@ -584,7 +584,7 @@ where
 
 impl<T> From<BoxedSlice1<T>> for Vec1<T> {
     fn from(items: BoxedSlice1<T>) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items.into_boxed_slice())) }
     }
 }
@@ -603,7 +603,7 @@ where
     T: Clone,
 {
     fn from(items: &'a Slice1<T>) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items.as_slice())) }
     }
 }
@@ -619,14 +619,14 @@ where
 
 impl<'a> From<&'a Str1> for Vec1<u8> {
     fn from(items: &'a Str1) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items.as_str())) }
     }
 }
 
 impl From<String1> for Vec1<u8> {
     fn from(items: String1) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items.into_string())) }
     }
 }
@@ -639,7 +639,7 @@ impl<T> From<Vec1<T>> for Vec<T> {
 
 impl<T> From<VecDeque1<T>> for Vec1<T> {
     fn from(items: VecDeque1<T>) -> Self {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(Vec::from(items.into_vec_deque())) }
     }
 }
@@ -649,7 +649,7 @@ impl<T> FromIterator1<T> for Vec1<T> {
     where
         I: IntoIterator1<Item = T>,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(items.into_iter().collect()) }
     }
 }
@@ -664,7 +664,7 @@ where
     where
         I: IntoParallelIterator1<Item = T>,
     {
-        // SAFETY: `items` must be non-empty.
+        // SAFETY: `items` is non-empty.
         unsafe { Vec1::from_vec_unchecked(items.into_par_iter().collect()) }
     }
 }
@@ -718,7 +718,7 @@ impl<'a, T> IntoIterator for &'a mut Vec1<T> {
 
 impl<T> IntoIterator1 for Vec1<T> {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
@@ -784,7 +784,7 @@ where
     T: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(self.items) }
     }
 }
@@ -796,7 +796,7 @@ where
     T: Sync,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&self.items) }
     }
 }
@@ -808,7 +808,7 @@ where
     T: Send,
 {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter> {
-        // SAFETY: `self` must be non-empty.
+        // SAFETY: `self` is non-empty.
         unsafe { ParallelIterator1::from_par_iter_unchecked(&mut self.items) }
     }
 }
