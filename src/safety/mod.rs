@@ -38,7 +38,6 @@ mod maybe;
 #[path = "unchecked.rs"]
 mod maybe;
 
-use core::hint;
 use core::slice::SliceIndex;
 
 use crate::MaybeEmpty;
@@ -124,7 +123,7 @@ pub trait SliceExt<T> {
 /// [`MaybeEmptyExt`]: crate::MaybeEmptyExt
 /// [`unreachable_unchecked`]: hint::unreachable_unchecked
 #[inline(always)]
-pub unsafe fn assume_is_non_empty_unchecked<T>(items: &T)
+pub unsafe fn assume_is_non_empty_maybe_unchecked<T>(items: &T)
 where
     T: MaybeEmpty,
 {
@@ -134,6 +133,6 @@ where
         // SAFETY: Callers must ensure the safety requirements of this function, and so this branch
         //         cannot be reached (without unsound usage of the function that violates its
         //         safety contract).
-        unsafe { hint::unreachable_unchecked() }
+        unsafe { self::unreachable_maybe_unchecked() }
     }
 }
