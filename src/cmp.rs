@@ -200,6 +200,27 @@ mod core {
     crate::with_tuples!(impl_unsafe_ord_for_tuple, (T1, T2, T3, T4, T5, T6, T7, T8));
 }
 
+#[cfg(feature = "heapless")]
+#[cfg_attr(docsrs, doc(cfg(feature = "heapless")))]
+mod heapless {
+    use crate::cmp::UnsafeOrd;
+
+    unsafe impl<T, L, S> UnsafeOrd for heapless::vec::VecInner<T, L, S>
+    where
+        T: UnsafeOrd,
+        L: heapless::LenType,
+        S: heapless::vec::VecStorage<T>,
+    {
+    }
+
+    unsafe impl<T, S> UnsafeOrd for crate::heapless::vec1::VecInner1<T, S>
+    where
+        T: UnsafeOrd,
+        S: heapless::vec::VecStorage<T>,
+    {
+    }
+}
+
 #[cfg(feature = "smallvec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
 mod small_vec {

@@ -139,7 +139,7 @@ where
     }
 }
 
-type VecInner1<T, S> = NonEmpty<VecInner<T, usize, S>>;
+pub(crate) type VecInner1<T, S> = NonEmpty<VecInner<T, usize, S>>;
 
 impl<T, S> VecInner1<T, S>
 where
