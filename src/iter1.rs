@@ -9,7 +9,7 @@ use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, FlatMap, Flatten, Inspect, Map, Peekable,
-    Repeat, RepeatN, Rev, Skip, StepBy, Successors, Take, Zip,
+    Repeat, RepeatN, RepeatWith, Rev, Skip, StepBy, Successors, Take, Zip,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -1312,6 +1312,14 @@ where
 {
     // SAFETY: `n` is non-zero, so the output `RepeatN` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(iter::repeat_n(item, n.into())) }
+}
+
+pub fn repeat_with<T, F>(f: F) -> Iterator1<RepeatWith<F>>
+where
+    F: FnMut() -> T,
+{
+    // SAFETY: The output `RepeatWith` is non-empty.
+    unsafe { Iterator1::from_iter_unchecked(iter::repeat_with(f)) }
 }
 
 pub fn successors<T, F>(first: T, f: F) -> Iterator1<Successors<T, F>>
