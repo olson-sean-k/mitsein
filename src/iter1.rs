@@ -9,7 +9,7 @@ use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::iter::{
     self, Chain, Cloned, Copied, Cycle, Enumerate, FlatMap, Flatten, Inspect, Map, Peekable,
-    Repeat, Rev, Skip, StepBy, Successors, Take, Zip,
+    Repeat, RepeatN, Rev, Skip, StepBy, Successors, Take, Zip,
 };
 use core::num::NonZeroUsize;
 use core::option;
@@ -1304,6 +1304,14 @@ where
 {
     // SAFETY: The output `Repeat` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(iter::repeat(item)) }
+}
+
+pub fn repeat_n_non_zero<T>(item: T, n: NonZeroUsize) -> Iterator1<RepeatN<T>>
+where
+    T: Clone,
+{
+    // SAFETY: `n` is non-zero, so the output `RepeatN` is non-empty.
+    unsafe { Iterator1::from_iter_unchecked(iter::repeat_n(item, n.into())) }
 }
 
 pub fn successors<T, F>(first: T, f: F) -> Iterator1<Successors<T, F>>
