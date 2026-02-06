@@ -18,8 +18,8 @@ use core::result;
 use either::Either;
 #[cfg(feature = "itertools")]
 use itertools::{
-    Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
-    MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
+    Coalesce, Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge,
+    MergeBy, MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
 };
 #[cfg(all(feature = "std", feature = "itertools"))]
 use itertools::{Unique, UniqueBy};
@@ -1049,6 +1049,14 @@ where
         let item = self.items.find_or_last(f);
         // SAFETY: `self` is non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
+    }
+
+    pub fn coalesce<F>(self, f: F) -> Iterator1<Coalesce<I, F>>
+    where
+        F: FnMut(I::Item, I::Item) -> result::Result<I::Item, (I::Item, I::Item)>,
+    {
+        // SAFETY: This combinator function cannot reduce the cardinality of the iterator to zero.
+        unsafe { self.and_then_unchecked(|iter| iter.coalesce(f)) }
     }
 }
 
