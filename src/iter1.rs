@@ -21,8 +21,6 @@ use itertools::{
     Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
     MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
 };
-#[cfg(all(feature = "std", feature = "itertools"))]
-use itertools::{Unique, UniqueBy};
 #[cfg(feature = "rayon")]
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, ParallelBridge, ParallelIterator,
@@ -32,6 +30,11 @@ use {
     alloc::vec,
     core::hash::Hash,
     itertools::{MultiPeek, Powerset, Tee},
+};
+#[cfg(all(feature = "itertools", feature = "std"))]
+use {
+    itertools::{GroupingMap, Unique, UniqueBy},
+    std::collections::HashMap,
 };
 
 use crate::safety::OptionExt as _;
@@ -238,6 +241,42 @@ pub trait FromParallelIterator1<T> {
         I: IntoParallelIterator1<Item = T>;
 }
 
+// TODO: At time of writing, `NonEmpty<HashMap<_, _>>` is not supported. When available, implement
+//       a `GroupingMap1` iterator for `Iterator1` that not only asserts that groups are non-empty,
+//       but also the `HashMap`s over those groups. See `Slice1::chunk_by1` functions, for example.
+#[cfg(all(feature = "itertools", feature = "std"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "itertools", feature = "std"))))]
+pub trait GroupingMapExt<I, K, V>
+where
+    I: Iterator<Item = (K, V)>,
+    K: Eq + Hash,
+{
+    fn collect1<T>(self) -> HashMap<K, NonEmpty<T>>
+    where
+        NonEmpty<T>: Extend<V> + FromIterator1<V>;
+}
+
+#[cfg(all(feature = "itertools", feature = "std"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "itertools", feature = "std"))))]
+impl<I, K, V> GroupingMapExt<I, K, V> for GroupingMap<I>
+where
+    I: Iterator<Item = (K, V)>,
+    K: Eq + Hash,
+{
+    fn collect1<T>(self) -> HashMap<K, NonEmpty<T>>
+    where
+        NonEmpty<T>: Extend<V> + FromIterator1<V>,
+    {
+        self.aggregate(|group: Option<NonEmpty<T>>, _key, value| match group {
+            Some(mut group) => {
+                group.extend(Some(value));
+                Some(group)
+            },
+            _ => Some(self::one(value).collect1()),
+        })
+    }
+}
+
 pub trait IntoIterator1: IntoIterator {
     fn into_iter1(self) -> Iterator1<Self::IntoIter>;
 }
@@ -266,6 +305,35 @@ pub trait IteratorExt: Iterator {
 }
 
 impl<I> IteratorExt for I where I: Iterator {}
+
+#[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+pub trait ItertoolsExt: Itertools {
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    fn into_group_map1<K, V>(self) -> HashMap<K, Vec1<V>>
+    where
+        Self: Iterator<Item = (K, V)> + Sized,
+        K: Eq + Hash,
+    {
+        self.into_grouping_map().collect1()
+    }
+
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    fn into_group_map_by1<K, V, F>(self, f: F) -> HashMap<K, Vec1<V>>
+    where
+        Self: Iterator<Item = V> + Sized,
+        K: Eq + Hash,
+        F: FnMut(&V) -> K,
+    {
+        self.into_grouping_map_by(f).collect1()
+    }
+}
+
+#[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+impl<I> ItertoolsExt for I where I: Itertools {}
 
 // The input type parameter `K` is unused in this trait, but is required to prevent a coherence
 // error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.

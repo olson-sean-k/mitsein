@@ -406,12 +406,16 @@ pub mod prelude {
     pub use crate::index_map1::OrOnlyEntryExt as _;
     #[cfg(feature = "either")]
     pub use crate::iter1::EitherExt as _;
+    #[cfg(all(feature = "itertools", feature = "std"))]
+    pub use crate::iter1::GroupingMapExt as _;
+    #[cfg(feature = "itertools")]
+    pub use crate::iter1::ItertoolsExt as _;
     pub use crate::iter1::{
         Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1 as _,
     };
     #[cfg(feature = "rayon")]
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
-    #[cfg(any(feature = "arrayvec", feature = "alloc"))]
+    #[cfg(any(feature = "alloc", feature = "arrayvec"))]
     pub use crate::segment::{ByRange as _, ByTail as _};
     pub use crate::slice1::{Slice1, SliceExt as _, slice1};
     pub use crate::str1::Str1;
