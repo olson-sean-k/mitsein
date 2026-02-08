@@ -248,13 +248,17 @@ pub trait IntoParallelIterator1: IntoParallelIterator {
     fn into_par_iter1(self) -> ParallelIterator1<Self::Iter>;
 }
 
-pub trait IteratorExt: Iterator + Sized {
-    fn try_into_iter1(self) -> Result<Self> {
+pub trait IteratorExt: Iterator {
+    fn try_into_iter1(self) -> Result<Self>
+    where
+        Self: Sized,
+    {
         Iterator1::try_from_iter(self)
     }
 
     fn try_collect1<T>(self) -> result::Result<T, EmptyError<Peekable<Self>>>
     where
+        Self: Sized,
         T: FromIterator1<<Self as Iterator>::Item>,
     {
         T::try_from_iter(self)
