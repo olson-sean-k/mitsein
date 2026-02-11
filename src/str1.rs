@@ -105,6 +105,13 @@ impl Str1 {
         }
     }
 
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn repeat_non_zero(&self, n: NonZeroUsize) -> String1 {
+        // SAFETY: `self` is non-empty and `n` must be greater than zero.
+        unsafe { String1::from_string_unchecked(self.items.repeat(n.get())) }
+    }
+
     pub fn encode1_utf16(&self) -> Iterator1<EncodeUtf16<'_>> {
         // SAFETY: `self` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(self.encode_utf16()) }
