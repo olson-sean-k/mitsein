@@ -752,7 +752,7 @@ where
 
     pub fn zip<T>(self, zipped: T) -> Iterator1<Zip<I, T::IntoIter>>
     where
-        T: IntoIterator1<Item = I::Item>,
+        T: IntoIterator1,
     {
         // SAFETY: Both input iterators are non-empty, and so this combinator function cannot
         //         reduce the cardinality to zero.
