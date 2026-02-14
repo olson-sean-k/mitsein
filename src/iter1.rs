@@ -19,7 +19,7 @@ use either::Either;
 #[cfg(feature = "itertools")]
 use itertools::{
     Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
-    MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
+    MinMaxResult, PadUsing, Product, Update, WithPosition, ZipLongest,
 };
 #[cfg(feature = "rayon")]
 use rayon::iter::{
@@ -1121,6 +1121,20 @@ where
         let item = self.items.find_or_last(f);
         // SAFETY: `self` is non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
+    }
+
+    pub fn cartesian_product<J>(
+        self,
+        other: J,
+    ) -> Iterator1<Product<I, <J as IntoIterator>::IntoIter>>
+    where
+        I::Item: Clone,
+        J: IntoIterator1,
+        J::IntoIter: Clone,
+    {
+        // SAFETY: Since both the inputs are non-empty, the output of this combinator function is
+        // non-empty.
+        unsafe { self.and_then_unchecked(|items| items.cartesian_product(other)) }
     }
 }
 
