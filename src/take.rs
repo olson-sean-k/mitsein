@@ -33,6 +33,70 @@ where
     }
 }
 
+/// A proxy for an operation that removes one item from a [`NonEmpty`] collection.
+///
+/// This is a very general type constructor: refer to more specific type definitions to see the
+/// relevant APIs for a particular non-empty type. For example, see [`vec1::RemoveIfMany`] to see
+/// supported APIs for [`vec1::Vec1::remove_if_many`].
+///
+/// `TakeIfMany` represents a fallible attempt to remove an item from a non-empty collection
+/// predicated on its cardinality, such as [`vec1::Vec1::pop_if_many`]. If such a collection
+/// contains [many items][`Cardinality::Many`] (more than one), then an item can be removed.
+/// However, if such a collection contains only one item, then no items can be removed.
+///
+/// `TakeIfMany` provides method chaining that can respond to the result of a removal, typically by
+/// mapping the output or operating on the only remaining item. One of these methods must be used
+/// to get the removed item, if any. If no such method is used, then the removal is completed by
+/// `TakeIfMany`'s [`Drop`] implementation and the output is ignored.
+///
+/// # Examples
+///
+/// Remove an item from a [`Vec1`]:
+#[doc = ""]
+#[cfg_attr(feature = "alloc", doc = "```rust")]
+#[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+/// use mitsein::prelude::*;
+///
+/// let mut xs = vec1![0i64, 1, -3];
+/// xs.remove_if_many(0);
+///
+/// assert_eq!(&[1, -3], xs.as_slice());
+#[doc = "```"]
+///
+/// Pop items from a [`Vec1`] in a loop via [`or_none`]:
+#[doc = ""]
+#[cfg_attr(feature = "alloc", doc = "```rust")]
+#[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+/// use mitsein::prelude::*;
+///
+/// let mut xs = vec1![0i64, 1, -3];
+/// while let Some(x) = xs.pop_if_many().or_none() {
+///     // ...
+/// }
+///
+/// assert_eq!(&0, xs.first());
+#[doc = "```"]
+///
+/// Pop an item from a [`BTreeMap1`] or replace the only item with its [`Default`]:
+#[doc = ""]
+#[cfg_attr(feature = "alloc", doc = "```rust")]
+#[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+/// use mitsein::btree_map1::BTreeMap1;
+///
+/// let mut xs = BTreeMap1::from_one(("key", 42i64));
+/// let x = xs.pop_first_if_many().or_else_replace_only(i64::default);
+///
+/// assert_eq!((&"key", &0), xs.first_key_value());
+/// assert_eq!(Err(42), x);
+#[doc = "```"]
+///
+/// [`BTreeMap1`]: crate::btree_map1::BTreeMap1
+/// [`Cardinality::Many`]: crate::Cardinality::Many
+/// [`or_none`]: crate::take::TakeIfMany::or_none
+/// [`vec1::RemoveIfMany`]: crate::vec1::RemoveIfMany
+/// [`vec1::Vec1::pop_if_many`]: crate::vec1::Vec1::pop_if_many
+/// [`vec1::Vec1::remove_if_many`]: crate::vec1::Vec1::remove_if_many
+/// [`Vec1`]: crate::vec1::Vec1
 pub struct TakeIfMany<'a, T, U, N = ()>
 where
     T: MaybeEmpty + ?Sized,
@@ -62,6 +126,13 @@ where
         }
     }
 
+    /// Reads the [`Target`] and then [forgets][`mem::forget] `self`, passing the [`Target`] and
+    /// [`FnMany`] to the given function.
+    ///
+    /// This function consumes the `TakeIfMany` and passes its deconstruction to the given function
+    /// where the [`Target`] and [`FnMany`] can be dropped safely. Critically, `self` is forgotten,
+    /// so the [`Drop`] implementation for `TakeIfMany` is bypassed when calling this function.
+    /// This is the fundamental primitive for `TakeIfMany` methods.
     fn read_and_forget<O, F>(self, f: F) -> O
     where
         F: FnOnce(Target<'a, T, N>, FnMany<T, U, N>) -> O,
@@ -117,6 +188,27 @@ where
         })
     }
 
+    /// Returns the removed item as [`Ok`] or, if the item cannot be removed, the output of the
+    /// given function as [`Err`].
+    ///
+    /// # Examples
+    ///
+    /// Pop an item from a [`Vec1`] or construct a [`Default`]:
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = "```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// let mut xs = vec1![42i64];
+    /// let x = match xs.pop_if_many().or_else(i64::default) {
+    ///     Ok(x) | Err(x) => x,
+    /// };
+    ///
+    /// assert_eq!(&[42], xs.as_slice());
+    /// assert_eq!(0, x);
+    #[doc = "```"]
+    ///
+    /// [`Vec1`]: crate::vec1::Vec1
     pub fn or_else<E, F>(self, f: F) -> Result<U, E>
     where
         F: FnOnce() -> E,
@@ -124,10 +216,12 @@ where
         self.take_or_else(|_, _| f())
     }
 
+    /// Returns the removed item as [`Some`] or otherwise returns [`None`].
     pub fn or_none(self) -> Option<U> {
         self.take_or_else(|_, _| ()).ok()
     }
 
+    /// Returns `true` if the item is removed or otherwise `false`.
     pub fn or_false(self) -> bool {
         self.or_none().is_some()
     }
