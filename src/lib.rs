@@ -587,18 +587,23 @@ impl<T> Display for EmptyError<T> {
 // error text like in some other error types.
 impl<T> Error for EmptyError<T> {}
 
-/// A collection or slice type that must contain one or more items (is never empty).
+/// A collection, slice, or range type that must contain one or more items (is never empty).
 ///
-/// `NonEmpty` is an adapter that guarantees (barring unsafe code) that a collection or slice is
-/// non-empty and so has one or more items. For example, `NonEmpty<Vec<_>>` represents a non-empty
-/// [`Vec`] with APIs that reflect this non-empty guarantee.
+/// `NonEmpty` is an adapter that guarantees (barring unsafe code) that a value is non-empty and so
+/// has one or more items. For example, `NonEmpty<Vec<_>>` represents a non-empty [`Vec`] with APIs
+/// that reflect this non-empty guarantee.
 ///
-/// Note that non-empty arrays and iterators are **not** represented with `NonEmpty`: see
-/// [`Array1`] and [`Iterator1`].
+/// This is a very general type constructor: refer to more specific type definitions to see the
+/// relevant APIs for a particular non-empty type. For example, see [`vec1::Vec1`] to see supported
+/// APIs for non-empty [`Vec`]s. Every non-empty collection has such a type definition.
+///
+/// Non-empty arrays and iterators are **not** represented with `NonEmpty`: see [`Array1`] and
+/// [`Iterator1`].
 ///
 /// [`Array1`]: crate::array1::Array1
 /// [`Iterator1`]: crate::iter1::Iterator1
 /// [`Vec`]: alloc::vec::Vec
+/// [`vec1::Vec1`]: crate::vec1::Vec1
 #[derive(Clone, Copy, Hash)]
 #[repr(transparent)]
 pub struct NonEmpty<T>
@@ -612,7 +617,7 @@ impl<T> NonEmpty<T>
 where
     T: Sized,
 {
-    /// Applies a function `f` over a mutable reference to the inner maybe-empty collection.
+    /// Applies a function `f` over a mutable reference to the inner maybe-empty value.
     ///
     /// # Errors
     ///
