@@ -171,7 +171,7 @@ assert_eq!(xs.as_slice(), &[0]);
 
 Non-empty collection APIs that exhibit different behavior from their
 counterparts are distinct in Mitsein. For example, functions that take items out
-of collections like `Vec1::pop_if_many` have an `_if_many` suffix and  return a
+of collections like `Vec1::pop_if_many` have an `_if_many` suffix and return a
 proxy type rather than an `Option`. This leads to more explicit and distinct
 expressions like `xs.pop_if_many()`, `xs.pop_if_many().or_get_only()`, and
 `xs.remove_if_many(1).or_else_replace_only(|| 0)`.
@@ -218,7 +218,7 @@ invariants instead.
 
 Checking is toggled in the `safety` module. The presence of items in non-empty
 types is asserted in tests builds, but not in non-test builds (nor in the
-context of [Miri][`miri`]). APIs that interact with these  conditional checks
+context of [Miri][`miri`]). APIs that interact with these conditional checks
 use the nomenclature "maybe unchecked", such as `unwrap_maybe_unchecked`.
 
 ## Integrations and Feature Flags
@@ -227,15 +227,17 @@ Mitsein provides some optional features and integrations via the following
 feature flags.
 
 | Feature     | Also Enables | Default | Crate         | Description                                                    |
-|-------------|--------------|---------|---------------|----------------------------------------------------------------|
+| ----------- | ------------ | ------- | ------------- | -------------------------------------------------------------- |
 | `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.              |
 | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
 | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
 | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
+| `facet`     | `alloc`      | No      | [`facet`]     | Compile-time reflection for non-empty types.                   |
 | `heapless`  |              | No      | [`heapless`]  | Non-empty implementations of [`heapless`] types.               |
 | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
 | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
 | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                       |
+| `rkyv`      |              | No      | [`rkyv`]      | Zero-copy de/serialization for non-empty types.                |
 | `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.                    |
 | `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`].      |
 | `smallvec`  | `alloc`      | No      | [`smallvec`]  | Non-empty implementations of [`smallvec`] types.               |
@@ -244,6 +246,7 @@ feature flags.
 [`arbitrary`]: https://crates.io/crates/arbitrary
 [`arrayvec`]: https://crates.io/crates/arrayvec
 [`either`]: https://crates.io/crates/either
+[`facet`]: https://crates.io/crates/facet
 [`heapless`]: https://crates.io/crates/heapless
 [`indexmap`]: https://crates.io/crates/indexmap
 [`itertools`]: https://crates.io/crates/itertools
@@ -251,6 +254,7 @@ feature flags.
 [`nonempty`]: https://crates.io/crates/nonempty
 [`nunny`]: https://crates.io/crates/nunny
 [`rayon`]: https://crates.io/crates/rayon
+[`rkyv`]: https://crates.io/crates/rkyv
 [`schemars`]: https://crates.io/crates/schemars
 [`serde`]: https://crates.io/crates/serde
 [`smallvec`]: https://crates.io/crates/smallvec
