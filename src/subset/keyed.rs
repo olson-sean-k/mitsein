@@ -47,6 +47,15 @@ where
 
 impl<Q> Error for KeyNotFoundError<Q> where Q: Debug {}
 
+/// A subset of a non-empty collection that exempts a key.
+///
+/// This is a very general type constructor: refer to more specific type definitions to see the
+/// relevant APIs for a particular collection type. For example, see [`hash_set1::ExceptKeySubset`]
+/// to see supported APIs for [`HashSet1`]. Every supported non-empty collection type has such a
+/// subset type definition.
+///
+/// [`hash_set1::ExceptKeySubset`]: crate::hash_set1::ExceptKeySubset
+/// [`HashSet1`]: crate::hash_set1::HashSet1
 #[derive(Debug)]
 #[must_use]
 pub struct ExceptKeySubset<'a, T, Q>
