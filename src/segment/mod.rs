@@ -1,4 +1,126 @@
 //! Segmentation of items in ordered collections.
+//!
+//! A [`Segment`] isolates a contiguous and ordered subset of an ordered collection. **The primary
+//! purpose of segmentation is efficient mass removal of items from [`NonEmpty`] collections,**
+//! though standard maybe-empty collections and other features are also supported. Roughly
+//! speaking, [`Segment`]s are somewhat like [slices][`prim@slice`]: they provide a view into a
+//! collection through a reference. However, unlike [slices][`prim@slice`], [`Segment`]s can change
+//! the topology of a collection by inserting and removing items.
+//!
+//! Segmentation is strictly mutable and always requires an exclusive borrow of a collection.
+//! [`Segment`]s are ephemeral types that are meant to be used very locally. It is possible to
+//! stash them in data structures, but this is not recommended; prefer moving or borrowing
+//! collections instead.
+//!
+//! # Construction
+//!
+//! [`Segment`]s can be constructed from [standard range types][`core::ops`] or nominally from
+//! predefined ranges (namely a tail or reverse tail).
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = vec1![0i64, 1, -3];
+//!
+//! // Construct an explicit `Segment` over the range `1..` in `xs`. This is fallible.
+//! let xss = xs.segment(1..).unwrap();
+//! assert_eq!(xss.as_slice(), &[1, -3]);
+//!
+//! // Construct a nominal `Segment` over the tail of `xs`. This is infallible.
+//! let xss = xs.tail();
+//! assert_eq!(xss.as_slice(), &[1, -3]);
+#![doc = "```"]
+//!
+//! The [`ByRange`] trait provides explicit segmentation over supported range types and the
+//! [`ByTail`] trait provides nominal segmentation over the tail and reverse tail ranges. Both of
+//! these traits are anonymously exported in the [`prelude`] module.
+//!
+//! **A particularly important segmentation pattern is clearing and draining segments of non-empty
+//! collections,** which cannot directly support these operations:
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = vec1![0i64, 1, -3];
+//! xs.tail().clear();
+//! assert_eq!(xs.as_slice(), &[0]);
+#![doc = "```"]
+//!
+//! # Non-Empty vs. Maybe-Empty Collections
+//!
+//! Segmentation differs in one crucial way regarding non-empty and maybe-empty collections: the
+//! strictness of subsets. **[`NonEmpty`] types can only be segmented into strict subsets,** and so
+//! a [`Segment`] can never contain all items of a non-empty collection.
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust,should_panic")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = vec![0i64, 1];
+//! // This segment contains all items in `xs`. This is okay, because `xs` is a maybe-empty `Vec`.
+//! let mut xss = xs.segment(..).unwrap();
+//! xss.clear();
+//!
+//!
+//! let mut xs = vec1![0i64, 1];
+//! // This panics, because `xs` is a non-empty `Vec1` and so the segment cannot contain all items.
+//! let mut xss = xs.segment(..).unwrap();
+//! xss.clear();
+#![doc = "```"]
+//!
+//! # Modes of Operation
+//!
+//! [`Segment`]s are parameterized by internal range types that are chosen for efficient operation
+//! against a given collection in context. These range types differ, but are roughly divided into
+//! one of two exclusive modes: _positional_ and _relational_.
+//!
+//! ## Positional
+//!
+//! Positional [`Segment`]s represent a subset based on items covered by a range over positions or
+//! indices in a collection. These [`Segment`]s support insertions and removals at the terminals of
+//! the range, meaning that **positional [`Segment`]s can grow and shrink.** Collections that index
+//! items by position produce positional [`Segment`]s. For example, [`ArrayVec1`] and [`Vec1`] are
+//! both positional.
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust,should_panic")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = vec1![0i64, 1, 2, 3];
+//!
+//! let mut xss = xs.segment(1..4).unwrap();
+//! xss.insert_back(42);
+//! assert_eq!(xss.as_slice(), &[1, 2, 42]);
+//! assert_eq!(xs.as_slice(), &[0, 1, 2, 42, 3]);
+//!
+//! let mut xss = xs.segment(1..4).unwrap();
+//! let x = xss.remove_back();
+//! assert_eq!(xss.as_slice(), &[1, 2]);
+//! assert_eq!(xs.as_slice(), &[1, 2, 3]);
+//! assert_eq!(x, Some(42));
+#![doc = "```"]
+//!
+//! ## Relational
+//!
+//! Relational [`Segment`]s represent a subset based on the intrinsic [ordering][`Ord`] of the
+//! items in a collection. The terminals of these [`Segment`]s are fixed and items cannot be
+//! inserted beyond the range. However, because the range represents a minimum and maximum for the
+//! item type, the number of items within this range can vary wildly and is completely dependent on
+//! the total ordering of the item type. Collections that are ordered by item type produce
+//! relational [`Segment`]s. For example, [`BTreeSet1`] and [`BTreeMap1`] are both relational.
+//!
+//! # Examples
+//!
+//! TBD.
+//!
+//! [`ArrayVec1`]: crate::array_vec1::ArrayVec1
+//! [`BTreeMap1`]: crate::btree_map1::BTreeMap1
+//! [`BTreeSet1`]: crate::btree_set1::BTreeSet1
+//! [`NonEmpty`]: crate::NonEmpty
+//! [`prelude`]: crate::prelude
+//! [`Vec1`]: crate::vec1::Vec1
 
 // SAFETY: Though this module contains no unsafe code, an incorrect implementation is unsound. The
 //         segmentation APIs interact with non-empty collections and bugs here may break the
@@ -63,6 +185,19 @@ pub trait ByTail: Segmentation {
     fn rtail(&mut self) -> Segment<'_, Self::Kind, Self::Target, Self::Range>;
 }
 
+/// A contiguous and ordered subset of an ordered collection.
+///
+/// This is a very general type constructor: refer to more specific type definitions to see the
+/// relevant APIs for a particular collection type. For example, see [`vec1::Segment`] to see
+/// supported APIs for [`Vec`] and [`Vec1`]. Every supported collection type has such a segment
+/// type definition.
+///
+/// See the [`segment`] module documentation.
+///
+/// [`segment`]: crate::segment
+/// [`Vec`]: alloc::vec::Vec
+/// [`vec1::Segment`]: crate::vec1::Segment
+/// [`Vec1`]: crate::vec1::Vec1
 #[must_use]
 pub struct Segment<'a, K, T, R>
 where
