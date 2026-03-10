@@ -150,6 +150,16 @@ impl<T> Slice1<T> {
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_first_mut()) }
     }
 
+    pub const fn split_last(&self) -> (&T, &[T]) {
+        // SAFETY: `self` is non-empty.
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_last()) }
+    }
+
+    pub const fn split_last_mut(&mut self) -> (&mut T, &mut [T]) {
+        // SAFETY: `self` is non-empty.
+        unsafe { safety::unwrap_option_maybe_unchecked(self.items.split_last_mut()) }
+    }
+
     pub const fn first(&self) -> &T {
         // SAFETY: `self` is non-empty.
         unsafe { safety::unwrap_option_maybe_unchecked(self.items.first()) }
