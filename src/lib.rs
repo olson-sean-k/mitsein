@@ -225,6 +225,7 @@
 //! | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
 //! | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
 //! | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                       |
+//! | `rkyv`      |              | No      | [`rkyv`]      | Zero-copy de/serialization for non-empty types.                |
 //! | `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.                    |
 //! | `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`].      |
 //! | `smallvec`  | `alloc`      | No      | [`smallvec`]  | Non-empty implementations of [`smallvec`] types.               |
@@ -249,6 +250,7 @@
 //! [`itertools`]: https://crates.io/crates/itertools
 //! [`ParallelIterator1`]: crate::iter1::ParallelIterator1
 //! [`rayon`]: https://crates.io/crates/rayon
+//! [`rkyv`]: https://crates.io/crates/rkyv
 //! [`RcSlice1Ext`]: crate::rc1::RcSlice1Ext
 //! [`RcStr1Ext`]: crate::rc1::RcStr1Ext
 //! [`schemars`]: https://crates.io/crates/schemars
@@ -320,6 +322,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod rkyv;
 mod safety;
 mod schemars;
 mod serde;
@@ -533,6 +536,7 @@ where
 
 /// An error in which a non-empty value is expected but an empty value is observed.
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "rkyv", derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize))]
 pub struct EmptyError<T> {
     items: T,
 }
@@ -763,6 +767,7 @@ where
 /// [`BTreeMap1`]: crate::btree_map1::BTreeMap1
 /// [`OccupiedEntry`]: crate::btree_map1::OccupiedEntry
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "rkyv", derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize))]
 pub enum Cardinality<O, M> {
     /// Exactly one item.
     One(O),
