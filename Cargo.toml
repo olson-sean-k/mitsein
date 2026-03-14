@@ -32,6 +32,7 @@ rustdoc-args = [
 [features]
 default = ["std"]
 alloc = [
+    "facet?/alloc",
     "itertools?/use_alloc",
     "serde?/alloc",
 ]
@@ -45,10 +46,12 @@ arrayvec = [
     "schemars?/arrayvec07",
 ]
 either = ["dep:either"]
+facet = ["dep:facet", "alloc"]
 heapless = ["dep:heapless"]
 indexmap = [
     "dep:indexmap",
     "alloc",
+    "facet?/indexmap",
     "schemars?/indexmap2",
 ]
 itertools = [
@@ -80,6 +83,7 @@ smallvec = [
 std = [
     "alloc",
     "either?/std",
+    "facet?/std",
     "indexmap?/std",
     "itertools?/use_std",
     "schemars?/std",
@@ -101,6 +105,11 @@ optional = true
 
 [dependencies.either]
 version = "^1.15.0"
+default-features = false
+optional = true
+
+[dependencies.facet]
+version = "^0.43.0"
 default-features = false
 optional = true
 
