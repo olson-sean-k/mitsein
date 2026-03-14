@@ -33,6 +33,7 @@ rustdoc-args = [
 default = ["std"]
 alloc = [
     "itertools?/use_alloc",
+    "rkyv?/alloc",
     "serde?/alloc",
 ]
 arbitrary = [
@@ -42,6 +43,7 @@ arbitrary = [
 ]
 arrayvec = [
     "dep:arrayvec",
+    "rkyv?/arrayvec-0_7",
     "schemars?/arrayvec07",
 ]
 either = ["dep:either"]
@@ -49,6 +51,7 @@ heapless = ["dep:heapless"]
 indexmap = [
     "dep:indexmap",
     "alloc",
+    "rkyv?/indexmap-2",
     "schemars?/indexmap2",
 ]
 itertools = [
@@ -60,6 +63,7 @@ rayon = [
     "indexmap?/rayon",
     "std",
 ]
+rkyv = ["dep:rkyv"]
 schemars = [
     "dep:schemars",
     "dep:serde_json",
@@ -75,6 +79,7 @@ serde = [
 smallvec = [
     "dep:smallvec",
     "alloc",
+    "rkyv?/smallvec-1",
     "schemars?/smallvec1",
 ]
 std = [
@@ -82,6 +87,7 @@ std = [
     "either?/std",
     "indexmap?/std",
     "itertools?/use_std",
+    "rkyv?/std",
     "schemars?/std",
     "serde?/std",
     "smallvec?/write",
@@ -121,6 +127,11 @@ optional = true
 
 [dependencies.rayon]
 version = "^1.11.0"
+default-features = false
+optional = true
+
+[dependencies.rkyv]
+version = "^0.8.0"
 default-features = false
 optional = true
 
