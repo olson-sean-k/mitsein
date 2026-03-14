@@ -221,6 +221,7 @@
 //! | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
 //! | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
 //! | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
+//! | `facet`     | `alloc`      | No      | [`facet`]     | Compile-time reflection for non-empty types.                   |
 //! | `heapless`  |              | No      | [`heapless`]  | Non-empty implementations of [`heapless`] types.               |
 //! | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
 //! | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
@@ -241,6 +242,7 @@
 //! [`CowSlice1Ext`]: crate::borrow1::CowSlice1Ext
 //! [`CowStr1Ext`]: crate::borrow1::CowStr1Ext
 //! [`either`]: https://crates.io/crates/either
+//! [`facet`]: https://crates.io/crates/facet
 //! [`Except`]: crate::except
 //! [`heapless`]: https://crates.io/crates/heapless
 //! [`indexmap`]: https://crates.io/crates/indexmap
@@ -320,6 +322,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod facet;
 mod safety;
 mod schemars;
 mod serde;
@@ -533,6 +536,7 @@ where
 
 /// An error in which a non-empty value is expected but an empty value is observed.
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "facet", derive(::facet::Facet))]
 pub struct EmptyError<T> {
     items: T,
 }
