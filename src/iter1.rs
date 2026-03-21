@@ -616,6 +616,18 @@ where
         (self.items, head)
     }
 
+    pub fn for_head_and_tail<U, H, T>(self, head: H, mut tail: T)
+    where
+        H: FnOnce(I::Item) -> U,
+        T: FnMut(&mut U, I::Item),
+    {
+        let (item, items) = self.into_head_and_tail();
+        let mut state = head(item);
+        for item in items {
+            tail(&mut state, item);
+        }
+    }
+
     pub fn min_by<F>(self, f: F) -> I::Item
     where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
