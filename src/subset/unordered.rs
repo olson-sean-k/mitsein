@@ -1,9 +1,14 @@
-//! Exception of items in collections.
+//! Subsets of collections by key.
+
+#![cfg(feature = "alloc")]
+#![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 #[cfg(feature = "alloc")]
 use alloc::borrow::ToOwned;
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
+
+use crate::subset::SubsetFor;
 
 #[derive(Clone, Copy, Debug)]
 pub struct KeyNotFoundError<Q> {
@@ -51,13 +56,7 @@ where
 
 impl<Q> Error for KeyNotFoundError<Q> where Q: Debug {}
 
-// TODO: Implement this trait and `Except` types for ordered collections.
-pub trait Exception: Sized {
-    type Kind: Exception<Target = Self::Target>;
-    type Target;
-}
-
-pub trait ByKey<Q>: Exception
+pub trait ByKey<Q>: SubsetFor
 where
     Q: ?Sized,
 {
@@ -67,27 +66,29 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a Q,
-    ) -> Result<Except<'a, Self::Kind, Self::Target, Q>, KeyNotFoundError<&'a Q>>;
+    ) -> Result<ExceptKeySubset<'a, Self::Kind, Self::Target, Q>, KeyNotFoundError<&'a Q>>;
 }
 
 #[must_use]
-pub struct Except<'a, K, T, Q>
+pub struct ExceptKeySubset<'a, K, T, Q>
 where
-    K: Exception<Target = T>,
+    K: ?Sized + SubsetFor<Target = T>,
+    T: ?Sized,
     Q: ?Sized,
 {
     pub(crate) items: &'a mut K::Target,
     pub(crate) key: &'a Q,
 }
 
-impl<'a, K, T, Q> Except<'a, K, T, Q>
+impl<'a, K, T, Q> ExceptKeySubset<'a, K, T, Q>
 where
-    K: Exception<Target = T>,
+    K: ?Sized + SubsetFor<Target = T>,
+    T: ?Sized,
     Q: ?Sized,
 {
     #[cfg(feature = "alloc")]
     pub(crate) fn unchecked(items: &'a mut T, key: &'a Q) -> Self {
-        Except { items, key }
+        ExceptKeySubset { items, key }
     }
 
     pub fn key(&self) -> &Q {
@@ -95,16 +96,16 @@ where
     }
 }
 
-impl<K, T, Q> Debug for Except<'_, K, T, Q>
+impl<K, T, Q> Debug for ExceptKeySubset<'_, K, T, Q>
 where
-    K: Exception<Target = T>,
-    T: Debug,
+    K: ?Sized + SubsetFor<Target = T>,
+    T: Debug + ?Sized,
     Q: Debug + ?Sized,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("Except")
-            .field("items", self.items)
+            .debug_struct("ExceptKeySubset")
+            .field("items", &self.items)
             .field("key", &self.key)
             .finish()
     }

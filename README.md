@@ -93,11 +93,11 @@ let xs = Vec1::from([0i32, 1, 2, 3, 4]);
 let ys: Vec1<_> = xs.into_iter1().map(|x| x * 2).collect1();
 ```
 
-Mitsein provides exception and segmentation APIs, which isolate a subset of a
-collection that supports insertions and removals. For example, non-empty
-collections can be segmented prior to removals, which consolidates error
-conditions: a segment can be freely manipulated without checks or errors after
-its construction.
+Mitsein provides subset APIs, which isolate a subset of a collection that
+supports insertions and removals. A subset of a non-empty collections can be
+constructed prior to removals, which consolidates error conditions: a strict
+subset can be freely manipulated without checks or errors after its
+construction.
 
 ```rust
 use mitsein::prelude::*;
@@ -107,16 +107,16 @@ xs.tail().clear();
 assert_eq!(xs.as_slice(), &[0i32]);
 
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
-xs.tail().rtail().swap_drain(..); // `swap_drain` is the counterpart to `drain`.
+xs.tail().rtail().swap_drain(..); // `swap_drain` is the counterpart to `Vec::drain`.
 assert_eq!(xs.as_slice(), &[0i32, 4]);
 
 let mut xs = Vec1::from([0i32, 1, 2, 3, 4]);
-xs.segment(..3).unwrap().retain(|x| *x % 2 != 0);
+xs.only(..3).unwrap().retain(|x| *x % 2 != 0);
 assert_eq!(xs.as_slice(), &[1i32, 3, 4]);
 ```
 
-Exception is similar, but is also supported by unordered collections (which
-cannot be segmented).
+Subsets can also be constructed by key, which is the only type of subset
+supported by unordered collections like `HashSet1`.
 
 ```rust
 use mitsein::hash_set1::HashSet1;
@@ -177,8 +177,8 @@ expressions like `xs.pop_if_many()`, `xs.pop_if_many().or_get_only()`, and
 `xs.remove_if_many(1).or_else_replace_only(|| 0)`.
 
 Similarly, operations that have additional constraints or otherwise cannot be
-directly supported by non-empty collections are separated into [segmentation
-APIs](#separation-of-concerns), such as `vec1::Segment::swap_drain`.
+directly supported by non-empty collections are separated into [subset
+APIs](#separation-of-concerns), such as `vec1::OnlyRangeSubset::swap_drain`.
 
 ### Comprehensiveness
 

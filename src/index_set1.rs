@@ -30,14 +30,13 @@ use {
 
 #[cfg(feature = "std")]
 use crate::array1::Array1;
-use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::hash::UnsafeHash;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, IndexRange, Intersect, Project, RangeError};
-use crate::segment::{self, ByRange, ByTail, Segmentation};
+use crate::subset::range::{self, IndexRange, Intersect, Project, RangeError};
+use crate::subset::{self, ByKey, ByRange, ByTail, KeyNotFoundError, SubsetFor};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -68,9 +67,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a Q,
-    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+    ) -> Result<ExceptKeySubset<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
         self.contains(key)
-            .then_some(Except::unchecked(self, key))
+            .then_some(ExceptKeySubset::unchecked(self, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -82,29 +81,24 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.len();
-        Segment::intersected(self, n, range)
+        OnlyRangeSubset::intersected(self, n, range)
     }
 }
 
 impl<T, S> ByTail for IndexSet<T, S> {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_tail_range(self, n)
+        OnlyRangeSubset::from_tail_range(self, n)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_rtail_range(self, n)
+        OnlyRangeSubset::from_rtail_range(self, n)
     }
-}
-
-impl<T, S> Exception for IndexSet<T, S> {
-    type Kind = Self;
-    type Target = Self;
 }
 
 impl<T, S> Extend1<T> for IndexSet<T, S>
@@ -133,7 +127,7 @@ unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
     }
 }
 
-impl<T, S> Segmentation for IndexSet<T, S> {
+impl<T, S> SubsetFor for IndexSet<T, S> {
     type Kind = Self;
     type Target = Self;
 }
@@ -1028,9 +1022,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a T,
-    ) -> Result<Except<'a, Self, T>, KeyNotFoundError<&'a T>> {
+    ) -> Result<ExceptKeySubset<'a, Self, T>, KeyNotFoundError<&'a T>> {
         self.contains(key)
-            .then_some(Except::unchecked(&mut self.items, key))
+            .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -1042,20 +1036,20 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
 impl<T, S> ByTail for IndexSet1<T, S> {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.tail().rekind()
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.rtail().rekind()
     }
 }
@@ -1076,11 +1070,6 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
-}
-
-impl<T, S> Exception for IndexSet1<T, S> {
-    type Kind = Self;
-    type Target = IndexSet<T, S>;
 }
 
 impl<T, S> Extend<T> for IndexSet1<T, S>
@@ -1262,11 +1251,6 @@ where
     }
 }
 
-impl<T, S> Segmentation for IndexSet1<T, S> {
-    type Kind = Self;
-    type Target = IndexSet<T, S>;
-}
-
 impl<R, T, S> Sub<&'_ R> for &'_ IndexSet1<T, S>
 where
     R: ClosedIndexSet<Item = T>,
@@ -1292,6 +1276,11 @@ where
     fn sub(self, rhs: &'_ IndexSet1<T, S1>) -> Self::Output {
         self - rhs.as_index_set()
     }
+}
+
+impl<T, S> SubsetFor for IndexSet1<T, S> {
+    type Kind = Self;
+    type Target = IndexSet<T, S>;
 }
 
 impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
@@ -1362,11 +1351,12 @@ where
     }
 }
 
-pub type Except<'a, K, Q> = except::Except<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, Q>;
+pub type ExceptKeySubset<'a, K, Q> =
+    subset::ExceptKeySubset<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, Q>;
 
-impl<K, T, S, Q> Except<'_, K, Q>
+impl<K, T, S, Q> ExceptKeySubset<'_, K, Q>
 where
-    K: ClosedIndexSet<Item = T, State = S> + Exception<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
     Q: Equivalent<T> + Hash + ?Sized,
 {
     pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = T> {
@@ -1394,14 +1384,15 @@ where
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, IndexRange>;
+pub type OnlyRangeSubset<'a, K> =
+    subset::OnlyRangeSubset<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, IndexRange>;
 
-// TODO: It should be possible to safely implement `swap_drain` for segments over `IndexSet1`. The
+// TODO: It should be possible to safely implement `swap_drain` for subsets over `IndexSet1`. The
 //       `IndexSet::drain` iterator immediately culls its indices but then defers to `vec::Drain`
 //       for removing buckets. `IndexSet::swap_indices` can be used much like `slice::swap` here.
-impl<K, T, S> Segment<'_, K>
+impl<K, T, S> OnlyRangeSubset<'_, K>
 where
-    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
 {
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
@@ -1467,9 +1458,9 @@ where
     }
 }
 
-impl<K, T, S> Segment<'_, K>
+impl<K, T, S> OnlyRangeSubset<'_, K>
 where
-    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
     T: Eq + Hash,
     S: BuildHasher,
 {
@@ -1488,32 +1479,32 @@ where
     }
 }
 
-impl<K, T, S, R> ByRange<usize, R> for Segment<'_, K>
+impl<K, T, S, R> ByRange<usize, R> for OnlyRangeSubset<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, K>, Self::Error> {
         let range = self.range.intersect(self.range.project(range)?)?;
-        Ok(Segment::unchecked(self.items, range))
+        Ok(OnlyRangeSubset::unchecked(self.items, range))
     }
 }
 
-impl<K, T, S> ByTail for Segment<'_, K>
+impl<K, T, S> ByTail for OnlyRangeSubset<'_, K>
 where
-    K: ClosedIndexSet<Item = T, State = S> + Segmentation<Target = IndexSet<T, S>>,
+    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, K> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, K> {
         self.project_tail_range()
     }
 
-    fn rtail(&mut self) -> Segment<'_, K> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, K> {
         let n = self.len();
         self.project_rtail_range(n)
     }
@@ -1537,11 +1528,11 @@ mod tests {
     use alloc::vec::Vec;
     use rstest::rstest;
 
-    use crate::except::ByKey;
     use crate::index_set1::IndexSet1;
     use crate::index_set1::harness::xs1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
+    use crate::subset::ByKey;
 
     #[rstest]
     #[case(0, &[1, 2, 3, 4])]

@@ -10,13 +10,16 @@ use core::ops::{
     Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
-pub use crate::segment::range::index::IndexRange;
+pub use crate::subset::ordered::range::index::IndexRange;
 #[cfg(feature = "alloc")]
-pub use {crate::segment::range::item::ItemRange, crate::segment::range::trim::TrimRange};
+pub use {
+    crate::subset::ordered::range::item::ItemRange, crate::subset::ordered::range::trim::TrimRange,
+};
 
 #[cfg(feature = "alloc")]
 pub(crate) use {
-    crate::segment::range::item::OptionExt, crate::segment::range::trim::ResolveTrimRange,
+    crate::subset::ordered::range::item::OptionExt,
+    crate::subset::ordered::range::trim::ResolveTrimRange,
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -222,7 +225,7 @@ mod tests {
     use core::ops::{Bound, RangeBounds};
     use rstest::rstest;
 
-    use crate::segment::range;
+    use crate::subset::ordered::range;
 
     #[rstest]
     #[case::empty(0i32..0)]

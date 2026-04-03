@@ -32,11 +32,11 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::ops1::{Range1, RangeInclusive1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, IndexRange, Intersect, Project, RangeError};
-use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::string1::String1;
+use crate::subset::range::{self, IndexRange, Intersect, Project, RangeError};
+use crate::subset::{self, ByRange, ByTail, SubsetFor};
 use crate::take;
 use crate::vec_deque1::VecDeque1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -64,23 +64,23 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.len();
-        Segment::intersected(self, n, range)
+        OnlyRangeSubset::intersected(self, n, range)
     }
 }
 
 impl<T> ByTail for Vec<T> {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_tail_range(self, n)
+        OnlyRangeSubset::from_tail_range(self, n)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_rtail_range(self, n)
+        OnlyRangeSubset::from_rtail_range(self, n)
     }
 }
 
@@ -130,7 +130,7 @@ unsafe impl<T> MaybeEmpty for Vec<T> {
     }
 }
 
-impl<T> Segmentation for Vec<T> {
+impl<T> SubsetFor for Vec<T> {
     type Kind = Self;
     type Target = Self;
 }
@@ -520,20 +520,20 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
 impl<T> ByTail for Vec1<T> {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.tail().rekind()
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.rtail().rekind()
     }
 }
@@ -893,7 +893,7 @@ crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] => [for T in &mut [T]])
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &Slice1<T>]);
 crate::impl_partial_eq_for_non_empty!([for U in Vec1<U>] == [for T in &mut Slice1<T>]);
 
-impl<T> Segmentation for Vec1<T> {
+impl<T> SubsetFor for Vec1<T> {
     type Kind = Self;
     type Target = Vec<T>;
 }
@@ -972,39 +972,39 @@ impl Write for Vec1<u8> {
 }
 
 #[derive(Debug)]
-pub struct DrainSegment<'a, T> {
+pub struct DrainOnlyRangeSubset<'a, T> {
     drain: Drain<'a, T>,
     range: &'a mut IndexRange,
     after: IndexRange,
 }
 
-impl<T> AsRef<[T]> for DrainSegment<'_, T> {
+impl<T> AsRef<[T]> for DrainOnlyRangeSubset<'_, T> {
     fn as_ref(&self) -> &[T] {
         self.drain.as_ref()
     }
 }
 
-impl<T> DoubleEndedIterator for DrainSegment<'_, T> {
+impl<T> DoubleEndedIterator for DrainOnlyRangeSubset<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.drain.next_back()
     }
 }
 
-impl<T> Drop for DrainSegment<'_, T> {
+impl<T> Drop for DrainOnlyRangeSubset<'_, T> {
     fn drop(&mut self) {
         *self.range = self.after;
     }
 }
 
-impl<T> ExactSizeIterator for DrainSegment<'_, T> {
+impl<T> ExactSizeIterator for DrainOnlyRangeSubset<'_, T> {
     fn len(&self) -> usize {
         self.drain.len()
     }
 }
 
-impl<T> FusedIterator for DrainSegment<'_, T> {}
+impl<T> FusedIterator for DrainOnlyRangeSubset<'_, T> {}
 
-impl<T> Iterator for DrainSegment<'_, T> {
+impl<T> Iterator for DrainOnlyRangeSubset<'_, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1013,19 +1013,19 @@ impl<T> Iterator for DrainSegment<'_, T> {
 }
 
 #[derive(Debug)]
-pub struct SwapDrainSegment<'a, T> {
-    drain: DrainSegment<'a, T>,
+pub struct SwapDrainOnlyRangeSubset<'a, T> {
+    drain: DrainOnlyRangeSubset<'a, T>,
     swapped: Option<T>,
 }
 
-impl<T> DoubleEndedIterator for SwapDrainSegment<'_, T> {
+impl<T> DoubleEndedIterator for SwapDrainOnlyRangeSubset<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let next = self.drain.next();
         next.or_else(|| self.swapped.take())
     }
 }
 
-impl<T> ExactSizeIterator for SwapDrainSegment<'_, T> {
+impl<T> ExactSizeIterator for SwapDrainOnlyRangeSubset<'_, T> {
     fn len(&self) -> usize {
         self.drain
             .len()
@@ -1034,9 +1034,9 @@ impl<T> ExactSizeIterator for SwapDrainSegment<'_, T> {
     }
 }
 
-impl<T> FusedIterator for SwapDrainSegment<'_, T> {}
+impl<T> FusedIterator for SwapDrainOnlyRangeSubset<'_, T> {}
 
-impl<T> Iterator for SwapDrainSegment<'_, T> {
+impl<T> Iterator for SwapDrainOnlyRangeSubset<'_, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1045,10 +1045,10 @@ impl<T> Iterator for SwapDrainSegment<'_, T> {
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, Vec<ItemFor<K>>, IndexRange>;
+pub type OnlyRangeSubset<'a, K> = subset::OnlyRangeSubset<'a, K, Vec<ItemFor<K>>, IndexRange>;
 
-impl<T> Segment<'_, Vec<T>> {
-    pub fn drain<R>(&mut self, range: R) -> DrainSegment<'_, T>
+impl<T> OnlyRangeSubset<'_, Vec<T>> {
+    pub fn drain<R>(&mut self, range: R) -> DrainOnlyRangeSubset<'_, T>
     where
         IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
@@ -1059,7 +1059,7 @@ impl<T> Segment<'_, Vec<T>> {
             after,
         } = DrainRange::project_and_intersect(self.range, range).expect("invalid drain range");
         self.range = before;
-        DrainSegment {
+        DrainOnlyRangeSubset {
             drain: self.items.drain(intersection),
             range: &mut self.range,
             after,
@@ -1067,12 +1067,12 @@ impl<T> Segment<'_, Vec<T>> {
     }
 }
 
-impl<T> Segment<'_, Vec1<T>> {
-    // This implementation, like `DrainSegment`, assumes that no items before the start of the
-    // drain range are ever forgotten in the target `Vec`. The `Vec` documentation does not specify
-    // this, but the implementation behaves this way and it is very reasonable behavior that is
-    // very unlikely to change. This API is unsound if this assumption does not hold.
-    pub fn swap_drain<R>(&mut self, range: R) -> SwapDrainSegment<'_, T>
+impl<T> OnlyRangeSubset<'_, Vec1<T>> {
+    // This implementation, like `DrainOnlyRangeSubset`, assumes that no items before the start of
+    // the drain range are ever forgotten in the target `Vec`. The `Vec` documentation does not
+    // specify this, but the implementation behaves this way and it is very reasonable behavior that
+    // is very unlikely to change. This API is unsound if this assumption does not hold.
+    pub fn swap_drain<R>(&mut self, range: R) -> SwapDrainOnlyRangeSubset<'_, T>
     where
         IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
@@ -1083,35 +1083,35 @@ impl<T> Segment<'_, Vec1<T>> {
             after,
         } = DrainRange::project_and_intersect(self.range, range).expect("invalid drain range");
         if self.range.is_prefix() && intersection.is_prefix() {
-            // If both the segment and drain ranges are prefixes, then the target `Vec` may be left
+            // If both the subset and drain ranges are prefixes, then the target `Vec` may be left
             // empty if the drain iterator leaks (e.g., via `mem::forget`). Before the drain
             // operation begins and data beyond the start of the drain range may be left
             // uninitialized, the target `Vec` and drain must be configured such that the non-empty
             // invariant cannot be compromised.
             //
-            // Because the segment is a prefix and strict subset of a `Vec1`, this code can assume
-            // that there is at least one item beyond the end of the drain range. This item is
-            // swapped with the first in the target `Vec` and the drain range is advanced by one.
-            // This guarantees that the target `Vec` is not empty if the drain iterator leaks. If
-            // the drain iterator is dropped, its range is removed from the target `Vec` and its
+            // Because the `OnlyRangeSubset` is a prefix and strict subset of a `Vec1`, this code
+            // can assume that there is at least one item beyond the end of the drain range. This
+            // item is swapped with the first in the target `Vec` and the drain range is advanced by
+            // one. This guarantees that the target `Vec` is not empty if the drain iterator leaks.
+            // If the drain iterator is dropped, its range is removed from the target `Vec` and its
             // remainder is restored with the swapped item in the correct position.
             self.items
                 .as_mut_slice()
                 .swap(intersection.start(), intersection.end());
             intersection.advance_by(1);
             self.range = before;
-            let mut drain = DrainSegment {
+            let mut drain = DrainOnlyRangeSubset {
                 drain: self.items.drain(intersection),
                 range: &mut self.range,
                 after,
             };
             let swapped = drain.next_back();
-            SwapDrainSegment { drain, swapped }
+            SwapDrainOnlyRangeSubset { drain, swapped }
         }
         else {
             self.range = before;
-            SwapDrainSegment {
-                drain: DrainSegment {
+            SwapDrainOnlyRangeSubset {
+                drain: DrainOnlyRangeSubset {
                     drain: self.items.drain(intersection),
                     range: &mut self.range,
                     after,
@@ -1122,9 +1122,9 @@ impl<T> Segment<'_, Vec1<T>> {
     }
 }
 
-impl<K, T> Segment<'_, K>
+impl<K, T> OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     pub fn split_off(&mut self, at: usize) -> Vec<T> {
         let at = self
@@ -1269,75 +1269,75 @@ where
     }
 }
 
-impl<K, T> AsMut<[T]> for Segment<'_, K>
+impl<K, T> AsMut<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     fn as_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<K, T> AsRef<[T]> for Segment<'_, K>
+impl<K, T> AsRef<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<K, T> Borrow<[T]> for Segment<'_, K>
+impl<K, T> Borrow<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     fn borrow(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<K, T> BorrowMut<[T]> for Segment<'_, K>
+impl<K, T> BorrowMut<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<K, T, R> ByRange<usize, R> for Segment<'_, K>
+impl<K, T, R> ByRange<usize, R> for OnlyRangeSubset<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, K>, Self::Error> {
         self.project_and_intersect(range)
     }
 }
 
-impl<K, T> ByTail for Segment<'_, K>
+impl<K, T> ByTail for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, K> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, K> {
         self.project_tail_range()
     }
 
-    fn rtail(&mut self) -> Segment<'_, K> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, K> {
         let n = self.len();
         self.project_rtail_range(n)
     }
 }
 
-impl<K, T> Deref for Segment<'_, K>
+impl<K, T> Deref for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     type Target = [T];
 
@@ -1346,32 +1346,32 @@ where
     }
 }
 
-impl<K, T> DerefMut for Segment<'_, K>
+impl<K, T> DerefMut for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<K, T> Eq for Segment<'_, K>
+impl<K, T> Eq for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
     T: Eq,
 {
 }
 
-impl<K, T> Extend<T> for Segment<'_, K>
+impl<K, T> Extend<T> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 {
     fn extend<I>(&mut self, items: I)
     where
         I: IntoIterator<Item = T>,
     {
         let n = self.items.len();
-        // Split off the remainder beyond the segment to avoid spurious inserts and copying. This
+        // Split off the remainder beyond the subset to avoid spurious inserts and copying. This
         // comes at the cost of a necessary allocation and bulk copy, which isn't great when
         // extending from a small number of items with a small remainder.
         let tail = self.items.split_off(self.range.end());
@@ -1385,12 +1385,12 @@ where
 // TODO: At time of writing, this implementation conflicts with the `Extend` implementation above
 //       (E0119). However, `T` does not generalize `&'i T` here, because the associated `Target`
 //       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
-//       `T`)! This appears to be a limitation rather than a true conflict. See other segment
+//       `T`)! This appears to be a limitation rather than a true conflict. See other subset
 //       implementations as well.
 //
-// impl<'i, K, T> Extend<&'i T> for Segment<'_, K>
+// impl<'i, K, T> Extend<&'i T> for OnlyRangeSubset<'_, K>
 // where
-//     K: ClosedVec<Item = T> + SegmentedOver<Target = Vec<T>>,
+//     K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
 //     T: 'i + Copy,
 // {
 //     fn extend<I>(&mut self, items: I)
@@ -1401,9 +1401,9 @@ where
 //     }
 // }
 
-impl<K, T> Ord for Segment<'_, K>
+impl<K, T> Ord for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
     T: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -1411,20 +1411,20 @@ where
     }
 }
 
-impl<'a, KT, KU, T, U> PartialEq<Segment<'a, KU>> for Segment<'a, KT>
+impl<'a, KT, KU, T, U> PartialEq<OnlyRangeSubset<'a, KU>> for OnlyRangeSubset<'a, KT>
 where
-    KT: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
-    KU: ClosedVec<Item = U> + Segmentation<Target = Vec<U>>,
+    KT: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
+    KU: ClosedVec<Item = U> + SubsetFor<Target = Vec<U>>,
     T: PartialEq<U>,
 {
-    fn eq(&self, other: &Segment<'a, KU>) -> bool {
+    fn eq(&self, other: &OnlyRangeSubset<'a, KU>) -> bool {
         self.as_slice().eq(other.as_slice())
     }
 }
 
-impl<K, T> PartialOrd<Self> for Segment<'_, K>
+impl<K, T> PartialOrd<Self> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T> + Segmentation<Target = Vec<T>>,
+    K: ClosedVec<Item = T> + SubsetFor<Target = Vec<T>>,
     T: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -1440,20 +1440,20 @@ struct DrainRange {
 }
 
 impl DrainRange {
-    fn project_and_intersect<R>(segment: IndexRange, range: R) -> Result<Self, RangeError<usize>>
+    fn project_and_intersect<R>(subset: IndexRange, range: R) -> Result<Self, RangeError<usize>>
     where
         IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
-        let intersection = segment.intersect(segment.project(range)?)?;
+        let intersection = subset.intersect(subset.project(range)?)?;
         let before = IndexRange::unchecked(
-            segment.start(),
+            subset.start(),
             intersection
                 .start()
                 .checked_add(1)
                 .unwrap_or_else(|| range::panic_end_overflow()),
         );
-        let after = IndexRange::unchecked(segment.start(), segment.end() - intersection.len());
+        let after = IndexRange::unchecked(subset.start(), subset.end() - intersection.len());
         Ok(DrainRange {
             intersection,
             before,
@@ -1514,11 +1514,11 @@ mod tests {
     use crate::iter1::IntoIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::range::{IndexRange, Project, RangeError};
-    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
+    use crate::subset::range::{IndexRange, Project, RangeError};
+    use crate::subset::{ByRange, ByTail};
     use crate::vec1::Vec1;
     use crate::vec1::harness::{self, xs1};
 
@@ -1628,14 +1628,14 @@ mod tests {
     #[case::middle(1..4, &[1, 2, 3])]
     #[case::tail(1.., &[1, 2, 3, 4])]
     #[case::rtail(..4, &[0, 1, 2, 3])]
-    fn collect_segment_iter_of_vec1_into_vec_then_eq<R>(
+    fn collect_only_range_subset_iter_of_vec1_into_vec_then_eq<R>(
         mut xs1: Vec1<u8>,
         #[case] range: R,
         #[case] expected: &[u8],
     ) where
         R: RangeBounds<usize>,
     {
-        let xss = xs1.segment(range).unwrap();
+        let xss = xs1.only(range).unwrap();
         let xs: Vec<_> = xss.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
     }
@@ -1649,7 +1649,7 @@ mod tests {
     #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
     #[case::one_into_non_empty(0..2, [42], slice1![0, 1, 42, 2, 3, 4])]
     #[case::many_into_non_empty(0..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
-    fn insert_back_into_vec1_segment_then_vec1_eq<R, T>(
+    fn insert_back_into_vec1_only_range_subset_then_vec1_eq<R, T>(
         mut xs1: Vec1<u8>,
         #[case] range: R,
         #[case] items: T,
@@ -1658,7 +1658,7 @@ mod tests {
         R: RangeBounds<usize>,
         T: IntoIterator1<Item = u8>,
     {
-        let mut xss = xs1.segment(range).unwrap();
+        let mut xss = xs1.only(range).unwrap();
         for item in items {
             xss.insert_back(item);
         }
@@ -1722,13 +1722,13 @@ mod tests {
     #[case::tail(harness::xs1(3), 1..)]
     #[case::rtail(harness::xs1(3), ..3)]
     #[case::middle(harness::xs1(9), 4..8)]
-    fn retain_none_from_vec1_segment_then_segment_is_empty<R>(
+    fn retain_none_from_vec1_only_range_subset_then_only_range_subset_is_empty<R>(
         #[case] mut xs1: Vec1<u8>,
         #[case] range: R,
     ) where
         R: RangeBounds<usize>,
     {
-        let mut xss = xs1.segment(range).unwrap();
+        let mut xss = xs1.only(range).unwrap();
         xss.retain(|_| false);
         assert!(xss.is_empty());
     }
@@ -1737,14 +1737,14 @@ mod tests {
     #[case::tail(harness::xs1(3), 1.., slice1![0])]
     #[case::rtail(harness::xs1(3), ..3, slice1![3])]
     #[case::middle(harness::xs1(9), 4..8, slice1![0, 1, 2, 3, 8, 9])]
-    fn retain_none_from_vec1_segment_then_vec1_eq<R>(
+    fn retain_none_from_vec1_only_range_subset_then_vec1_eq<R>(
         #[case] mut xs1: Vec1<u8>,
         #[case] range: R,
         #[case] expected: &Slice1<u8>,
     ) where
         R: RangeBounds<usize>,
     {
-        xs1.segment(range).unwrap().retain(|_| false);
+        xs1.only(range).unwrap().retain(|_| false);
         assert_eq!(xs1.as_slice1(), expected);
     }
 
@@ -1758,9 +1758,9 @@ mod tests {
     #[case::one_rtail(harness::xs1(1), ..1, .., slice1![1])]
     #[case::many_rtail(harness::xs1(2), ..2, .., slice1![2])]
     #[case::many_rtail(harness::xs1(2), ..2, 1.., slice1![0, 2])]
-    fn swap_drain_from_vec1_segment_then_vec1_eq<S, D>(
+    fn swap_drain_from_vec1_only_range_subset_then_vec1_eq<S, D>(
         #[case] mut xs1: Vec1<u8>,
-        #[case] segment: S,
+        #[case] subset: S,
         #[case] drain: D,
         #[case] expected: &Slice1<u8>,
     ) where
@@ -1768,7 +1768,7 @@ mod tests {
         S: RangeBounds<usize>,
         D: RangeBounds<usize>,
     {
-        xs1.segment(segment).unwrap().swap_drain(drain);
+        xs1.only(subset).unwrap().swap_drain(drain);
         assert_eq!(xs1.as_slice1(), expected);
     }
 
@@ -1781,9 +1781,9 @@ mod tests {
     #[case::one_rtail(harness::xs1(1), ..1, .., slice1![1])]
     #[case::many_rtail(harness::xs1(2), ..2, .., slice1![2])]
     #[case::many_rtail(harness::xs1(2), ..2, 1.., slice1![0])]
-    fn leak_swap_drain_of_vec1_segment_then_vec1_eq<S, D>(
+    fn leak_swap_drain_of_vec1_only_range_subset_then_vec1_eq<S, D>(
         #[case] mut xs1: Vec1<u8>,
-        #[case] segment: S,
+        #[case] subset: S,
         #[case] drain: D,
         #[case] expected: &Slice1<u8>,
     ) where
@@ -1791,7 +1791,7 @@ mod tests {
         S: RangeBounds<usize>,
         D: RangeBounds<usize>,
     {
-        let mut xss = xs1.segment(segment).unwrap();
+        let mut xss = xs1.only(subset).unwrap();
         mem::forget(xss.swap_drain(drain));
         assert_eq!(xs1.as_slice1(), expected);
     }

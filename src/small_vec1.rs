@@ -26,9 +26,9 @@ use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::slice1::Slice1;
+use crate::subset::range::{self, IndexRange, Project, RangeError};
+use crate::subset::{self, ByRange, ByTail, SubsetFor};
 use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -63,9 +63,9 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.len();
-        Segment::intersected(self, n, range)
+        OnlyRangeSubset::intersected(self, n, range)
     }
 }
 
@@ -75,14 +75,14 @@ where
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_tail_range(self, n)
+        OnlyRangeSubset::from_tail_range(self, n)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_rtail_range(self, n)
+        OnlyRangeSubset::from_rtail_range(self, n)
     }
 }
 
@@ -110,7 +110,7 @@ where
     }
 }
 
-impl<A> Segmentation for SmallVec<A>
+impl<A> SubsetFor for SmallVec<A>
 where
     A: Array,
 {
@@ -532,9 +532,9 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
@@ -544,11 +544,11 @@ where
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.tail().rekind()
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.rtail().rekind()
     }
 }
@@ -808,7 +808,7 @@ where
     }
 }
 
-impl<A> Segmentation for SmallVec1<A>
+impl<A> SubsetFor for SmallVec1<A>
 where
     A: Array,
 {
@@ -891,11 +891,11 @@ where
     }
 }
 
-pub type Segment<'a, K> = segment::Segment<'a, K, SmallVec<ArrayFor<K>>, IndexRange>;
+pub type OnlyRangeSubset<'a, K> = subset::OnlyRangeSubset<'a, K, SmallVec<ArrayFor<K>>, IndexRange>;
 
-impl<K, A, T> Segment<'_, K>
+impl<K, A, T> OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     pub fn resize(&mut self, len: usize, fill: T)
@@ -1030,9 +1030,9 @@ where
     }
 }
 
-impl<K, A, T> AsMut<[T]> for Segment<'_, K>
+impl<K, A, T> AsMut<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn as_mut(&mut self) -> &mut [T] {
@@ -1040,9 +1040,9 @@ where
     }
 }
 
-impl<K, A, T> AsRef<[T]> for Segment<'_, K>
+impl<K, A, T> AsRef<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn as_ref(&self) -> &[T] {
@@ -1050,9 +1050,9 @@ where
     }
 }
 
-impl<K, A, T> Borrow<[T]> for Segment<'_, K>
+impl<K, A, T> Borrow<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn borrow(&self) -> &[T] {
@@ -1060,9 +1060,9 @@ where
     }
 }
 
-impl<K, A, T> BorrowMut<[T]> for Segment<'_, K>
+impl<K, A, T> BorrowMut<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
@@ -1070,41 +1070,41 @@ where
     }
 }
 
-impl<K, A, T, R> ByRange<usize, R> for Segment<'_, K>
+impl<K, A, T, R> ByRange<usize, R> for OnlyRangeSubset<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, K>, Self::Error> {
         self.project_and_intersect(range)
     }
 }
 
-impl<K, A> ByTail for Segment<'_, K>
+impl<K, A> ByTail for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array,
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, K> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, K> {
         self.project_tail_range()
     }
 
-    fn rtail(&mut self) -> Segment<'_, K> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, K> {
         let n = self.len();
         self.project_rtail_range(n)
     }
 }
 
-impl<K, A, T> Deref for Segment<'_, K>
+impl<K, A, T> Deref for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     type Target = [T];
@@ -1114,9 +1114,9 @@ where
     }
 }
 
-impl<K, A, T> DerefMut for Segment<'_, K>
+impl<K, A, T> DerefMut for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -1124,17 +1124,17 @@ where
     }
 }
 
-impl<K, A, T> Eq for Segment<'_, K>
+impl<K, A, T> Eq for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
     T: Eq,
 {
 }
 
-impl<K, A, T> Extend<T> for Segment<'_, K>
+impl<K, A, T> Extend<T> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
 {
     fn extend<I>(&mut self, items: I)
@@ -1152,9 +1152,9 @@ where
     }
 }
 
-impl<K, A, T> Ord for Segment<'_, K>
+impl<K, A, T> Ord for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
     T: Ord,
 {
@@ -1163,22 +1163,22 @@ where
     }
 }
 
-impl<'a, KT, KU, AT, AU, T, U> PartialEq<Segment<'a, KU>> for Segment<'a, KT>
+impl<'a, KT, KU, AT, AU, T, U> PartialEq<OnlyRangeSubset<'a, KU>> for OnlyRangeSubset<'a, KT>
 where
-    KT: ClosedSmallVec<Array = AT> + Segmentation<Target = SmallVec<AT>>,
-    KU: ClosedSmallVec<Array = AU> + Segmentation<Target = SmallVec<AU>>,
+    KT: ClosedSmallVec<Array = AT> + SubsetFor<Target = SmallVec<AT>>,
+    KU: ClosedSmallVec<Array = AU> + SubsetFor<Target = SmallVec<AU>>,
     AT: Array<Item = T>,
     AU: Array<Item = U>,
     T: PartialEq<U>,
 {
-    fn eq(&self, other: &Segment<'a, KU>) -> bool {
+    fn eq(&self, other: &OnlyRangeSubset<'a, KU>) -> bool {
         self.as_slice().eq(other.as_slice())
     }
 }
 
-impl<K, A, T> PartialOrd<Self> for Segment<'_, K>
+impl<K, A, T> PartialOrd<Self> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedSmallVec<Array = A> + Segmentation<Target = SmallVec<A>>,
+    K: ClosedSmallVec<Array = A> + SubsetFor<Target = SmallVec<A>>,
     A: Array<Item = T>,
     T: PartialOrd<T>,
 {

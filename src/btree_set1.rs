@@ -21,16 +21,15 @@ use {
 
 use crate::array1::Array1;
 use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
-use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{
+use crate::subset::range::{
     self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
     ResolveTrimRange, TrimRange, UnorderedError,
 };
-use crate::segment::{self, ByRange, ByTail, Segmentation};
+use crate::subset::{self, ByKey, ByRange, ByTail, KeyNotFoundError, SubsetFor};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -58,9 +57,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a Q,
-    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+    ) -> Result<ExceptKeySubset<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
         self.contains(key)
-            .then_some(Except::unchecked(self, key))
+            .then_some(ExceptKeySubset::unchecked(self, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -73,11 +72,11 @@ where
     type Range = Option<ItemRange<T>>;
     type Error = UnorderedError<Bound<T>>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self, Self::Range>, Self::Error> {
         range::ordered_range_bounds(range)
             .map(|range| {
                 let (start, end) = range.into_bounds();
-                Segment::unchecked(self, Some(ItemRange::unchecked(start, end)))
+                OnlyRangeSubset::unchecked(self, Some(ItemRange::unchecked(start, end)))
             })
             .map_err(|range| {
                 let (start, end) = range.into_bounds();
@@ -89,18 +88,13 @@ where
 impl<T> ByTail for BTreeSet<T> {
     type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::TAIL1)
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(self, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::RTAIL1)
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(self, TrimRange::RTAIL1)
     }
-}
-
-impl<T> Exception for BTreeSet<T> {
-    type Kind = Self;
-    type Target = Self;
 }
 
 impl<T> Extend1<T> for BTreeSet<T>
@@ -124,7 +118,7 @@ unsafe impl<T> MaybeEmpty for BTreeSet<T> {
         //         here, because it does not break the contract by returning a non-zero value for
         //         an empty set, even if the `Eq` or `Ord` implementations for `T` are
         //         non-compliant. This is why `BTreeSet1` APIs do not require `T: UnsafeOrd`
-        //         bounds (unlike segments, which rely on consistently isolating a range).
+        //         bounds (unlike subsets, which rely on consistently isolating a range).
         match self.len() {
             0 => None,
             1 => Some(crate::Cardinality::One(())),
@@ -150,7 +144,7 @@ where
     }
 }
 
-impl<T> Segmentation for BTreeSet<T> {
+impl<T> SubsetFor for BTreeSet<T> {
     type Kind = Self;
     type Target = Self;
 }
@@ -255,9 +249,10 @@ impl<T> BTreeSet1<T> {
         T: Ord,
         F: FnMut(&T) -> bool,
     {
-        // Segmentation for relational collections can be expensive and involves very different
-        // tradeoffs for collections with many items and collections with large items. For this
-        // reason, the first item is filtered directly rather than using `tail` or `rtail` here.
+        // Constructing a subset of a relational collection by range can be expensive and involves
+        // very different tradeoffs for collections with many items and collections with large
+        // items. For this reason, the first item is filtered directly rather than using `tail` or
+        // `rtail` here.
         let mut index = 0usize;
         self.items.retain(|item| {
             let is_retained = index == 0 || f(item);
@@ -612,9 +607,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a Q,
-    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+    ) -> Result<ExceptKeySubset<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
         self.contains(key)
-            .then_some(Except::unchecked(&mut self.items, key))
+            .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -627,7 +622,7 @@ where
     type Range = Option<ItemRange<T>>;
     type Error = RangeError<Bound<T>>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self, Self::Range>, Self::Error> {
         range::ordered_range_bounds(range)
             .map_err(|range| {
                 let (start, end) = range.into_bounds();
@@ -640,7 +635,7 @@ where
                 }
                 else {
                     let (start, end) = range.into_bounds();
-                    Ok(Segment::unchecked(
+                    Ok(OnlyRangeSubset::unchecked(
                         &mut self.items,
                         Some(ItemRange::unchecked(start, end)),
                     ))
@@ -652,12 +647,12 @@ where
 impl<T> ByTail for BTreeSet1<T> {
     type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(&mut self.items, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(&mut self.items, TrimRange::RTAIL1)
     }
 }
 
@@ -676,11 +671,6 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
-}
-
-impl<T> Exception for BTreeSet1<T> {
-    type Kind = Self;
-    type Target = BTreeSet<T>;
 }
 
 impl<T> Extend<T> for BTreeSet1<T>
@@ -853,11 +843,6 @@ where
     }
 }
 
-impl<T> Segmentation for BTreeSet1<T> {
-    type Kind = Self;
-    type Target = BTreeSet<T>;
-}
-
 impl<R, T> Sub<&'_ R> for &'_ BTreeSet1<T>
 where
     R: ClosedBTreeSet<Item = T>,
@@ -879,6 +864,11 @@ where
     fn sub(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
         self - rhs.as_btree_set()
     }
+}
+
+impl<T> SubsetFor for BTreeSet1<T> {
+    type Kind = Self;
+    type Target = BTreeSet<T>;
 }
 
 impl<T> TryFrom<BTreeSet<T>> for BTreeSet1<T> {
@@ -1013,11 +1003,11 @@ where
     }
 }
 
-pub type Except<'a, K, Q> = except::Except<'a, K, BTreeSet<ItemFor<K>>, Q>;
+pub type ExceptKeySubset<'a, K, Q> = subset::ExceptKeySubset<'a, K, BTreeSet<ItemFor<K>>, Q>;
 
-impl<K, T, Q> Except<'_, K, Q>
+impl<K, T, Q> ExceptKeySubset<'_, K, Q>
 where
-    K: ClosedBTreeSet<Item = T> + Exception<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + SubsetFor<Target = BTreeSet<T>>,
     T: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
 {
@@ -1046,11 +1036,11 @@ where
     }
 }
 
-pub type Segment<'a, K, R> = segment::Segment<'a, K, BTreeSet<ItemFor<K>>, R>;
+pub type OnlyRangeSubset<'a, K, R> = subset::OnlyRangeSubset<'a, K, BTreeSet<ItemFor<K>>, R>;
 
-impl<K, T> Segment<'_, K, Option<ItemRange<ItemFor<K>>>>
+impl<K, T> OnlyRangeSubset<'_, K, Option<ItemRange<ItemFor<K>>>>
 where
-    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + SubsetFor<Target = BTreeSet<T>>,
     T: Ord,
 {
     fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> bool
@@ -1097,10 +1087,10 @@ where
         T: Clone,
     {
         if let Some(range) = self.range.as_ref() {
-            // To append within the range of the segment, `other` is split into `low`, `middle`,
-            // and `high`. The `middle` set contains any and all items in range, and so it extends
-            // the segment. `low` and `high` are out of bounds of the range, and so these items are
-            // not inserted into the segment and must remain in `other`.
+            // To append within the range of the subset, `other` is split into `low`, `middle`, and
+            // `high`. The `middle` set contains any and all items in range, and so it extends the
+            // subset. `low` and `high` are out of bounds of the range, and so these items are not
+            // inserted into the subset and must remain in `other`.
             //
             // Note that `low` is just an alias for `other` here, and so it is an exclusive
             // reference to the input `BTreeSet` (unlike `middle` and `high`).
@@ -1114,8 +1104,8 @@ where
                 Bound::Included(start) => low.split_off(start),
                 Bound::Unbounded => {
                     if let Some(first) = low.first().cloned() {
-                        // The segment has no lower bound, so all of `low` is split off into
-                        // `middle` (leaving `low` empty).
+                        // The subset has no lower bound, so all of `low` is split off into `middle`
+                        // (leaving `low` empty).
                         low.split_off(&first)
                     }
                     else {
@@ -1196,7 +1186,7 @@ where
     }
 }
 
-impl<T> Segment<'_, BTreeSet<T>, Option<ItemRange<T>>>
+impl<T> OnlyRangeSubset<'_, BTreeSet<T>, Option<ItemRange<T>>>
 where
     T: Ord,
 {
@@ -1217,7 +1207,7 @@ where
     }
 }
 
-impl<T> Segment<'_, BTreeSet1<T>, Option<ItemRange<T>>>
+impl<T> OnlyRangeSubset<'_, BTreeSet1<T>, Option<ItemRange<T>>>
 where
     T: Ord,
 {
@@ -1238,17 +1228,17 @@ where
     }
 }
 
-impl<K, T> ByTail for Segment<'_, K, Option<ItemRange<T>>>
+impl<K, T> ByTail for OnlyRangeSubset<'_, K, Option<ItemRange<T>>>
 where
-    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
-    // A `T: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
+    K: ClosedBTreeSet<Item = T> + SubsetFor<Target = BTreeSet<T>>,
+    // A `T: UnsafeOrd` bound is not needed here, because subsets over an `ItemRange` can only be
     // constructed for a `BTreeSet1` via `Query`, which has that bound. This means that there is no
     // need to separate `Tail` implementations for `BTreeSet` and `BTreeSet1`.
     T: Clone + Ord,
 {
     type Range = Option<ItemRange<T>>;
 
-    fn tail(&mut self) -> Segment<'_, K, Self::Range> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, K, Self::Range> {
         if let Some(range) = self.range.clone() {
             let (start, end) = range.into_bounds();
             let start = match start {
@@ -1260,14 +1250,14 @@ where
                 .cloned()
                 .and_then(|start| range::ordered_range_bounds((Bound::Included(start), end)).ok())
                 .map(|(start, end)| ItemRange::unchecked(start, end));
-            Segment::unchecked(self.items, range)
+            OnlyRangeSubset::unchecked(self.items, range)
         }
         else {
-            Segment::unchecked(self.items, None)
+            OnlyRangeSubset::unchecked(self.items, None)
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, K, Self::Range> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, K, Self::Range> {
         if let Some(range) = self.range.clone() {
             let (start, end) = range.into_bounds();
             let end = match end {
@@ -1279,26 +1269,26 @@ where
                 .cloned()
                 .and_then(|end| range::ordered_range_bounds((start, Bound::Included(end))).ok())
                 .map(|(start, end)| ItemRange::unchecked(start, end));
-            Segment::unchecked(self.items, range)
+            OnlyRangeSubset::unchecked(self.items, range)
         }
         else {
-            Segment::unchecked(self.items, None)
+            OnlyRangeSubset::unchecked(self.items, None)
         }
     }
 }
 
-impl<'a, K, T> Segment<'a, K, TrimRange>
+impl<'a, K, T> OnlyRangeSubset<'a, K, TrimRange>
 where
-    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + SubsetFor<Target = BTreeSet<T>>,
     T: Ord,
 {
-    pub fn by_item(self) -> Segment<'a, K, Option<ItemRange<T>>>
+    pub fn by_item(self) -> OnlyRangeSubset<'a, K, Option<ItemRange<T>>>
     where
         T: Clone,
     {
-        let Segment { items, range } = self;
+        let OnlyRangeSubset { items, range } = self;
         let range = items.resolve_trim_range(range);
-        Segment::unchecked(items, range)
+        OnlyRangeSubset::unchecked(items, range)
     }
 
     fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> bool
@@ -1341,7 +1331,7 @@ where
         T: Clone,
     {
         let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
-        Segment::<K, _>::unchecked(self.items, range).insert_in_range(item)
+        OnlyRangeSubset::<K, _>::unchecked(self.items, range).insert_in_range(item)
     }
 
     pub fn append_in_range(&mut self, other: &mut BTreeSet<T>)
@@ -1349,7 +1339,7 @@ where
         T: Clone,
     {
         let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
-        Segment::<K, _>::unchecked(self.items, range).append_in_range(other)
+        OnlyRangeSubset::<K, _>::unchecked(self.items, range).append_in_range(other)
     }
 
     pub fn clear(&mut self) {
@@ -1394,7 +1384,7 @@ where
     }
 }
 
-impl<T> Segment<'_, BTreeSet<T>, TrimRange>
+impl<T> OnlyRangeSubset<'_, BTreeSet<T>, TrimRange>
 where
     T: Ord,
 {
@@ -1415,7 +1405,7 @@ where
     }
 }
 
-impl<T> Segment<'_, BTreeSet1<T>, TrimRange>
+impl<T> OnlyRangeSubset<'_, BTreeSet1<T>, TrimRange>
 where
     T: Ord,
 {
@@ -1436,17 +1426,17 @@ where
     }
 }
 
-impl<K, T> ByTail for Segment<'_, K, TrimRange>
+impl<K, T> ByTail for OnlyRangeSubset<'_, K, TrimRange>
 where
-    K: ClosedBTreeSet<Item = T> + Segmentation<Target = BTreeSet<T>>,
+    K: ClosedBTreeSet<Item = T> + SubsetFor<Target = BTreeSet<T>>,
 {
     type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, K, Self::Range> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, K, Self::Range> {
         self.advance_tail_range()
     }
 
-    fn rtail(&mut self) -> Segment<'_, K, Self::Range> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, K, Self::Range> {
         self.advance_rtail_range()
     }
 }
@@ -1478,14 +1468,13 @@ mod tests {
 
     use crate::btree_set1::BTreeSet1;
     use crate::btree_set1::harness::{self, terminals1, xs1};
-    use crate::except::ByKey;
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::range::IntoRangeBounds;
-    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
+    use crate::subset::range::IntoRangeBounds;
+    use crate::subset::{ByKey, ByRange, ByTail};
 
     // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
     //         allow access to the parameter beyond the scope of their bodies. (This is difficult
@@ -1569,14 +1558,14 @@ mod tests {
     #[case::middle(1..4, &[1, 2, 3])]
     #[case::tail(1.., &[1, 2, 3, 4])]
     #[case::rtail(..4, &[0, 1, 2, 3])]
-    fn collect_segment_iter_of_btree_set1_into_vec_then_eq<R>(
+    fn collect_only_range_subset_iter_of_btree_set1_into_vec_then_eq<R>(
         mut xs1: BTreeSet1<u8>,
         #[case] range: R,
         #[case] expected: &[u8],
     ) where
         R: IntoRangeBounds<u8>,
     {
-        let xss = xs1.segment(range).unwrap();
+        let xss = xs1.only(range).unwrap();
         let xs: Vec<_> = xss.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
     }
@@ -1677,7 +1666,7 @@ mod tests {
     #[case::out_of_range_upper_bound(..5, 5, Err(5))]
     #[case::out_of_range_upper_bound(3..=5, 6, Err(6))]
     #[case::out_of_range_upper_bound(..5, 6, Err(6))]
-    fn insert_into_btree_set1_segment_then_output_eq<R>(
+    fn insert_into_btree_set1_only_range_subset_then_output_eq<R>(
         #[from(terminals1)] mut xs1: BTreeSet1<u8>,
         #[case] range: R,
         #[case] item: u8,
@@ -1685,7 +1674,7 @@ mod tests {
     ) where
         R: IntoRangeBounds<u8>,
     {
-        let mut xss = xs1.segment(range).unwrap();
+        let mut xss = xs1.only(range).unwrap();
         assert_eq!(xss.insert_in_range(item), expected);
     }
 

@@ -24,16 +24,15 @@ use {
 
 use crate::array1::Array1;
 use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
-use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{
+use crate::subset::range::{
     self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
     ResolveTrimRange, TrimRange, UnorderedError,
 };
-use crate::segment::{self, ByRange, ByTail, Segmentation};
+use crate::subset::{self, ByKey, ByRange, ByTail, KeyNotFoundError, SubsetFor};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -65,9 +64,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a Q,
-    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+    ) -> Result<ExceptKeySubset<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
         self.contains_key(key)
-            .then_some(Except::unchecked(self, key))
+            .then_some(ExceptKeySubset::unchecked(self, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -80,11 +79,11 @@ where
     type Range = Option<ItemRange<K>>;
     type Error = UnorderedError<Bound<K>>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self, Self::Range>, Self::Error> {
         range::ordered_range_bounds(range)
             .map(|range| {
                 let (start, end) = range.into_bounds();
-                Segment::unchecked(self, Some(ItemRange::unchecked(start, end)))
+                OnlyRangeSubset::unchecked(self, Some(ItemRange::unchecked(start, end)))
             })
             .map_err(|range| {
                 let (start, end) = range.into_bounds();
@@ -99,18 +98,13 @@ where
 {
     type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::TAIL1)
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(self, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(self, TrimRange::RTAIL1)
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(self, TrimRange::RTAIL1)
     }
-}
-
-impl<K, V> Exception for BTreeMap<K, V> {
-    type Kind = Self;
-    type Target = Self;
 }
 
 impl<K, V> Extend1<(K, V)> for BTreeMap<K, V>
@@ -134,7 +128,7 @@ unsafe impl<K, V> MaybeEmpty for BTreeMap<K, V> {
         //         here, because it does not break the contract by returning a non-zero value for
         //         an empty map, even if the `Eq` or `Ord` implementations for `K` are
         //         non-compliant. This is why `BTreeMap1` APIs do not require `K: UnsafeOrd`
-        //         bounds (unlike segments, which rely on consistently isolating a range).
+        //         bounds (unlike subsets, which rely on consistently isolating a range).
         match self.len() {
             0 => None,
             1 => Some(Cardinality::One(())),
@@ -160,7 +154,7 @@ where
     }
 }
 
-impl<K, V> Segmentation for BTreeMap<K, V> {
+impl<K, V> SubsetFor for BTreeMap<K, V> {
     type Kind = Self;
     type Target = Self;
 }
@@ -555,9 +549,10 @@ impl<K, V> BTreeMap1<K, V> {
         K: Ord,
         F: FnMut(&K, &V) -> bool,
     {
-        // Segmentation for relational collections can be expensive and involves very different
-        // tradeoffs for collections with many items and collections with large items. For this
-        // reason, the first item is filtered directly rather than using `tail` or `rtail` here.
+        // Constructing a subset of a relational collection by range can be expensive and involves
+        // very different tradeoffs for collections with many items and collections with large
+        // items. For this reason, the first item is filtered directly rather than using `tail` or
+        // `rtail` here.
         let mut index = 0usize;
         self.items.retain(|key, value| {
             let is_retained = index == 0 || f(key, &*value);
@@ -864,9 +859,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a Q,
-    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+    ) -> Result<ExceptKeySubset<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
         self.contains_key(key)
-            .then_some(Except::unchecked(&mut self.items, key))
+            .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -879,7 +874,7 @@ where
     type Range = Option<ItemRange<K>>;
     type Error = RangeError<Bound<K>>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self, Self::Range>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self, Self::Range>, Self::Error> {
         range::ordered_range_bounds(range)
             .map_err(|range| {
                 let (start, end) = range.into_bounds();
@@ -892,7 +887,7 @@ where
                 }
                 else {
                     let (start, end) = range.into_bounds();
-                    Ok(Segment::unchecked(
+                    Ok(OnlyRangeSubset::unchecked(
                         &mut self.items,
                         Some(ItemRange::unchecked(start, end)),
                     ))
@@ -907,12 +902,12 @@ where
 {
     type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::TAIL1)
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(&mut self.items, TrimRange::TAIL1)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self, Self::Range> {
-        Segment::unchecked(&mut self.items, TrimRange::RTAIL1)
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self, Self::Range> {
+        OnlyRangeSubset::unchecked(&mut self.items, TrimRange::RTAIL1)
     }
 }
 
@@ -933,11 +928,6 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
-}
-
-impl<K, V> Exception for BTreeMap1<K, V> {
-    type Kind = Self;
-    type Target = BTreeMap<K, V>;
 }
 
 impl<K, V> Extend<(K, V)> for BTreeMap1<K, V>
@@ -1159,7 +1149,7 @@ where
     }
 }
 
-impl<K, V> Segmentation for BTreeMap1<K, V> {
+impl<K, V> SubsetFor for BTreeMap1<K, V> {
     type Kind = Self;
     type Target = BTreeMap<K, V>;
 }
@@ -1297,11 +1287,12 @@ where
     }
 }
 
-pub type Except<'a, T, Q> = except::Except<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, Q>;
+pub type ExceptKeySubset<'a, T, Q> =
+    subset::ExceptKeySubset<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, Q>;
 
-impl<T, K, V, Q> Except<'_, T, Q>
+impl<T, K, V, Q> ExceptKeySubset<'_, T, Q>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + Exception<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + SubsetFor<Target = BTreeMap<K, V>>,
     K: Borrow<Q> + Ord,
     Q: Ord + ?Sized,
 {
@@ -1332,11 +1323,12 @@ where
     }
 }
 
-pub type Segment<'a, T, R> = segment::Segment<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, R>;
+pub type OnlyRangeSubset<'a, T, R> =
+    subset::OnlyRangeSubset<'a, T, BTreeMap<KeyFor<T>, ValueFor<T>>, R>;
 
-impl<T, K, V> Segment<'_, T, Option<ItemRange<K>>>
+impl<T, K, V> OnlyRangeSubset<'_, T, Option<ItemRange<K>>>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + SubsetFor<Target = BTreeMap<K, V>>,
     K: Ord,
 {
     fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<V>
@@ -1375,10 +1367,10 @@ where
         K: Clone,
     {
         if let Some(range) = self.range.as_ref() {
-            // To append within the range of the segment, `other` is split into `low`, `middle`,
-            // and `high`. The `middle` set contains any and all items in range, and so it extends
-            // the segment. `low` and `high` are out of bounds of the range, and so these items are
-            // not inserted into the segment and must remain in `other`.
+            // To append within the range of the subset, `other` is split into `low`, `middle`, and
+            // `high`. The `middle` set contains any and all items in range, and so it extends the
+            // subset. `low` and `high` are out of bounds of the range, and so these items are not
+            // inserted into the subset and must remain in `other`.
             //
             // Note that `low` is just an alias for `other` here, and so it is an exclusive
             // reference to the input `BTreeMap` (unlike `middle` and `high`).
@@ -1392,8 +1384,8 @@ where
                 Bound::Included(start) => low.split_off(start),
                 Bound::Unbounded => {
                     if let Some(first) = low.keys().next().cloned() {
-                        // The segment has no lower bound, so all of `low` is split off into
-                        // `middle` (leaving `low` empty).
+                        // The subset has no lower bound, so all of `low` is split off into `middle`
+                        // (leaving `low` empty).
                         low.split_off(&first)
                     }
                     else {
@@ -1492,7 +1484,7 @@ where
     }
 }
 
-impl<K, V> Segment<'_, BTreeMap<K, V>, Option<ItemRange<K>>> {
+impl<K, V> OnlyRangeSubset<'_, BTreeMap<K, V>, Option<ItemRange<K>>> {
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + Ord,
@@ -1502,7 +1494,7 @@ impl<K, V> Segment<'_, BTreeMap<K, V>, Option<ItemRange<K>>> {
     }
 }
 
-impl<K, V> Segment<'_, BTreeMap1<K, V>, Option<ItemRange<K>>> {
+impl<K, V> OnlyRangeSubset<'_, BTreeMap1<K, V>, Option<ItemRange<K>>> {
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + UnsafeOrdIsomorph<Q>,
@@ -1512,17 +1504,17 @@ impl<K, V> Segment<'_, BTreeMap1<K, V>, Option<ItemRange<K>>> {
     }
 }
 
-impl<T, K, V> ByTail for Segment<'_, T, Option<ItemRange<K>>>
+impl<T, K, V> ByTail for OnlyRangeSubset<'_, T, Option<ItemRange<K>>>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
-    // A `K: UnsafeOrd` bound is not needed here, because segments over an `ItemRange` can only be
+    T: ClosedBTreeMap<Key = K, Value = V> + SubsetFor<Target = BTreeMap<K, V>>,
+    // A `K: UnsafeOrd` bound is not needed here, because subsets over an `ItemRange` can only be
     // constructed for a `BTreeMap1` via `Query`, which has that bound. This means that there is no
     // need to separate `Tail` implementations for `BTreeMap` and `BTreeMap1`.
     K: Clone + Ord,
 {
     type Range = Option<ItemRange<K>>;
 
-    fn tail(&mut self) -> Segment<'_, T, Self::Range> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, T, Self::Range> {
         if let Some(range) = self.range.clone() {
             let (start, end) = range.into_bounds();
             let start = match start {
@@ -1535,14 +1527,14 @@ where
                 .cloned()
                 .and_then(|start| range::ordered_range_bounds((Bound::Included(start), end)).ok())
                 .map(|(start, end)| ItemRange::unchecked(start, end));
-            Segment::unchecked(self.items, range)
+            OnlyRangeSubset::unchecked(self.items, range)
         }
         else {
-            Segment::unchecked(self.items, None)
+            OnlyRangeSubset::unchecked(self.items, None)
         }
     }
 
-    fn rtail(&mut self) -> Segment<'_, T, Self::Range> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, T, Self::Range> {
         if let Some(range) = self.range.clone() {
             let (start, end) = range.into_bounds();
             let end = match end {
@@ -1555,26 +1547,26 @@ where
                 .cloned()
                 .and_then(|end| range::ordered_range_bounds((start, Bound::Included(end))).ok())
                 .map(|(start, end)| ItemRange::unchecked(start, end));
-            Segment::unchecked(self.items, range)
+            OnlyRangeSubset::unchecked(self.items, range)
         }
         else {
-            Segment::unchecked(self.items, None)
+            OnlyRangeSubset::unchecked(self.items, None)
         }
     }
 }
 
-impl<'a, T, K, V> Segment<'a, T, TrimRange>
+impl<'a, T, K, V> OnlyRangeSubset<'a, T, TrimRange>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + SubsetFor<Target = BTreeMap<K, V>>,
     K: Ord,
 {
-    pub fn by_key(self) -> Segment<'a, T, Option<ItemRange<K>>>
+    pub fn by_key(self) -> OnlyRangeSubset<'a, T, Option<ItemRange<K>>>
     where
         K: Clone,
     {
-        let Segment { items, range } = self;
+        let OnlyRangeSubset { items, range } = self;
         let range = items.resolve_trim_range(range);
-        Segment::unchecked(items, range)
+        OnlyRangeSubset::unchecked(items, range)
     }
 
     fn remove_isomorph_unchecked<Q>(&mut self, key: &Q) -> Option<V>
@@ -1609,7 +1601,7 @@ where
         K: Clone,
     {
         let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
-        Segment::<T, _>::unchecked(self.items, range).insert_in_range(key, value)
+        OnlyRangeSubset::<T, _>::unchecked(self.items, range).insert_in_range(key, value)
     }
 
     pub fn append_in_range(&mut self, other: &mut BTreeMap<K, V>)
@@ -1617,7 +1609,7 @@ where
         K: Clone,
     {
         let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
-        Segment::<T, _>::unchecked(self.items, range).append_in_range(other)
+        OnlyRangeSubset::<T, _>::unchecked(self.items, range).append_in_range(other)
     }
 
     pub fn clear(&mut self) {
@@ -1667,7 +1659,7 @@ where
     }
 }
 
-impl<K, V> Segment<'_, BTreeMap<K, V>, TrimRange>
+impl<K, V> OnlyRangeSubset<'_, BTreeMap<K, V>, TrimRange>
 where
     K: Ord,
 {
@@ -1680,7 +1672,7 @@ where
     }
 }
 
-impl<K, V> Segment<'_, BTreeMap1<K, V>, TrimRange>
+impl<K, V> OnlyRangeSubset<'_, BTreeMap1<K, V>, TrimRange>
 where
     K: UnsafeOrd,
 {
@@ -1693,18 +1685,18 @@ where
     }
 }
 
-impl<T, K, V> ByTail for Segment<'_, T, TrimRange>
+impl<T, K, V> ByTail for OnlyRangeSubset<'_, T, TrimRange>
 where
-    T: ClosedBTreeMap<Key = K, Value = V> + Segmentation<Target = BTreeMap<K, V>>,
+    T: ClosedBTreeMap<Key = K, Value = V> + SubsetFor<Target = BTreeMap<K, V>>,
     K: Clone + Ord,
 {
     type Range = TrimRange;
 
-    fn tail(&mut self) -> Segment<'_, T, Self::Range> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, T, Self::Range> {
         self.advance_tail_range()
     }
 
-    fn rtail(&mut self) -> Segment<'_, T, Self::Range> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, T, Self::Range> {
         self.advance_rtail_range()
     }
 }
@@ -1738,15 +1730,14 @@ mod tests {
 
     use crate::btree_map1::BTreeMap1;
     use crate::btree_map1::harness::{self, VALUE, terminals1, xs1};
-    use crate::except::ByKey;
     use crate::harness::KeyValueRef;
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::range::IntoRangeBounds;
-    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::map};
+    use crate::subset::range::IntoRangeBounds;
+    use crate::subset::{ByKey, ByRange, ByTail};
 
     #[rstest]
     #[case(0, &[(1, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]
@@ -1862,7 +1853,7 @@ mod tests {
     #[case::out_of_range_upper_bound(..5, 5, Err((5, VALUE)))]
     #[case::out_of_range_upper_bound(3..=5, 6, Err((6, VALUE)))]
     #[case::out_of_range_upper_bound(..5, 6, Err((6, VALUE)))]
-    fn insert_into_btree_map1_segment_then_output_eq<R>(
+    fn insert_into_btree_map1_only_range_subset_then_output_eq<R>(
         #[from(terminals1)] mut xs1: BTreeMap1<u8, char>,
         #[case] range: R,
         #[case] key: u8,
@@ -1870,7 +1861,7 @@ mod tests {
     ) where
         R: IntoRangeBounds<u8>,
     {
-        let mut xss = xs1.segment(range).unwrap();
+        let mut xss = xs1.only(range).unwrap();
         assert_eq!(xss.insert_in_range(key, VALUE), expected);
     }
 

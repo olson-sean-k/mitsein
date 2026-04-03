@@ -4,7 +4,7 @@ use core::ops::{
     Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
-use crate::segment::range::{
+use crate::subset::ordered::range::{
     self, Intersect, IntoRangeBounds, OutOfBoundsError, Project, RangeError, UnorderedError,
 };
 
@@ -395,7 +395,9 @@ mod tests {
     use core::ops::RangeBounds;
     use rstest::rstest;
 
-    use crate::segment::range::{IndexRange, Intersect, OutOfBoundsError, Project, RangeError};
+    use crate::subset::ordered::range::{
+        IndexRange, Intersect, OutOfBoundsError, Project, RangeError,
+    };
 
     #[rstest]
     #[case::superset(IndexRange::unchecked(0, 9), 1..3, Ok(IndexRange::unchecked(1, 3)))]

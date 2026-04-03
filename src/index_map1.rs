@@ -31,14 +31,13 @@ use {
 
 #[cfg(feature = "std")]
 use crate::array1::Array1;
-use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::hash::UnsafeHash;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, ByRange, ByTail, Segmentation};
+use crate::subset::range::{self, IndexRange, Project, RangeError};
+use crate::subset::{self, ByKey, ByRange, ByTail, KeyNotFoundError, SubsetFor};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -73,9 +72,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a Q,
-    ) -> Result<Except<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
+    ) -> Result<ExceptKeySubset<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
         self.contains_key(key)
-            .then_some(Except::unchecked(self, key))
+            .then_some(ExceptKeySubset::unchecked(self, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -87,29 +86,24 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.len();
-        Segment::intersected(self, n, range)
+        OnlyRangeSubset::intersected(self, n, range)
     }
 }
 
 impl<K, V, S> ByTail for IndexMap<K, V, S> {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_tail_range(self, n)
+        OnlyRangeSubset::from_tail_range(self, n)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_rtail_range(self, n)
+        OnlyRangeSubset::from_rtail_range(self, n)
     }
-}
-
-impl<K, V, S> Exception for IndexMap<K, V, S> {
-    type Kind = Self;
-    type Target = Self;
 }
 
 impl<K, V, S> Extend1<(K, V)> for IndexMap<K, V, S>
@@ -138,7 +132,7 @@ unsafe impl<K, V, S> MaybeEmpty for IndexMap<K, V, S> {
     }
 }
 
-impl<K, V, S> Segmentation for IndexMap<K, V, S> {
+impl<K, V, S> SubsetFor for IndexMap<K, V, S> {
     type Kind = Self;
     type Target = Self;
 }
@@ -1352,9 +1346,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a K,
-    ) -> Result<Except<'a, Self, K>, KeyNotFoundError<&'a K>> {
+    ) -> Result<ExceptKeySubset<'a, Self, K>, KeyNotFoundError<&'a K>> {
         self.contains_key(key)
-            .then_some(Except::unchecked(&mut self.items, key))
+            .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -1366,20 +1360,20 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
 impl<K, V, S> ByTail for IndexMap1<K, V, S> {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.tail().rekind()
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.rtail().rekind()
     }
 }
@@ -1402,11 +1396,6 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
-}
-
-impl<K, V, S> Exception for IndexMap1<K, V, S> {
-    type Kind = Self;
-    type Target = IndexMap<K, V, S>;
 }
 
 impl<K, V, S> Extend<(K, V)> for IndexMap1<K, V, S>
@@ -1633,7 +1622,7 @@ where
     }
 }
 
-impl<K, V, S> Segmentation for IndexMap1<K, V, S> {
+impl<K, V, S> SubsetFor for IndexMap1<K, V, S> {
     type Kind = Self;
     type Target = IndexMap<K, V, S>;
 }
@@ -1707,11 +1696,12 @@ where
     }
 }
 
-pub type Except<'a, T, Q> = except::Except<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>, Q>;
+pub type ExceptKeySubset<'a, T, Q> =
+    subset::ExceptKeySubset<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>, Q>;
 
-impl<T, K, V, S, Q> Except<'_, T, Q>
+impl<T, K, V, S, Q> ExceptKeySubset<'_, T, Q>
 where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + Exception<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SubsetFor<Target = IndexMap<K, V, S>>,
     Q: Equivalent<K> + Hash + ?Sized,
 {
     pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = (K, V)> {
@@ -1743,12 +1733,12 @@ where
     }
 }
 
-pub type Segment<'a, T> =
-    segment::Segment<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>, IndexRange>;
+pub type OnlyRangeSubset<'a, T> =
+    subset::OnlyRangeSubset<'a, T, IndexMap<KeyFor<T>, ValueFor<T>, StateFor<T>>, IndexRange>;
 
-impl<T, K, V, S> Segment<'_, T>
+impl<T, K, V, S> OnlyRangeSubset<'_, T>
 where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SubsetFor<Target = IndexMap<K, V, S>>,
 {
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
@@ -1819,9 +1809,9 @@ where
     }
 }
 
-impl<T, K, V, S> Segment<'_, T>
+impl<T, K, V, S> OnlyRangeSubset<'_, T>
 where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SubsetFor<Target = IndexMap<K, V, S>>,
     S: BuildHasher,
 {
     pub fn contains_key<Q>(&self, query: &Q) -> bool
@@ -1834,31 +1824,31 @@ where
     }
 }
 
-impl<T, K, V, S, R> ByRange<usize, R> for Segment<'_, T>
+impl<T, K, V, S, R> ByRange<usize, R> for OnlyRangeSubset<'_, T>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SubsetFor<Target = IndexMap<K, V, S>>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, T>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, T>, Self::Error> {
         self.project_and_intersect(range)
     }
 }
 
-impl<T, K, V, S> ByTail for Segment<'_, T>
+impl<T, K, V, S> ByTail for OnlyRangeSubset<'_, T>
 where
-    T: ClosedIndexMap<Key = K, Value = V, State = S> + Segmentation<Target = IndexMap<K, V, S>>,
+    T: ClosedIndexMap<Key = K, Value = V, State = S> + SubsetFor<Target = IndexMap<K, V, S>>,
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, T> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, T> {
         self.project_tail_range()
     }
 
-    fn rtail(&mut self) -> Segment<'_, T> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, T> {
         let n = self.len();
         self.project_rtail_range(n)
     }
@@ -1886,16 +1876,15 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde_test::Token;
 
-    use crate::except::ByKey;
     use crate::harness::KeyValueRef;
     use crate::index_map1::IndexMap1;
     use crate::index_map1::harness::{self, VALUE, xs1};
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::segment::ByTail;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::map};
+    use crate::subset::{ByKey, ByTail};
 
     #[rstest]
     #[case(0, &[(1, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]

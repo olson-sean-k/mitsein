@@ -22,12 +22,12 @@ use {
 };
 
 use crate::array1::Array1;
-use crate::except::{self, ByKey, Exception, KeyNotFoundError};
 use crate::hash::UnsafeHash;
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
+use crate::subset::{self, ByKey, KeyNotFoundError, SubsetFor};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -58,16 +58,11 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a T,
-    ) -> Result<Except<'a, Self, T>, KeyNotFoundError<&'a T>> {
+    ) -> Result<ExceptKeySubset<'a, Self, T>, KeyNotFoundError<&'a T>> {
         self.contains(key)
-            .then_some(Except::unchecked(self, key))
+            .then_some(ExceptKeySubset::unchecked(self, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
-}
-
-impl<T, S> Exception for HashSet<T, S> {
-    type Kind = Self;
-    type Target = Self;
 }
 
 impl<T, S> Extend1<T> for HashSet<T, S>
@@ -99,6 +94,11 @@ unsafe impl<T, S> MaybeEmpty for HashSet<T, S> {
             _ => Some(Cardinality::Many(())),
         }
     }
+}
+
+impl<T, S> SubsetFor for HashSet<T, S> {
+    type Kind = Self;
+    type Target = Self;
 }
 
 type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, HashSet<T, S>, U, N>;
@@ -307,12 +307,11 @@ where
         T: Clone,
         F: FnMut(&T) -> bool,
     {
-        // Unordered collections cannot support segmentation and hashed collections not only
-        // exhibit arbitrary ordering, but that ordering is virtually never deterministic. The
-        // first observed item is retained and cloned. The clone is necessary, because there is no
-        // other way to reliably reference it while also mutating the underlying `HashSet`. This
-        // first item must be tested against the predicate function when more than one item remains
-        // after this first `retain`.
+        // Hashed collections not only exhibit arbitrary ordering, but that ordering is virtually
+        // never deterministic. The first observed item is retained and cloned. The clone is
+        // necessary, because there is no other way to reliably reference it while also mutating the
+        // underlying `HashSet`. This first item must be tested against the predicate function when
+        // more than one item remains after this first `retain`.
         let mut first = None;
         self.items.retain(|item| {
             if first.is_none() {
@@ -577,9 +576,9 @@ where
     fn except<'a>(
         &'a mut self,
         key: &'a T,
-    ) -> Result<Except<'a, Self, T>, KeyNotFoundError<&'a T>> {
+    ) -> Result<ExceptKeySubset<'a, Self, T>, KeyNotFoundError<&'a T>> {
         self.contains(key)
-            .then_some(Except::unchecked(&mut self.items, key))
+            .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
             .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
@@ -600,11 +599,6 @@ where
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.debug_list().entries(self.items.iter()).finish()
     }
-}
-
-impl<T, S> Exception for HashSet1<T, S> {
-    type Kind = Self;
-    type Target = HashSet<T, S>;
 }
 
 impl<T, S> Extend<T> for HashSet1<T, S>
@@ -805,6 +799,11 @@ where
     }
 }
 
+impl<T, S> SubsetFor for HashSet1<T, S> {
+    type Kind = Self;
+    type Target = HashSet<T, S>;
+}
+
 impl<T, S> TryFrom<HashSet<T, S>> for HashSet1<T, S> {
     type Error = EmptyError<HashSet<T, S>>;
 
@@ -873,12 +872,13 @@ where
     }
 }
 
-pub type Except<'a, K, Q> = except::Except<'a, K, HashSet<ItemFor<K>, StateFor<K>>, Q>;
+pub type ExceptKeySubset<'a, K, Q> =
+    subset::ExceptKeySubset<'a, K, HashSet<ItemFor<K>, StateFor<K>>, Q>;
 
-// TODO: Support isomorphic keys. See segmentation and `UnsafeOrdIsomorph`.
-impl<K, T, S> Except<'_, K, T>
+// TODO: Support isomorphic keys. See `OnlyRangeSubset` and `UnsafeOrdIsomorph`.
+impl<K, T, S> ExceptKeySubset<'_, K, T>
 where
-    K: ClosedHashSet<Item = T, State = S> + Exception<Target = HashSet<T, S>>,
+    K: ClosedHashSet<Item = T, State = S> + SubsetFor<Target = HashSet<T, S>>,
     T: Eq + Hash,
 {
     pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = T> {
@@ -934,13 +934,13 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde_test::Token;
 
-    use crate::except::ByKey;
     use crate::hash_set1::HashSet1;
     use crate::hash_set1::harness::xs1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
+    use crate::subset::ByKey;
 
     // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
     //         allow access to the parameter beyond the scope of their bodies. (This is difficult

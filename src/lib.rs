@@ -189,29 +189,27 @@
 //!
 //! See the [`ops1`] module.
 //!
-//! # Exception and Segmentation
+//! # Subsets
 //!
-//! [`Except`]s and [`Segment`]s are views over a subset of a collection that can mutate both the
-//! items and topology of the target. This is somewhat similar to a mutable slice, but items can
-//! also be inserted and removed. This crate implements exception and segmentation for both
-//! standard and non-empty collections. This is one of the most efficient ways to remove and drain
-//! items from non-empty collections.
+//! Subset APIs construct a view over a subset of a collection that can freely mutate both its items
+//! and topology. Subsets are one of the most efficient ways to mass-remove and drain items from
+//! non-empty collections.
 //!
-//! Segmentation is only supported by ordered collections and relies on that ordering to isolate a
-//! subset. See the [`segment`] module.
+//! Subsets can be constructed from ranges over ordered collections. These ranges can be explicit
+//! (e.g., from standard range types) or nominal, such as the tail of a collection.
 #![doc = ""]
 #![cfg_attr(feature = "alloc", doc = "```rust")]
 #![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = vec1![0i64, 1, 2, 3, 4];
-//! xs.tail().clear(); // Efficiently clears the tail segment of `xs`.
+//! xs.tail().clear(); // Efficiently clears the tail of `xs`.
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
 //!
-//! Exception does not rely on ordering and is notably supported by hashing collections. See the
-//! [`except`] module.
+//! Subsets can also be constructed from keys. Unordered collections only support this kind of
+//! subset.
 #![doc = ""]
 #![cfg_attr(feature = "std", doc = "```rust")]
 #![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
@@ -223,6 +221,8 @@
 //!
 //! assert_eq!(xs, HashSet1::from_one(0));
 #![doc = "```"]
+//!
+//! See the [`subset`] module.
 //!
 //! # Integrations and Feature Flags
 //!
@@ -258,7 +258,6 @@
 //! [`CowSlice1Ext`]: crate::borrow1::CowSlice1Ext
 //! [`CowStr1Ext`]: crate::borrow1::CowStr1Ext
 //! [`either`]: https://crates.io/crates/either
-//! [`Except`]: crate::except
 //! [`heapless`]: https://crates.io/crates/heapless
 //! [`indexmap`]: https://crates.io/crates/indexmap
 //! [`IntoIterator1`]: crate::iter1::IntoIterator1
@@ -272,7 +271,6 @@
 //! [`RcSlice1Ext`]: crate::rc1::RcSlice1Ext
 //! [`RcStr1Ext`]: crate::rc1::RcStr1Ext
 //! [`schemars`]: https://crates.io/crates/schemars
-//! [`Segment`]: crate::segment::Segment
 //! [`serde`]: https://crates.io/crates/serde
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`smallvec`]: https://crates.io/crates/smallvec
@@ -310,9 +308,9 @@
 //         This crate must trust undocumented or unpromised behavior of foreign code. For example,
 //         `Iterator1` combinators assume that implementations in `core` and `itertools` function
 //         in a particular way. If `Map` were ever to discard an item, then `Iterator1::map` would
-//         be unsound, for example. As another example, `SwapDrainSegment` relies on details of the
-//         `Vec::drain` implementation. For the overwhelming majority of this code, a change in
-//         behavior that this crate relies upon for memory safety would be a major bug in the
+//         be unsound, for example. As another example, `SwapDrainOnlyRangeSubset` relies on details
+//         of the `Vec::drain` implementation. For the overwhelming majority of this code, a change
+//         in behavior that this crate relies upon for memory safety would be a major bug in the
 //         upstream package and is very unlikely to occur.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -352,7 +350,6 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
-pub mod except;
 pub mod hash;
 pub mod hash_set1;
 pub mod heapless;
@@ -361,11 +358,11 @@ pub mod index_set1;
 pub mod iter1;
 pub mod ops1;
 pub mod rc1;
-pub mod segment;
 pub mod slice1;
 pub mod small_vec1;
 pub mod str1;
 pub mod string1;
+pub mod subset;
 pub mod sync1;
 pub mod vec1;
 pub mod vec_deque1;
@@ -421,8 +418,6 @@ pub mod prelude {
     //! Re-exports of recommended APIs and extension traits for glob imports.
 
     pub use crate::array1::Array1;
-    #[cfg(feature = "std")]
-    pub use crate::except::ByKey as _;
     #[cfg(feature = "indexmap")]
     pub use crate::index_map1::OrOnlyEntryExt as _;
     #[cfg(feature = "either")]
@@ -436,10 +431,12 @@ pub mod prelude {
     };
     #[cfg(feature = "rayon")]
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
-    #[cfg(any(feature = "alloc", feature = "arrayvec"))]
-    pub use crate::segment::{ByRange as _, ByTail as _};
     pub use crate::slice1::{Slice1, SliceExt as _, slice1};
     pub use crate::str1::Str1;
+    #[cfg(feature = "std")]
+    pub use crate::subset::ByKey as _;
+    #[cfg(any(feature = "alloc", feature = "arrayvec"))]
+    pub use crate::subset::{ByRange as _, ByTail as _};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{
         ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,

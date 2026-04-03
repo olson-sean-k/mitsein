@@ -15,9 +15,9 @@ use crate::array1::Array1;
 use crate::heapless;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::segment::range::{self, IndexRange, Project, RangeError};
-use crate::segment::{self, ByRange, ByTail, Segmentation};
 use crate::slice1::Slice1;
+use crate::subset::range::{self, IndexRange, Project, RangeError};
+use crate::subset::{self, ByRange, ByTail, SubsetFor};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -53,9 +53,9 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.len();
-        Segment::intersected(self, n, range)
+        OnlyRangeSubset::intersected(self, n, range)
     }
 }
 
@@ -65,14 +65,14 @@ where
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_tail_range(self, n)
+        OnlyRangeSubset::from_tail_range(self, n)
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         let n = self.len();
-        Segment::from_rtail_range(self, n)
+        OnlyRangeSubset::from_rtail_range(self, n)
     }
 }
 
@@ -85,7 +85,7 @@ where
     }
 }
 
-impl<T, S> Segmentation for VecInner<T, usize, S>
+impl<T, S> SubsetFor for VecInner<T, usize, S>
 where
     S: ?Sized + VecStorage<T>,
 {
@@ -306,9 +306,9 @@ where
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, Self>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
         let n = self.items.len();
-        Segment::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
     }
 }
 
@@ -318,11 +318,11 @@ where
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, Self> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.tail().rekind()
     }
 
-    fn rtail(&mut self) -> Segment<'_, Self> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
         self.items.rtail().rekind()
     }
 }
@@ -437,7 +437,7 @@ heapless::impl_partial_eq_for_non_empty!([for U in &mut Slice1<U>] == [for T, S 
 //heapless::impl_partial_eq_for_non_empty!([for U, S as VecStorage in VecInner1<U, S>] == [for T in &Slice1<T>]);
 //heapless::impl_partial_eq_for_non_empty!([for U, S as VecStorage in VecInner1<U, S>] == [for T in &mut Slice1<T>]);
 
-impl<T, S> Segmentation for VecInner1<T, S>
+impl<T, S> SubsetFor for VecInner1<T, S>
 where
     S: ?Sized + VecStorage<T>,
 {
@@ -578,12 +578,12 @@ impl<T> VecView1<T> {
     }
 }
 
-pub type Segment<'a, K> =
-    segment::Segment<'a, K, VecInner<ItemFor<K>, usize, StorageFor<K>>, IndexRange>;
+pub type OnlyRangeSubset<'a, K> =
+    subset::OnlyRangeSubset<'a, K, VecInner<ItemFor<K>, usize, StorageFor<K>>, IndexRange>;
 
-impl<K, T, S> Segment<'_, K>
+impl<K, T, S> OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>> + ?Sized,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>> + ?Sized,
     S: ?Sized + VecStorage<T>,
 {
     pub fn retain<F>(&mut self, mut f: F)
@@ -692,9 +692,9 @@ where
     }
 }
 
-impl<K, T, S> AsMut<[T]> for Segment<'_, K>
+impl<K, T, S> AsMut<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
 {
     fn as_mut(&mut self) -> &mut [T] {
@@ -702,9 +702,9 @@ where
     }
 }
 
-impl<K, T, S> AsRef<[T]> for Segment<'_, K>
+impl<K, T, S> AsRef<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
 {
     fn as_ref(&self) -> &[T] {
@@ -712,9 +712,9 @@ where
     }
 }
 
-impl<K, T, S> Borrow<[T]> for Segment<'_, K>
+impl<K, T, S> Borrow<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
 {
     fn borrow(&self) -> &[T] {
@@ -722,9 +722,9 @@ where
     }
 }
 
-impl<K, T, S> BorrowMut<[T]> for Segment<'_, K>
+impl<K, T, S> BorrowMut<[T]> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
@@ -732,41 +732,41 @@ where
     }
 }
 
-impl<K, T, S, R> ByRange<usize, R> for Segment<'_, K>
+impl<K, T, S, R> ByRange<usize, R> for OnlyRangeSubset<'_, K>
 where
     IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
     R: RangeBounds<usize>,
 {
     type Range = IndexRange;
     type Error = RangeError<usize>;
 
-    fn segment(&mut self, range: R) -> Result<Segment<'_, K>, Self::Error> {
+    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, K>, Self::Error> {
         self.project_and_intersect(range)
     }
 }
 
-impl<K, T, S> ByTail for Segment<'_, K>
+impl<K, T, S> ByTail for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
 {
     type Range = IndexRange;
 
-    fn tail(&mut self) -> Segment<'_, K> {
+    fn tail(&mut self) -> OnlyRangeSubset<'_, K> {
         self.project_tail_range()
     }
 
-    fn rtail(&mut self) -> Segment<'_, K> {
+    fn rtail(&mut self) -> OnlyRangeSubset<'_, K> {
         let n = self.len();
         self.project_rtail_range(n)
     }
 }
 
-impl<K, T, S> Deref for Segment<'_, K>
+impl<K, T, S> Deref for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
 {
     type Target = [T];
@@ -776,9 +776,9 @@ where
     }
 }
 
-impl<K, T, S> DerefMut for Segment<'_, K>
+impl<K, T, S> DerefMut for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     S: ?Sized + VecStorage<T>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -786,17 +786,17 @@ where
     }
 }
 
-impl<K, T, S> Eq for Segment<'_, K>
+impl<K, T, S> Eq for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     T: Eq,
     S: ?Sized + VecStorage<T>,
 {
 }
 
-impl<K, T, S> Ord for Segment<'_, K>
+impl<K, T, S> Ord for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     T: Ord,
     S: ?Sized + VecStorage<T>,
 {
@@ -805,22 +805,22 @@ where
     }
 }
 
-impl<'a, KT, KU, T, U, ST, SU> PartialEq<Segment<'a, KU>> for Segment<'a, KT>
+impl<'a, KT, KU, T, U, ST, SU> PartialEq<OnlyRangeSubset<'a, KU>> for OnlyRangeSubset<'a, KT>
 where
-    KT: ClosedVec<Item = T, Storage = ST> + Segmentation<Target = VecInner<T, usize, ST>>,
-    KU: ClosedVec<Item = U, Storage = SU> + Segmentation<Target = VecInner<U, usize, SU>>,
+    KT: ClosedVec<Item = T, Storage = ST> + SubsetFor<Target = VecInner<T, usize, ST>>,
+    KU: ClosedVec<Item = U, Storage = SU> + SubsetFor<Target = VecInner<U, usize, SU>>,
     T: PartialEq<U>,
     ST: ?Sized + VecStorage<T>,
     SU: ?Sized + VecStorage<U>,
 {
-    fn eq(&self, other: &Segment<'a, KU>) -> bool {
+    fn eq(&self, other: &OnlyRangeSubset<'a, KU>) -> bool {
         self.as_slice().eq(other.as_slice())
     }
 }
 
-impl<K, T, S> PartialOrd<Self> for Segment<'_, K>
+impl<K, T, S> PartialOrd<Self> for OnlyRangeSubset<'_, K>
 where
-    K: ClosedVec<Item = T, Storage = S> + Segmentation<Target = VecInner<T, usize, S>>,
+    K: ClosedVec<Item = T, Storage = S> + SubsetFor<Target = VecInner<T, usize, S>>,
     T: PartialOrd<T>,
     S: ?Sized + VecStorage<T>,
 {
@@ -856,10 +856,10 @@ mod tests {
     use crate::heapless::vec1::Vec1;
     use crate::heapless::vec1::harness::{self, N, xs1};
     use crate::iter1::IntoIterator1;
-    use crate::segment::{ByRange, ByTail};
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
+    use crate::subset::{ByRange, ByTail};
 
     // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
     //         allow access to the parameter beyond the scope of their bodies. (This is difficult
@@ -916,14 +916,14 @@ mod tests {
     #[case::middle(1..4, &[1, 2, 3])]
     #[case::tail(1.., &[1, 2, 3, 4])]
     #[case::rtail(..4, &[0, 1, 2, 3])]
-    fn collect_segment_iter_of_vec1_into_vec_then_eq<R>(
+    fn collect_only_range_subset_iter_of_vec1_into_vec_then_eq<R>(
         mut xs1: Vec1<u8, N>,
         #[case] range: R,
         #[case] expected: &[u8],
     ) where
         R: RangeBounds<usize>,
     {
-        let xss = xs1.segment(range).unwrap();
+        let xss = xs1.only(range).unwrap();
         let xs: Vec<_, N> = xss.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
     }
@@ -937,7 +937,7 @@ mod tests {
     #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
     #[case::one_into_non_empty(0..2, [42], slice1![0, 1, 42, 2, 3, 4])]
     #[case::many_into_non_empty(0..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
-    fn insert_back_into_vec1_segment_then_vec1_eq<R, T>(
+    fn insert_back_into_vec1_only_range_subset_then_vec1_eq<R, T>(
         mut xs1: Vec1<u8, N>,
         #[case] range: R,
         #[case] items: T,
@@ -946,7 +946,7 @@ mod tests {
         R: RangeBounds<usize>,
         T: IntoIterator1<Item = u8>,
     {
-        let mut xss = xs1.segment(range).unwrap();
+        let mut xss = xs1.only(range).unwrap();
         for item in items {
             xss.insert_back(item).unwrap();
         }
@@ -1010,13 +1010,13 @@ mod tests {
     #[case::tail(harness::xs1(3), 1..)]
     #[case::rtail(harness::xs1(3), ..3)]
     #[case::middle(harness::xs1(9), 4..8)]
-    fn retain_none_from_vec1_segment_then_segment_is_empty<R>(
+    fn retain_none_from_vec1_only_range_subset_then_only_range_subset_is_empty<R>(
         #[case] mut xs1: Vec1<u8, N>,
         #[case] range: R,
     ) where
         R: RangeBounds<usize>,
     {
-        let mut xss = xs1.segment(range).unwrap();
+        let mut xss = xs1.only(range).unwrap();
         xss.retain(|_| false);
         assert!(xss.is_empty());
     }
@@ -1025,14 +1025,14 @@ mod tests {
     #[case::tail(harness::xs1(3), 1.., slice1![0])]
     #[case::rtail(harness::xs1(3), ..3, slice1![3])]
     #[case::middle(harness::xs1(9), 4..8, slice1![0, 1, 2, 3, 8, 9])]
-    fn retain_none_from_vec1_segment_then_vec1_eq<R>(
+    fn retain_none_from_vec1_only_range_subset_then_vec1_eq<R>(
         #[case] mut xs1: Vec1<u8, N>,
         #[case] range: R,
         #[case] expected: &Slice1<u8>,
     ) where
         R: RangeBounds<usize>,
     {
-        xs1.segment(range).unwrap().retain(|_| false);
+        xs1.only(range).unwrap().retain(|_| false);
         assert_eq!(xs1.as_slice1(), expected);
     }
 
