@@ -151,6 +151,11 @@ impl Range1<usize> {
             })
         }
     }
+
+    pub fn len(&self) -> NonZeroUsize {
+        // SAFETY: `self` is non-empty, so the length is non-zero.
+        unsafe { NonZeroUsize::new_unchecked(self.end() - self.start()) }
+    }
 }
 
 impl<T> From<Range1<T>> for Range<T> {
@@ -354,6 +359,11 @@ impl RangeInclusive1<usize> {
                 last: usize::MAX,
             })
         }
+    }
+
+    pub fn len(&self) -> NonZeroUsize {
+        // SAFETY: (...) + 1 is non-zero.
+        unsafe { NonZeroUsize::new_unchecked((self.last() - self.start()).strict_add(1)) }
     }
 }
 
