@@ -295,7 +295,7 @@ macro_rules! range1 {
             congruent_unsafe_ord_bounds(&start, &end);
             assert!(start < end);
 
-            // SAFETY: `$start` is less than `$end` (per the above assertion) and so the range is
+            // SAFETY: `start` is less than `end` (per the above assertion) and so the range is
             //         non-empty.
             unsafe { $crate::ops1::Range1::from_range_unchecked(start..end) }
         }
@@ -319,8 +319,8 @@ macro_rules! range1 {
             congruent_unsafe_ord_bounds(&start, &end);
             assert!(start <= end);
 
-            // SAFETY: `$start` is less than or equal to `$end` (per the above assertion) and so
-            //         the range is non-empty.
+            // SAFETY: `start` is less than or equal to `end` (per the above assertion) and so the
+            //         range is non-empty.
             unsafe { $crate::ops1::RangeInclusive1::from_range_inclusive_unchecked(start..=end) }
         }
     }};
@@ -397,32 +397,32 @@ mod tests {
 
 mod _compile_fail_tests {
     /// ```compile_fail
-    /// let xs = mitsein::range1!(0..0);
+    /// let xs = mitsein::ops1::range1!(0..0);
     /// ```
     #[doc(hidden)]
-    const fn _empty_bounds_then_exclusive_range1_compilation_fails() {}
+    const fn _empty_bounds_then_exclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::range1!(0u64..1u32);
+    /// let xs = mitsein::ops1::range1!(0u64..1u32);
     /// ```
     #[doc(hidden)]
-    const fn _incongruent_bounds_then_exclusive_range1_compilation_fails() {}
+    const fn _incongruent_bounds_then_exclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::range1!(0u64..=1u32);
+    /// let xs = mitsein::ops1::range1!(0u64..=1u32);
     /// ```
     #[doc(hidden)]
-    const fn _incongruent_bounds_then_inclusive_range1_compilation_fails() {}
+    const fn _incongruent_bounds_then_inclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::range1!(1..0);
+    /// let xs = mitsein::ops1::range1!(1..0);
     /// ```
     #[doc(hidden)]
-    const fn _unordered_bounds_then_exclusive_range1_compilation_fails() {}
+    const fn _unordered_bounds_then_exclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::range1!(1..=0);
+    /// let xs = mitsein::ops1::range1!(1..=0);
     /// ```
     #[doc(hidden)]
-    const fn _unordered_bounds_then_inclusive_range1_compilation_fails() {}
+    const fn _unordered_bounds_then_inclusive_range1_macro_compilation_fails() {}
 }

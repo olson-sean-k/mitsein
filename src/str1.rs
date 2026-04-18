@@ -514,16 +514,16 @@ mod tests {
 
 mod _compile_fail_tests {
     /// ```compile_fail
-    /// let _ = mitsein::str1!("");
+    /// let _ = mitsein::str1::str1!("");
     /// ```
     #[doc(hidden)]
-    const fn _empty_literal_then_str1_compilation_fails() {}
+    const fn _empty_literal_then_str1_macro_compilation_fails() {}
 
     /// ```compile_fail
     /// const STRING: &str = "";
     ///
-    /// let _ = mitsein::str1!(STRING);
+    /// let _ = mitsein::str1::str1!(STRING);
     /// ```
     #[doc(hidden)]
-    const fn _empty_constant_then_str1_compilation_fails() {}
+    const fn _empty_constant_then_str1_macro_compilation_fails() {}
 }

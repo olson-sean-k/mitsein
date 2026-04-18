@@ -1814,14 +1814,14 @@ mod tests {
 
 mod _compile_fail_tests {
     /// ```compile_fail
-    /// let xs = mitsein::vec1![];
+    /// let xs = mitsein::vec1::vec1![];
     /// ```
     #[doc(hidden)]
-    const fn _empty_rep_expr_metaparameters_then_vec1_compilation_fails() {}
+    const fn _empty_rep_expr_then_vec1_macro_compilation_fails() {}
 
     /// ```compile_fail,E0277
-    /// let xs = mitsein::vec1![0u8; 0];
+    /// let xs = mitsein::vec1::vec1![0u8; 0];
     /// ```
     #[doc(hidden)]
-    const fn _empty_expr_count_metaparameters_then_vec1_compilation_fails() {}
+    const fn _empty_expr_count_then_vec1_macro_compilation_fails() {}
 }
