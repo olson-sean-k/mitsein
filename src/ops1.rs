@@ -251,6 +251,32 @@ where
 #[macro_export]
 macro_rules! range1 {
     ($start:literal .. $end:literal) => {{
+        $crate::ops1::range1!(@closed $start, @open $end)
+    }};
+    ($start:literal .. $end:tt) => {{
+        $crate::ops1::range1!(@closed $start, @open $end)
+    }};
+    ($start:tt .. $end:literal) => {{
+        $crate::ops1::range1!(@closed $start, @open $end)
+    }};
+    ($start:tt .. $end:tt) => {{
+        $crate::ops1::range1!(@closed $start, @open $end)
+    }};
+
+    ($start:literal ..= $end:literal) => {{
+        $crate::ops1::range1!(@closed $start, @closed $end)
+    }};
+    ($start:literal ..= $end:tt) => {{
+        $crate::ops1::range1!(@closed $start, @closed $end)
+    }};
+    ($start:tt ..= $end:literal) => {{
+        $crate::ops1::range1!(@closed $start, @closed $end)
+    }};
+    ($start:tt ..= $end:tt) => {{
+        $crate::ops1::range1!(@closed $start, @closed $end)
+    }};
+
+    (@closed $start:expr, @open $end:expr) => {{
         const {
             const fn congruent_unsafe_ord_bounds<T>(_start: &T, _end: &T)
             where
@@ -265,7 +291,7 @@ macro_rules! range1 {
             unsafe { $crate::ops1::Range1::from_range_unchecked($start..$end) }
         }
     }};
-    ($start:literal ..= $end:literal) => {{
+    (@closed $start:expr, @closed $end:expr) => {{
         const {
             const fn congruent_unsafe_ord_bounds<T>(_start: &T, _end: &T)
             where
