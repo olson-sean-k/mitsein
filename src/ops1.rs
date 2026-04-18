@@ -283,12 +283,21 @@ macro_rules! range1 {
                 T: $crate::cmp::UnsafeOrd,
             {
             }
-            congruent_unsafe_ord_bounds(&$start, &$end);
-            assert!($start < $end);
+
+            // LINT: To support `..` and `..=` syntax, other matchers of this macro match against
+            //       token trees, which often require parentheses that raise `unused_parens` when
+            //       in expressions (here). For example, in `range1!(0..(N + 1))`, the expression
+            //       `N + 1` must be delimited by parentheses to match.
+            #[allow(unused_parens)]
+            let start = $start;
+            #[allow(unused_parens)]
+            let end = $end;
+            congruent_unsafe_ord_bounds(&start, &end);
+            assert!(start < end);
 
             // SAFETY: `$start` is less than `$end` (per the above assertion) and so the range is
             //         non-empty.
-            unsafe { $crate::ops1::Range1::from_range_unchecked($start..$end) }
+            unsafe { $crate::ops1::Range1::from_range_unchecked(start..end) }
         }
     }};
     (@closed $start:expr, @closed $end:expr) => {{
@@ -298,12 +307,21 @@ macro_rules! range1 {
                 T: $crate::cmp::UnsafeOrd,
             {
             }
-            congruent_unsafe_ord_bounds(&$start, &$end);
-            assert!($start <= $end);
+
+            // LINT: To support `..` and `..=` syntax, other matchers of this macro match against
+            //       token trees, which often require parentheses that raise `unused_parens` when
+            //       in expressions (here). For example, in `range1!(0..(N + 1))`, the expression
+            //       `N + 1` must be delimited by parentheses to match.
+            #[allow(unused_parens)]
+            let start = $start;
+            #[allow(unused_parens)]
+            let end = $end;
+            congruent_unsafe_ord_bounds(&start, &end);
+            assert!(start <= end);
 
             // SAFETY: `$start` is less than or equal to `$end` (per the above assertion) and so
             //         the range is non-empty.
-            unsafe { $crate::ops1::RangeInclusive1::from_range_inclusive_unchecked($start..=$end) }
+            unsafe { $crate::ops1::RangeInclusive1::from_range_inclusive_unchecked(start..=end) }
         }
     }};
 }
