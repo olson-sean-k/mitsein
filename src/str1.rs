@@ -447,6 +447,21 @@ pub fn from_utf8_mut(items: &mut Slice1<u8>) -> Result<&mut Str1, Utf8Error> {
     }
 }
 
+#[macro_export]
+macro_rules! str1 {
+    ($items:expr) => {{
+        const {
+            let items: &'_ str = $items;
+            assert!(!items.is_empty());
+
+            // SAFETY: `items` is non-empty per the above assertion, which is consistent with
+            //         `str::len` and the `MaybeEmpty::cardinality` implementation for `str`.
+            unsafe { $crate::str1::Str1::from_str_unchecked(items) }
+        }
+    }};
+}
+pub use str1;
+
 #[cfg(test)]
 pub mod harness {
     use rstest::fixture;
@@ -495,4 +510,20 @@ mod tests {
         let borrowed_str = borrowed_str.as_slice();
         serde::harness::assert_ref_from_tokens_eq(xs1, borrowed_str)
     }
+}
+
+mod _compile_fail_tests {
+    /// ```compile_fail
+    /// let _ = mitsein::str1!("");
+    /// ```
+    #[doc(hidden)]
+    const fn _empty_literal_then_str1_compilation_fails() {}
+
+    /// ```compile_fail
+    /// const STRING: &str = "";
+    ///
+    /// let _ = mitsein::str1!(STRING);
+    /// ```
+    #[doc(hidden)]
+    const fn _empty_constant_then_str1_compilation_fails() {}
 }
