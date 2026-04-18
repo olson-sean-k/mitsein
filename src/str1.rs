@@ -34,12 +34,10 @@ use {crate::boxed1::BoxedStr1, crate::string1::String1};
 
 unsafe impl MaybeEmpty for str {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
-        // Unlike other containers, the items (bytes) in UTF-8 encoded strings are incongruent with
-        // the items manipulated by insertions and removals: code points (`char`s). Cardinality is
-        // based on code points formed from the UTF-8 rather than the count of bytes. This can
-        // present some edge cases, such as a non-zero number of invalid UTF-8 bytes that cannot be
-        // interpreted as code points.
-        match self.chars().take(2).count() {
+        // `str` represents a valid UTF-8 encoded string. This implementation is therefore
+        // consistent with APIs like `Str1::chars1`, since it is not possible (without `unsafe`
+        // code) for a `str` of one or more bytes to yield no code points.
+        match self.len() {
             0 => None,
             1 => Some(Cardinality::One(())),
             _ => Some(Cardinality::Many(())),
