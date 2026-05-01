@@ -71,13 +71,11 @@ where
         R: Iterator<Item = L::Item>,
     {
         let items = match self {
-            Either::Left(items) => self::empty_or_into::<L>(Some(items.into_iter()))
-                .chain(self::empty_or_into::<R>(None)),
-            Either::Right(items) => self::empty_or_into::<L>(None)
-                .chain(self::empty_or_into::<R>(Some(items.into_iter()))),
+            Either::Left(items) => Either::Left(items.items),
+            Either::Right(items) => Either::Right(items.items),
         };
-        // SAFETY: Both the left and right values are non-empty iterators, so one of the iterators
-        //         in the chain in `items` is non-empty, and therefore `items` is non-empty.
+        // SAFETY: Whichever branch is taken, the inner iterator is non-empty, so `items` is
+        // non-empty.
         unsafe { Iterator1::from_iter_unchecked(items) }
     }
 }
@@ -432,7 +430,7 @@ pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 #[cfg(feature = "either")]
 #[cfg_attr(docsrs, doc(cfg(feature = "either")))]
-pub type LeftOrRight<L, R> = Iterator1<Chain<EmptyOrInto<L>, EmptyOrInto<R>>>;
+pub type LeftOrRight<L, R> = Iterator1<Either<L, R>>;
 
 pub type Result<I> = result::Result<Iterator1<Peekable<I>>, EmptyError<Peekable<I>>>;
 
