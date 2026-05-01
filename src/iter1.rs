@@ -60,22 +60,17 @@ pub trait EitherExt<L, R> {
 
 #[cfg(feature = "either")]
 #[cfg_attr(docsrs, doc(cfg(feature = "either")))]
-impl<L, R> EitherExt<L, R> for Either<Iterator1<L>, Iterator1<R>>
+impl<L, R> EitherExt<L::IntoIter, R::IntoIter> for Either<L, R>
 where
-    L: Iterator,
-    R: Iterator<Item = L::Item>,
+    L: IntoIterator1,
+    R: IntoIterator1<Item = L::Item>,
 {
-    fn into_iter1(self) -> LeftOrRight<L, R>
-    where
-        L: Iterator,
-        R: Iterator<Item = L::Item>,
-    {
+    fn into_iter1(self) -> LeftOrRight<L::IntoIter, R::IntoIter> {
         let items = match self {
-            Either::Left(items) => Either::Left(items.items),
-            Either::Right(items) => Either::Right(items.items),
+            Either::Left(items) => Either::Left(items.into_iter1().items),
+            Either::Right(items) => Either::Right(items.into_iter1().items),
         };
-        // SAFETY: Whichever branch is taken, the inner iterator is non-empty, so `items` is
-        // non-empty.
+        // SAFETY: Whichever branch is taken, `into_iter1().items` is non-empty.
         unsafe { Iterator1::from_iter_unchecked(items) }
     }
 }
