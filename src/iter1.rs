@@ -15,8 +15,6 @@ use core::net::{Ipv4Addr, Ipv6Addr};
 use core::num::NonZeroUsize;
 use core::option;
 use core::result;
-#[cfg(feature = "either")]
-use either::Either;
 #[cfg(feature = "itertools")]
 use itertools::{
     Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
@@ -32,6 +30,8 @@ use {
     core::hash::Hash,
     itertools::{MultiPeek, Powerset, Tee},
 };
+#[cfg(feature = "either")]
+use {core::iter::Fuse, either::Either};
 #[cfg(all(feature = "itertools", feature = "std"))]
 use {
     itertools::{GroupingMap, Unique, UniqueBy},
@@ -49,36 +49,35 @@ use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty, NonZeroExt as _};
 // Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
 // implementation. In particular, the `IntoIterator::IntoIter` type for `Either` is itself, and so
 // it is impossible to output an appropriate `Iterator1` type in an `IntoIterator1` implementation.
+// In this way, `EitherExt::into_iter1` is analogous to the _inherent_ `Either::into_iter` function.
+//
+// See https://github.com/rayon-rs/either/issues/136
 #[cfg(feature = "either")]
 #[cfg_attr(docsrs, doc(cfg(feature = "either")))]
 pub trait EitherExt<L, R> {
     fn into_iter1(self) -> LeftOrRight<L, R>
     where
-        L: Iterator,
-        R: Iterator<Item = L::Item>;
+        L: IntoIterator1,
+        R: IntoIterator1<Item = L::Item>;
 }
 
 #[cfg(feature = "either")]
 #[cfg_attr(docsrs, doc(cfg(feature = "either")))]
-impl<L, R> EitherExt<L, R> for Either<Iterator1<L>, Iterator1<R>>
-where
-    L: Iterator,
-    R: Iterator<Item = L::Item>,
-{
+impl<L, R> EitherExt<L, R> for Either<L, R> {
     fn into_iter1(self) -> LeftOrRight<L, R>
     where
-        L: Iterator,
-        R: Iterator<Item = L::Item>,
+        L: IntoIterator1,
+        R: IntoIterator1<Item = L::Item>,
     {
-        let items = match self {
-            Either::Left(items) => self::empty_or_into::<L>(Some(items.into_iter()))
-                .chain(self::empty_or_into::<R>(None)),
-            Either::Right(items) => self::empty_or_into::<L>(None)
-                .chain(self::empty_or_into::<R>(Some(items.into_iter()))),
-        };
-        // SAFETY: Both the left and right values are non-empty iterators, so one of the iterators
-        //         in the chain in `items` is non-empty, and therefore `items` is non-empty.
-        unsafe { Iterator1::from_iter_unchecked(items) }
+        // SAFETY: Both the left and right values are `IntoIterator1`, so the interior `Either`
+        //         iterator is non-empty no matter which value is present.
+        unsafe {
+            Iterator1::from_iter_unchecked(
+                self.map_left(IntoIterator::into_iter)
+                    .map_right(IntoIterator::into_iter)
+                    .fuse(),
+            )
+        }
     }
 }
 
@@ -430,9 +429,21 @@ pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
+// This type definition introduces a `Fuse` into its composition. Though `Either` implements
+// `Iterator` and so `Iterator1<Either<_, _>>` alone functions here, `Either` has a direct
+// `Iterator` implementation, which is a known antipattern. `Fuse` prevents any interaction with
+// `Either` to form a dedicated `Iterator` type that, among other things, can only be modified as an
+// `Iterator` (and never as an `Either`), cannot be copied, etc.
+//
+// Though `Iterator1` does not _directly_ expose its inner `Iterator`, this is still important for
+// its mapping functions like `Iterator1::and_then_try` and `Iterator1::map_first_and_then` as well
+// as conversions into a maybe-empty `Iterator`.
+//
+// See https://github.com/rayon-rs/either/issues/136
 #[cfg(feature = "either")]
 #[cfg_attr(docsrs, doc(cfg(feature = "either")))]
-pub type LeftOrRight<L, R> = Iterator1<Chain<EmptyOrInto<L>, EmptyOrInto<R>>>;
+pub type LeftOrRight<L, R> =
+    Iterator1<Fuse<Either<<L as IntoIterator>::IntoIter, <R as IntoIterator>::IntoIter>>>;
 
 pub type Result<I> = result::Result<Iterator1<Peekable<I>>, EmptyError<Peekable<I>>>;
 
@@ -1464,8 +1475,12 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "either")]
+    use either::Either;
     use rstest::rstest;
 
+    #[cfg(feature = "either")]
+    use crate::iter1::EitherExt as _;
     use crate::iter1::{IntoIterator1, ThenIterator1};
     use crate::slice1::{Slice1, slice1};
     #[cfg(feature = "alloc")]
@@ -1513,6 +1528,37 @@ mod tests {
     ) {
         let xs: Result<Vec1<_>, _> = xs.into_iter1().collect1();
         assert_eq!(xs, expected);
+    }
+
+    #[cfg(all(feature = "alloc", feature = "either"))]
+    #[rstest]
+    #[case::left(Either::Left, [0, 1, 2], slice1![0, 1, 2])]
+    #[case::right(Either::Right, [2, 1, 0], slice1![2, 1, 0])]
+    fn collect1_symmetrical_either_into_vec1_then_eq<I, F>(
+        #[case] f: F,
+        #[case] xs: I,
+        #[case] expected: &Slice1<u8>,
+    ) where
+        I: IntoIterator1<Item = u8>,
+        F: FnOnce(I) -> Either<I, I>,
+    {
+        let xs: Vec1<_> = f(xs).into_iter1().collect1();
+        assert_eq!(xs.as_slice1(), expected);
+    }
+
+    // This is more of a static API test than anything else. It is important that this _builds_,
+    // which means that `EitherExt::into_iter1` is implemented for `Either` types with different
+    // left and right `IntoIterator1` types (here, `Vec1` and `array`).
+    #[cfg(all(feature = "alloc", feature = "either"))]
+    #[rstest]
+    #[case::left(Either::Left(Vec1::from([0, 1, 2])), slice1![0, 1, 2])]
+    #[case::right(Either::Right([2, 1, 0]), slice1![2, 1, 0])]
+    fn collect1_asymmetrical_either_into_vec1_then_eq(
+        #[case] xs: Either<Vec1<u8>, [u8; 3]>,
+        #[case] expected: &Slice1<u8>,
+    ) {
+        let xs: Vec1<_> = xs.into_iter1().collect1();
+        assert_eq!(xs.as_slice1(), expected);
     }
 
     #[rstest]
