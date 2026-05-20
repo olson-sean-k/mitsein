@@ -340,7 +340,17 @@ impl<T> Vec1<T> {
     where
         F: FnOnce(&mut T) -> bool,
     {
-        self.pop_if_many().take_if(|items| f(items.last_mut()))
+        match self.cardinality() {
+            Cardinality::One(_) => None,
+            Cardinality::Many(_) => {
+                if f(self.last_mut()) {
+                    self.items.pop()
+                }
+                else {
+                    None
+                }
+            },
+        }
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
