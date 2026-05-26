@@ -15,6 +15,8 @@ use core::net::{Ipv4Addr, Ipv6Addr};
 use core::num::NonZeroUsize;
 use core::option;
 use core::result;
+#[cfg(feature = "either")]
+use either::Either;
 #[cfg(feature = "itertools")]
 use itertools::{
     Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
@@ -30,8 +32,6 @@ use {
     core::hash::Hash,
     itertools::{MultiPeek, Powerset, Tee},
 };
-#[cfg(feature = "either")]
-use {core::iter::Fuse, either::Either};
 #[cfg(all(feature = "itertools", feature = "std"))]
 use {
     itertools::{GroupingMap, Unique, UniqueBy},
@@ -55,7 +55,7 @@ use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty, NonZeroExt as _};
 #[cfg(feature = "either")]
 #[cfg_attr(docsrs, doc(cfg(feature = "either")))]
 pub trait EitherExt<L, R> {
-    fn into_iter1(self) -> LeftOrRight<L, R>
+    fn into_iter1(self) -> Iterator1<Either<L::IntoIter, R::IntoIter>>
     where
         L: IntoIterator1,
         R: IntoIterator1<Item = L::Item>;
@@ -64,7 +64,7 @@ pub trait EitherExt<L, R> {
 #[cfg(feature = "either")]
 #[cfg_attr(docsrs, doc(cfg(feature = "either")))]
 impl<L, R> EitherExt<L, R> for Either<L, R> {
-    fn into_iter1(self) -> LeftOrRight<L, R>
+    fn into_iter1(self) -> Iterator1<Either<L::IntoIter, R::IntoIter>>
     where
         L: IntoIterator1,
         R: IntoIterator1<Item = L::Item>,
@@ -74,8 +74,7 @@ impl<L, R> EitherExt<L, R> for Either<L, R> {
         unsafe {
             Iterator1::from_iter_unchecked(
                 self.map_left(IntoIterator::into_iter)
-                    .map_right(IntoIterator::into_iter)
-                    .fuse(),
+                    .map_right(IntoIterator::into_iter),
             )
         }
     }
@@ -428,22 +427,6 @@ pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
 pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
-
-// This type definition introduces a `Fuse` into its composition. Though `Either` implements
-// `Iterator` and so `Iterator1<Either<_, _>>` alone functions here, `Either` has a direct
-// `Iterator` implementation, which is a known antipattern. `Fuse` prevents any interaction with
-// `Either` to form a dedicated `Iterator` type that, among other things, can only be modified as an
-// `Iterator` (and never as an `Either`), cannot be copied, etc.
-//
-// Though `Iterator1` does not _directly_ expose its inner `Iterator`, this is still important for
-// its mapping functions like `Iterator1::and_then_try` and `Iterator1::map_first_and_then` as well
-// as conversions into a maybe-empty `Iterator`.
-//
-// See https://github.com/rayon-rs/either/issues/136
-#[cfg(feature = "either")]
-#[cfg_attr(docsrs, doc(cfg(feature = "either")))]
-pub type LeftOrRight<L, R> =
-    Iterator1<Fuse<Either<<L as IntoIterator>::IntoIter, <R as IntoIterator>::IntoIter>>>;
 
 pub type Result<I> = result::Result<Iterator1<Peekable<I>>, EmptyError<Peekable<I>>>;
 
