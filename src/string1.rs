@@ -688,7 +688,7 @@ pub mod harness {
 
     #[fixture]
     pub fn xs1(#[default(4)] end: u8) -> String1 {
-        iter1::one('x')
+        iter1::once('x')
             .first_and_then_take(usize::from(end))
             .collect1()
     }

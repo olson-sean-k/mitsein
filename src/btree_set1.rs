@@ -203,7 +203,7 @@ impl<T> BTreeSet1<T> {
     where
         T: Ord,
     {
-        iter1::one(item).collect1()
+        iter1::once(item).collect1()
     }
 
     pub fn from_head_and_tail<I>(head: T, tail: I) -> Self

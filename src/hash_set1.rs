@@ -446,7 +446,7 @@ where
     S: BuildHasher + Default,
 {
     pub fn from_one(item: T) -> Self {
-        iter1::one(item).collect1()
+        iter1::once(item).collect1()
     }
 }
 

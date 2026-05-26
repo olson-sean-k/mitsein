@@ -491,7 +491,7 @@ impl<K, V> BTreeMap1<K, V> {
     where
         K: Ord,
     {
-        iter1::one(item).collect1()
+        iter1::once(item).collect1()
     }
 
     pub fn from_head_and_tail<I>(head: (K, V), tail: I) -> Self

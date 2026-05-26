@@ -457,7 +457,7 @@ where
     }
 
     pub fn from_one(item: T) -> Self {
-        iter1::one(item).collect1()
+        iter1::once(item).collect1()
     }
 
     pub fn from_array<const M: usize>(items: [T; M]) -> Self

@@ -165,7 +165,7 @@ impl<T> VecDeque1<T> {
     }
 
     pub fn from_one(item: T) -> Self {
-        iter1::one(item).collect1()
+        iter1::once(item).collect1()
     }
 
     pub fn from_one_with_capacity(item: T, capacity: usize) -> Self {

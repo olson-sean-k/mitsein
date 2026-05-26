@@ -1110,7 +1110,7 @@ where
     where
         S: Default,
     {
-        iter1::one(item).collect1()
+        iter1::once(item).collect1()
     }
 
     pub fn from_one_with_hasher(item: (K, V), hasher: S) -> Self {

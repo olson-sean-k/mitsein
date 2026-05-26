@@ -272,7 +272,7 @@ where
                 group.extend(Some(value));
                 Some(group)
             },
-            _ => Some(self::one(value).collect1()),
+            _ => Some(self::once(value).collect1()),
         })
     }
 }
@@ -408,19 +408,11 @@ where
     }
 }
 
-pub type AtMostOne<T> = Once<T>;
-
-pub type ExactlyOne<T> = Iterator1<AtMostOne<T>>;
-
-pub type AtMostOneWith<F> = OnceWith<F>;
-
-pub type ExactlyOneWith<F> = Iterator1<AtMostOneWith<F>>;
-
 pub type HeadAndTail<T> =
-    Iterator1<Chain<AtMostOne<<T as IntoIterator>::Item>, <T as IntoIterator>::IntoIter>>;
+    Iterator1<Chain<Once<<T as IntoIterator>::Item>, <T as IntoIterator>::IntoIter>>;
 
 pub type RTailAndHead<T> =
-    Iterator1<Chain<<T as IntoIterator>::IntoIter, AtMostOne<<T as IntoIterator>::Item>>>;
+    Iterator1<Chain<<T as IntoIterator>::IntoIter, Once<<T as IntoIterator>::Item>>>;
 
 pub type EmptyOrInto<T> = Flatten<option::IntoIter<<T as IntoIterator>::IntoIter>>;
 
@@ -1374,12 +1366,12 @@ where
     }
 }
 
-pub fn one<T>(item: T) -> ExactlyOne<T> {
+pub fn once<T>(item: T) -> Iterator1<Once<T>> {
     // SAFETY: `Some(item)` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(iter::once(item)) }
 }
 
-pub fn one_with<T, F>(f: F) -> ExactlyOneWith<F>
+pub fn once_with<T, F>(f: F) -> Iterator1<OnceWith<F>>
 where
     F: FnOnce() -> T,
 {
@@ -1391,14 +1383,14 @@ pub fn head_and_tail<T, I>(head: T, tail: I) -> HeadAndTail<I>
 where
     I: IntoIterator<Item = T>,
 {
-    self::one(head).chain(tail)
+    self::once(head).chain(tail)
 }
 
 pub fn rtail_and_head<I, T>(tail: I, head: T) -> RTailAndHead<I>
 where
     I: IntoIterator<Item = T>,
 {
-    tail.into_iter().chain_non_empty(self::one(head))
+    tail.into_iter().chain_non_empty(self::once(head))
 }
 
 pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
