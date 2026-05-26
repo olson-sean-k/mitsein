@@ -8,8 +8,8 @@
 use core::cmp::Ordering;
 use core::fmt::Debug;
 use core::iter::{
-    self, Chain, Cloned, Copied, Cycle, Enumerate, FlatMap, Flatten, Inspect, Map, Peekable,
-    Repeat, RepeatN, RepeatWith, Rev, Skip, StepBy, Successors, Take, Zip,
+    self, Chain, Cloned, Copied, Cycle, Enumerate, FlatMap, Flatten, Inspect, Map, Once, OnceWith,
+    Peekable, Repeat, RepeatN, RepeatWith, Rev, Skip, StepBy, Successors, Take, Zip,
 };
 use core::net::{Ipv4Addr, Ipv6Addr};
 use core::num::NonZeroUsize;
@@ -408,11 +408,11 @@ where
     }
 }
 
-pub type AtMostOne<T> = option::IntoIter<T>;
+pub type AtMostOne<T> = Once<T>;
 
 pub type ExactlyOne<T> = Iterator1<AtMostOne<T>>;
 
-pub type AtMostOneWith<F> = iter::OnceWith<F>;
+pub type AtMostOneWith<F> = OnceWith<F>;
 
 pub type ExactlyOneWith<F> = Iterator1<AtMostOneWith<F>>;
 
@@ -422,7 +422,7 @@ pub type HeadAndTail<T> =
 pub type RTailAndHead<T> =
     Iterator1<Chain<<T as IntoIterator>::IntoIter, AtMostOne<<T as IntoIterator>::Item>>>;
 
-pub type EmptyOrInto<T> = Flatten<AtMostOne<<T as IntoIterator>::IntoIter>>;
+pub type EmptyOrInto<T> = Flatten<option::IntoIter<<T as IntoIterator>::IntoIter>>;
 
 pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
@@ -1376,7 +1376,7 @@ where
 
 pub fn one<T>(item: T) -> ExactlyOne<T> {
     // SAFETY: `Some(item)` is non-empty.
-    unsafe { Iterator1::from_iter_unchecked(Some(item)) }
+    unsafe { Iterator1::from_iter_unchecked(iter::once(item)) }
 }
 
 pub fn one_with<T, F>(f: F) -> ExactlyOneWith<F>
