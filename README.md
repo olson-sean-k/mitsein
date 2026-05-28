@@ -93,11 +93,10 @@ let xs = Vec1::from([0i32, 1, 2, 3, 4]);
 let ys: Vec1<_> = xs.into_iter1().map(|x| x * 2).collect1();
 ```
 
-Mitsein provides subset APIs, which isolate a subset of a collection that
-supports insertions and removals. A subset of a non-empty collections can be
-constructed prior to removals, which consolidates error conditions: a strict
-subset can be freely manipulated without checks or errors after its
-construction.
+Mitsein provides subset APIs that isolate a subset of a non-empty collection. A
+subset can be constructed prior to removals, which consolidates error
+conditions: a strict subset can be freely manipulated without checks or errors
+after its construction.
 
 ```rust
 use mitsein::prelude::*;
@@ -116,7 +115,7 @@ assert_eq!(xs.as_slice(), &[1i32, 3, 4]);
 ```
 
 Subsets can also be constructed by key, which is the only type of subset
-supported by unordered collections like `HashSet1`.
+supported by unordered non-empty collections like `HashSet1`.
 
 ```rust
 use mitsein::hash_set1::HashSet1;

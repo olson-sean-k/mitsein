@@ -1,4 +1,4 @@
-//! Subsets of collections by key.
+//! Unordered subsets of non-empty collections by key.
 
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
@@ -7,8 +7,6 @@
 use alloc::borrow::ToOwned;
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
-
-use crate::subset::SubsetFor;
 
 #[derive(Clone, Copy, Debug)]
 pub struct KeyNotFoundError<Q> {
@@ -56,33 +54,19 @@ where
 
 impl<Q> Error for KeyNotFoundError<Q> where Q: Debug {}
 
-pub trait ByKey<Q>: SubsetFor
-where
-    Q: ?Sized,
-{
-    // LINT: Though this type is quite complex, the indirection introduced by a type defintion is
-    //       arguably less clear and a bit trickier to understand.
-    #[allow(clippy::type_complexity)]
-    fn except<'a>(
-        &'a mut self,
-        key: &'a Q,
-    ) -> Result<ExceptKeySubset<'a, Self::Kind, Self::Target, Q>, KeyNotFoundError<&'a Q>>;
-}
-
+#[derive(Debug)]
 #[must_use]
-pub struct ExceptKeySubset<'a, K, T, Q>
+pub struct ExceptKeySubset<'a, T, Q>
 where
-    K: ?Sized + SubsetFor<Target = T>,
     T: ?Sized,
     Q: ?Sized,
 {
-    pub(crate) items: &'a mut K::Target,
+    pub(crate) items: &'a mut T,
     pub(crate) key: &'a Q,
 }
 
-impl<'a, K, T, Q> ExceptKeySubset<'a, K, T, Q>
+impl<'a, T, Q> ExceptKeySubset<'a, T, Q>
 where
-    K: ?Sized + SubsetFor<Target = T>,
     T: ?Sized,
     Q: ?Sized,
 {
@@ -93,20 +77,5 @@ where
 
     pub fn key(&self) -> &Q {
         self.key
-    }
-}
-
-impl<K, T, Q> Debug for ExceptKeySubset<'_, K, T, Q>
-where
-    K: ?Sized + SubsetFor<Target = T>,
-    T: Debug + ?Sized,
-    Q: Debug + ?Sized,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ExceptKeySubset")
-            .field("items", &self.items)
-            .field("key", &self.key)
-            .finish()
     }
 }

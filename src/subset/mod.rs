@@ -1,4 +1,4 @@
-//! Views into subsets of collections.
+//! Views into subsets of non-empty collections.
 
 // SAFETY: Though this module contains no unsafe code, an incorrect implementation is unsound.
 //         Subset APIs interact directly with item removal and so bugs here may break the non-empty
@@ -11,8 +11,3 @@ mod unordered;
 pub use crate::subset::ordered::*;
 #[cfg(feature = "alloc")]
 pub use crate::subset::unordered::*;
-
-pub trait SubsetFor {
-    type Kind: SubsetFor<Target = Self::Target> + ?Sized;
-    type Target: ?Sized;
-}

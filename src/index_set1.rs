@@ -36,7 +36,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::subset::range::{self, IndexRange, Intersect, Project, RangeError};
-use crate::subset::{self, ByKey, ByRange, ByTail, KeyNotFoundError, SubsetFor};
+use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
@@ -56,48 +56,6 @@ impl<T, S> ClosedIndexSet for IndexSet<T, S> {
 
     fn as_index_set(&self) -> &IndexSet<Self::Item, Self::State> {
         self
-    }
-}
-
-impl<T, S, Q> ByKey<Q> for IndexSet<T, S>
-where
-    S: BuildHasher,
-    Q: Equivalent<T> + Hash + ?Sized,
-{
-    fn except<'a>(
-        &'a mut self,
-        key: &'a Q,
-    ) -> Result<ExceptKeySubset<'a, Self, Q>, KeyNotFoundError<&'a Q>> {
-        self.contains(key)
-            .then_some(ExceptKeySubset::unchecked(self, key))
-            .ok_or_else(|| KeyNotFoundError::from_key(key))
-    }
-}
-
-impl<T, S, R> ByRange<usize, R> for IndexSet<T, S>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
-        let n = self.len();
-        OnlyRangeSubset::intersected(self, n, range)
-    }
-}
-
-impl<T, S> ByTail for IndexSet<T, S> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
-        let n = self.len();
-        OnlyRangeSubset::from_tail_range(self, n)
-    }
-
-    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
-        let n = self.len();
-        OnlyRangeSubset::from_rtail_range(self, n)
     }
 }
 
@@ -125,11 +83,6 @@ unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
             _ => Some(crate::Cardinality::Many(())),
         }
     }
-}
-
-impl<T, S> SubsetFor for IndexSet<T, S> {
-    type Kind = Self;
-    type Target = Self;
 }
 
 type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, IndexSet<T, S>, U, N>;
@@ -497,6 +450,26 @@ impl<T, S> IndexSet1<T, S> {
     }
 }
 
+impl<T, S> IndexSet1<T, S> {
+    pub fn only<R>(&mut self, range: R) -> Result<OnlyRangeSubset<'_, T, S>, RangeError<usize>>
+    where
+        R: RangeBounds<usize>,
+    {
+        let n = self.items.len();
+        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
+    }
+
+    pub fn tail(&mut self) -> OnlyRangeSubset<'_, T, S> {
+        let n = self.items.len();
+        OnlyRangeSubset::from_tail_range(&mut self.items, n)
+    }
+
+    pub fn rtail(&mut self) -> OnlyRangeSubset<'_, T, S> {
+        let n = self.items.len();
+        OnlyRangeSubset::from_rtail_range(&mut self.items, n)
+    }
+}
+
 impl<T, S> IndexSet1<T, S>
 where
     S: BuildHasher,
@@ -720,6 +693,23 @@ where
         SR: BuildHasher,
     {
         self.items.is_superset(other.as_index_set())
+    }
+}
+
+impl<T, S> IndexSet1<T, S>
+where
+    T: UnsafeHash,
+    S: BuildHasher,
+{
+    // TODO: Support isomorphic keys (differentiate between the item type and query type). See
+    //       `OnlyRangeSubset` and `UnsafeOrdIsomorph`.
+    pub fn except<'a>(
+        &'a mut self,
+        key: &'a T,
+    ) -> Result<ExceptKeySubset<'a, T, S, T>, KeyNotFoundError<&'a T>> {
+        self.contains(key)
+            .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
+            .ok_or_else(|| KeyNotFoundError::from_key(key))
     }
 }
 
@@ -1013,47 +1003,6 @@ where
     }
 }
 
-// TODO: Support isomorphic key types (via an `UnsafeHashIsomorph` trait).
-impl<T, S> ByKey<T> for IndexSet1<T, S>
-where
-    T: UnsafeHash,
-    S: BuildHasher,
-{
-    fn except<'a>(
-        &'a mut self,
-        key: &'a T,
-    ) -> Result<ExceptKeySubset<'a, Self, T>, KeyNotFoundError<&'a T>> {
-        self.contains(key)
-            .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
-            .ok_or_else(|| KeyNotFoundError::from_key(key))
-    }
-}
-
-impl<T, S, R> ByRange<usize, R> for IndexSet1<T, S>
-where
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, Self>, Self::Error> {
-        let n = self.items.len();
-        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
-    }
-}
-
-impl<T, S> ByTail for IndexSet1<T, S> {
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> OnlyRangeSubset<'_, Self> {
-        self.items.tail().rekind()
-    }
-
-    fn rtail(&mut self) -> OnlyRangeSubset<'_, Self> {
-        self.items.rtail().rekind()
-    }
-}
-
 impl<T, S> ClosedIndexSet for IndexSet1<T, S> {
     type Item = T;
     type State = S;
@@ -1278,11 +1227,6 @@ where
     }
 }
 
-impl<T, S> SubsetFor for IndexSet1<T, S> {
-    type Kind = Self;
-    type Target = IndexSet<T, S>;
-}
-
 impl<T, S> TryFrom<IndexSet<T, S>> for IndexSet1<T, S> {
     type Error = EmptyError<IndexSet<T, S>>;
 
@@ -1307,16 +1251,14 @@ impl<'a, T, S> TryFrom<&'a mut IndexSet<T, S>> for &'a mut IndexSet1<T, S> {
     }
 }
 
-// Unfortunately, the type of the `ExtractIf` predicate `F` cannot be named in `Except::drain` and
-// so prevents returning a complete type.
-struct DrainExcept<'a, T, F>
+struct DrainExceptKeySubset<'a, T, F>
 where
     F: FnMut(&T) -> bool,
 {
     input: index_set::ExtractIf<'a, T, F>,
 }
 
-impl<T, F> Debug for DrainExcept<'_, T, F>
+impl<T, F> Debug for DrainExceptKeySubset<'_, T, F>
 where
     T: Debug,
     F: FnMut(&T) -> bool,
@@ -1329,7 +1271,7 @@ where
     }
 }
 
-impl<T, F> Drop for DrainExcept<'_, T, F>
+impl<T, F> Drop for DrainExceptKeySubset<'_, T, F>
 where
     F: FnMut(&T) -> bool,
 {
@@ -1338,9 +1280,9 @@ where
     }
 }
 
-impl<T, F> FusedIterator for DrainExcept<'_, T, F> where F: FnMut(&T) -> bool {}
+impl<T, F> FusedIterator for DrainExceptKeySubset<'_, T, F> where F: FnMut(&T) -> bool {}
 
-impl<T, F> Iterator for DrainExcept<'_, T, F>
+impl<T, F> Iterator for DrainExceptKeySubset<'_, T, F>
 where
     F: FnMut(&T) -> bool,
 {
@@ -1351,16 +1293,16 @@ where
     }
 }
 
-pub type ExceptKeySubset<'a, K, Q> =
-    subset::ExceptKeySubset<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, Q>;
+pub type ExceptKeySubset<'a, T, S, Q> = subset::ExceptKeySubset<'a, IndexSet<T, S>, Q>;
 
-impl<K, T, S, Q> ExceptKeySubset<'_, K, Q>
+impl<T, S, Q> ExceptKeySubset<'_, T, S, Q>
 where
-    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
     Q: Equivalent<T> + Hash + ?Sized,
 {
+    // Unfortunately, the type of the `ExtractIf` predicate `F` cannot be named here and so prevents
+    // returning a complete type.
     pub fn drain(&mut self) -> impl '_ + Drop + Iterator<Item = T> {
-        DrainExcept {
+        DrainExceptKeySubset {
             input: self.items.extract_if(.., |item| !self.key.equivalent(item)),
         }
     }
@@ -1384,16 +1326,12 @@ where
     }
 }
 
-pub type OnlyRangeSubset<'a, K> =
-    subset::OnlyRangeSubset<'a, K, IndexSet<ItemFor<K>, StateFor<K>>, IndexRange>;
+pub type OnlyRangeSubset<'a, T, S> = subset::OnlyRangeSubset<'a, IndexSet<T, S>, IndexRange>;
 
 // TODO: It should be possible to safely implement `swap_drain` for subsets over `IndexSet1`. The
 //       `IndexSet::drain` iterator immediately culls its indices but then defers to `vec::Drain`
 //       for removing buckets. `IndexSet::swap_indices` can be used much like `slice::swap` here.
-impl<K, T, S> OnlyRangeSubset<'_, K>
-where
-    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
-{
+impl<T, S> OnlyRangeSubset<'_, T, S> {
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
             self.items.drain(range);
@@ -1458,9 +1396,8 @@ where
     }
 }
 
-impl<K, T, S> OnlyRangeSubset<'_, K>
+impl<T, S> OnlyRangeSubset<'_, T, S>
 where
-    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
     T: Eq + Hash,
     S: BuildHasher,
 {
@@ -1479,32 +1416,21 @@ where
     }
 }
 
-impl<K, T, S, R> ByRange<usize, R> for OnlyRangeSubset<'_, K>
-where
-    IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
-    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
-    R: RangeBounds<usize>,
-{
-    type Range = IndexRange;
-    type Error = RangeError<usize>;
-
-    fn only(&mut self, range: R) -> Result<OnlyRangeSubset<'_, K>, Self::Error> {
+impl<T, S> OnlyRangeSubset<'_, T, S> {
+    pub fn only<R>(&mut self, range: R) -> Result<OnlyRangeSubset<'_, T, S>, RangeError<usize>>
+    where
+        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
+        R: RangeBounds<usize>,
+    {
         let range = self.range.intersect(self.range.project(range)?)?;
         Ok(OnlyRangeSubset::unchecked(self.items, range))
     }
-}
 
-impl<K, T, S> ByTail for OnlyRangeSubset<'_, K>
-where
-    K: ClosedIndexSet<Item = T, State = S> + SubsetFor<Target = IndexSet<T, S>>,
-{
-    type Range = IndexRange;
-
-    fn tail(&mut self) -> OnlyRangeSubset<'_, K> {
+    pub fn tail(&mut self) -> OnlyRangeSubset<'_, T, S> {
         self.project_tail_range()
     }
 
-    fn rtail(&mut self) -> OnlyRangeSubset<'_, K> {
+    pub fn rtail(&mut self) -> OnlyRangeSubset<'_, T, S> {
         let n = self.len();
         self.project_rtail_range(n)
     }
@@ -1532,7 +1458,6 @@ mod tests {
     use crate::index_set1::harness::xs1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    use crate::subset::ByKey;
 
     #[rstest]
     #[case(0, &[1, 2, 3, 4])]
@@ -1540,7 +1465,7 @@ mod tests {
     #[case(2, &[0, 1, 3, 4])]
     #[case(3, &[0, 1, 2, 4])]
     #[case(4, &[0, 1, 2, 3])]
-    fn drain_except_of_index_set1_then_drained_eq(
+    fn drain_except_key_subset_of_index_set1_then_drained_eq(
         mut xs1: IndexSet1<u8>,
         #[case] key: u8,
         #[case] expected: &[u8],
@@ -1555,7 +1480,10 @@ mod tests {
     #[case(2)]
     #[case(3)]
     #[case(4)]
-    fn clear_except_of_index_set1_then_index_set1_eq_key(mut xs1: IndexSet1<u8>, #[case] key: u8) {
+    fn clear_except_key_subset_of_index_set1_then_index_set1_eq_key(
+        mut xs1: IndexSet1<u8>,
+        #[case] key: u8,
+    ) {
         xs1.except(&key).unwrap().clear();
         assert_eq!(xs1, IndexSet1::<_>::from_one(key));
     }
@@ -1566,7 +1494,7 @@ mod tests {
     #[case(2)]
     #[case(3)]
     #[case(4)]
-    fn iter_except_of_index_set1_then_iter_does_not_contain_key(
+    fn iter_except_key_subset_of_index_set1_then_iter_does_not_contain_key(
         mut xs1: IndexSet1<u8>,
         #[case] key: u8,
     ) {

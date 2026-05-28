@@ -433,10 +433,6 @@ pub mod prelude {
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
     pub use crate::slice1::{Slice1, SliceExt as _, slice1};
     pub use crate::str1::Str1;
-    #[cfg(feature = "std")]
-    pub use crate::subset::ByKey as _;
-    #[cfg(any(feature = "alloc", feature = "arrayvec"))]
-    pub use crate::subset::{ByRange as _, ByTail as _};
     #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     pub use crate::sync1::{
         ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
