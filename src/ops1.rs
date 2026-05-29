@@ -71,6 +71,12 @@ impl<T> From<Range1<T>> for Range<T> {
     }
 }
 
+impl<T> From<Range1<T>> for LegacyRange<T> {
+    fn from(items: Range1<T>) -> Self {
+        items.items.into()
+    }
+}
+
 impl<T> IntoIterator for Range1<T>
 where
     Range<T>: IntoIterator<Item = T>,
@@ -125,6 +131,23 @@ where
             Err(EmptyError::from_empty(items))
         } else {
             Ok(NonEmpty { items })
+        }
+    }
+}
+
+impl<T> TryFrom<LegacyRange<T>> for Range1<T>
+where
+    T: UnsafeOrd,
+{
+    type Error = EmptyError<LegacyRange<T>>;
+
+    fn try_from(items: LegacyRange<T>) -> Result<Self, Self::Error> {
+        if items.is_empty() {
+            Err(EmptyError::from_empty(items))
+        } else {
+            Ok(NonEmpty {
+                items: items.into(),
+            })
         }
     }
 }
@@ -201,6 +224,12 @@ impl<T> From<RangeInclusive1<T>> for RangeInclusive<T> {
     }
 }
 
+impl<T> From<RangeInclusive1<T>> for LegacyRangeInclusive<T> {
+    fn from(items: RangeInclusive1<T>) -> Self {
+        items.items.into()
+    }
+}
+
 impl<T> IntoIterator for RangeInclusive1<T>
 where
     RangeInclusive<T>: IntoIterator<Item = T>,
@@ -255,6 +284,23 @@ where
             Err(EmptyError::from_empty(items))
         } else {
             Ok(NonEmpty { items })
+        }
+    }
+}
+
+impl<T> TryFrom<LegacyRangeInclusive<T>> for RangeInclusive1<T>
+where
+    T: UnsafeOrd,
+{
+    type Error = EmptyError<LegacyRangeInclusive<T>>;
+
+    fn try_from(items: LegacyRangeInclusive<T>) -> Result<Self, Self::Error> {
+        if items.is_empty() {
+            Err(EmptyError::from_empty(items))
+        } else {
+            Ok(NonEmpty {
+                items: items.into(),
+            })
         }
     }
 }
