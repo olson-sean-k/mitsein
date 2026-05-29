@@ -57,6 +57,11 @@ impl Range1<usize> {
         // SAFETY: `end` is non-zero, so the half-open range is non-empty.
         unsafe { Range1::from_range_unchecked(0..end.into()) }
     }
+
+    pub fn len(&self) -> NonZeroUsize {
+        // SAFETY: `self` is non-empty, so the length is non-zero.
+        unsafe { NonZeroUsize::new_unchecked(self.end() - self.start()) }
+    }
 }
 
 impl<T> From<Range1<T>> for Range<T> {
@@ -170,6 +175,11 @@ impl RangeInclusive1<usize> {
         // SAFETY: The closed range starts at zero and can only end at an inclusive minimum of
         //         zero, and so is non-empty.
         unsafe { RangeInclusive1::from_range_inclusive_unchecked(0..=end) }
+    }
+
+    pub fn len(&self) -> NonZeroUsize {
+        // SAFETY: (...) + 1 is non-zero.
+        unsafe { NonZeroUsize::new_unchecked((self.end() - self.start()).strict_add(1)) }
     }
 }
 
