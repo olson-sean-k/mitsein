@@ -5,7 +5,8 @@
 // the target collection, but that API is not used by range types.
 
 use core::num::NonZeroUsize;
-use core::ops::{Bound, Range, RangeBounds, RangeInclusive};
+use core::ops::{Bound, Range as LegacyRange, RangeBounds, RangeInclusive as LegacyRangeInclusive};
+use core::range::{Range, RangeInclusive};
 
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{IntoIterator1, Iterator1, UnsafeStep};
@@ -17,9 +18,19 @@ impl<T> Range1<T> {
     /// # Safety
     ///
     /// `items` must be ordered and non-empty. For example, it is unsound to call this function
-    /// with the range `0..0`.
+    /// with the range `Range { start: 0, end: 0}`.
     pub const unsafe fn from_range_unchecked(items: Range<T>) -> Self {
         NonEmpty { items }
+    }
+
+    /// # Safety
+    ///
+    /// `items` must be ordered and non-empty. For example, it is unsound to call this function
+    /// with the range `0..0`.
+    pub unsafe fn from_legacy_range_unchecked(items: LegacyRange<T>) -> Self {
+        NonEmpty {
+            items: items.into(),
+        }
     }
 
     pub fn into_range(self) -> Range<T> {
@@ -53,9 +64,14 @@ impl<T> Range1<T> {
 }
 
 impl Range1<usize> {
-    pub fn zero_to_non_zero(end: NonZeroUsize) -> Self {
+    pub const fn zero_to_non_zero(end: NonZeroUsize) -> Self {
         // SAFETY: `end` is non-zero, so the half-open range is non-empty.
-        unsafe { Range1::from_range_unchecked(0..end.into()) }
+        unsafe {
+            Range1::from_range_unchecked(Range {
+                start: 0,
+                end: end.get(),
+            })
+        }
     }
 }
 
@@ -65,21 +81,27 @@ impl<T> From<Range1<T>> for Range<T> {
     }
 }
 
+impl<T> From<Range1<T>> for LegacyRange<T> {
+    fn from(items: Range1<T>) -> Self {
+        items.items.into()
+    }
+}
+
 impl<T> IntoIterator for Range1<T>
 where
-    Range<T>: Iterator<Item = T>,
+    Range<T>: IntoIterator<Item = T>,
 {
     type Item = T;
-    type IntoIter = Range<T>;
+    type IntoIter = <Range<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.items
+        self.items.into_iter()
     }
 }
 
 impl<T> IntoIterator1 for Range1<T>
 where
-    Range<T>: Iterator<Item = T>,
+    Range<T>: IntoIterator<Item = T>,
     T: UnsafeStep,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
@@ -124,15 +146,43 @@ where
     }
 }
 
+impl<T> TryFrom<LegacyRange<T>> for Range1<T>
+where
+    T: UnsafeOrd,
+{
+    type Error = EmptyError<LegacyRange<T>>;
+
+    fn try_from(items: LegacyRange<T>) -> Result<Self, Self::Error> {
+        if items.is_empty() {
+            Err(EmptyError::from_empty(items))
+        }
+        else {
+            Ok(NonEmpty {
+                items: items.into(),
+            })
+        }
+    }
+}
+
 pub type RangeInclusive1<T> = NonEmpty<RangeInclusive<T>>;
 
 impl<T> RangeInclusive1<T> {
     /// # Safety
     ///
     /// `items` must be ordered and non-empty. For example, it is unsound to call this function
-    /// with the range `9..=0`. Note that ordered [`RangeInclusive`]s are implicitly non-empty.
+    /// with the range `RangeInclusive { start: 9, last: 0 }`. Note that ordered [`RangeInclusive`]s are implicitly non-empty.
     pub const unsafe fn from_range_inclusive_unchecked(items: RangeInclusive<T>) -> Self {
         NonEmpty { items }
+    }
+
+    /// # Safety
+    ///
+    /// `items` must be ordered and non-empty. For example, it is unsound to call this function
+    /// with the range `9..=0`. Note that ordered [`RangeInclusive`]s are implicitly non-empty.
+    pub unsafe fn from_legacy_range_inclusive_unchecked(items: LegacyRangeInclusive<T>) -> Self {
+        NonEmpty {
+            items: items.into(),
+        }
     }
 
     pub fn into_range_inclusive(self) -> RangeInclusive<T> {
@@ -140,11 +190,11 @@ impl<T> RangeInclusive1<T> {
     }
 
     pub const fn start(&self) -> &T {
-        self.items.start()
+        &self.items.start
     }
 
-    pub const fn end(&self) -> &T {
-        self.items.end()
+    pub const fn last(&self) -> &T {
+        &self.items.last
     }
 
     pub fn iter1(&self) -> Iterator1<RangeInclusive<T>>
@@ -166,10 +216,12 @@ impl<T> RangeInclusive1<T> {
 }
 
 impl RangeInclusive1<usize> {
-    pub fn zero_to(end: usize) -> Self {
+    pub fn zero_to(last: usize) -> Self {
         // SAFETY: The closed range starts at zero and can only end at an inclusive minimum of
         //         zero, and so is non-empty.
-        unsafe { RangeInclusive1::from_range_inclusive_unchecked(0..=end) }
+        unsafe {
+            RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive { start: 0, last })
+        }
     }
 }
 
@@ -179,7 +231,12 @@ impl From<Range1<usize>> for RangeInclusive1<usize> {
         // SAFETY: The half-open `Range1` is non-empty, and so `end` must be greater than `start`
         //         and therefore non-zero. This means that this subtraction (predecessor) need not
         //         be checked.
-        unsafe { RangeInclusive1::from_range_inclusive_unchecked(start..=(end - 1)) }
+        unsafe {
+            RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive {
+                start,
+                last: end - 1,
+            })
+        }
     }
 }
 
@@ -189,21 +246,27 @@ impl<T> From<RangeInclusive1<T>> for RangeInclusive<T> {
     }
 }
 
+impl<T> From<RangeInclusive1<T>> for LegacyRangeInclusive<T> {
+    fn from(items: RangeInclusive1<T>) -> Self {
+        items.items.into()
+    }
+}
+
 impl<T> IntoIterator for RangeInclusive1<T>
 where
-    RangeInclusive<T>: Iterator<Item = T>,
+    RangeInclusive<T>: IntoIterator<Item = T>,
 {
     type Item = T;
-    type IntoIter = RangeInclusive<T>;
+    type IntoIter = <RangeInclusive<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.items
+        self.items.into_iter()
     }
 }
 
 impl<T> IntoIterator1 for RangeInclusive1<T>
 where
-    RangeInclusive<T>: Iterator<Item = T>,
+    RangeInclusive<T>: IntoIterator<Item = T>,
     T: UnsafeStep,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
@@ -244,6 +307,24 @@ where
         }
         else {
             Ok(NonEmpty { items })
+        }
+    }
+}
+
+impl<T> TryFrom<LegacyRangeInclusive<T>> for RangeInclusive1<T>
+where
+    T: UnsafeOrd,
+{
+    type Error = EmptyError<LegacyRangeInclusive<T>>;
+
+    fn try_from(items: LegacyRangeInclusive<T>) -> Result<Self, Self::Error> {
+        if items.is_empty() {
+            Err(EmptyError::from_empty(items))
+        }
+        else {
+            Ok(NonEmpty {
+                items: items.into(),
+            })
         }
     }
 }
@@ -297,12 +378,12 @@ macro_rules! range1 {
 
             // SAFETY: `start` is less than `end` (per the above assertion) and so the range is
             //         non-empty.
-            unsafe { $crate::ops1::Range1::from_range_unchecked(start..end) }
+            unsafe { $crate::ops1::Range1::from_range_unchecked(core::range::Range{start, end}) }
         }
     }};
-    (@closed $start:expr, @closed $end:expr) => {{
+    (@closed $start:expr, @closed $last:expr) => {{
         const {
-            const fn congruent_unsafe_ord_bounds<T>(_start: &T, _end: &T)
+            const fn congruent_unsafe_ord_bounds<T>(_start: &T, _last: &T)
             where
                 T: $crate::cmp::UnsafeOrd,
             {
@@ -315,13 +396,13 @@ macro_rules! range1 {
             #[allow(unused_parens)]
             let start = $start;
             #[allow(unused_parens)]
-            let end = $end;
-            congruent_unsafe_ord_bounds(&start, &end);
-            assert!(start <= end);
+            let last = $last;
+            congruent_unsafe_ord_bounds(&start, &last);
+            assert!(start <= last);
 
             // SAFETY: `start` is less than or equal to `end` (per the above assertion) and so the
             //         range is non-empty.
-            unsafe { $crate::ops1::RangeInclusive1::from_range_inclusive_unchecked(start..=end) }
+            unsafe { $crate::ops1::RangeInclusive1::from_range_inclusive_unchecked(core::range::RangeInclusive { start, last }) }
         }
     }};
 }
