@@ -139,7 +139,8 @@ where
     fn try_from(items: Range<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
             Err(EmptyError::from_empty(items))
-        } else {
+        }
+        else {
             Ok(NonEmpty { items })
         }
     }
@@ -154,7 +155,8 @@ where
     fn try_from(items: LegacyRange<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
             Err(EmptyError::from_empty(items))
-        } else {
+        }
+        else {
             Ok(NonEmpty {
                 items: items.into(),
             })
@@ -302,7 +304,8 @@ where
     fn try_from(items: RangeInclusive<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
             Err(EmptyError::from_empty(items))
-        } else {
+        }
+        else {
             Ok(NonEmpty { items })
         }
     }
@@ -317,7 +320,8 @@ where
     fn try_from(items: LegacyRangeInclusive<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
             Err(EmptyError::from_empty(items))
-        } else {
+        }
+        else {
             Ok(NonEmpty {
                 items: items.into(),
             })
