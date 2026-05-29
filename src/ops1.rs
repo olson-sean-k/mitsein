@@ -23,6 +23,16 @@ impl<T> Range1<T> {
         NonEmpty { items }
     }
 
+    /// # Safety
+    ///
+    /// `items` must be ordered and non-empty. For example, it is unsound to call this function
+    /// with the range `0..0`.
+    pub unsafe fn from_legacy_range_unchecked(items: LegacyRange<T>) -> Self {
+        NonEmpty {
+            items: items.into(),
+        }
+    }
+
     pub fn into_range(self) -> Range<T> {
         self.items
     }
@@ -161,6 +171,16 @@ impl<T> RangeInclusive1<T> {
     /// with the range `RangeInclusive { start: 9, last: 0 }`. Note that ordered [`RangeInclusive`]s are implicitly non-empty.
     pub const unsafe fn from_range_inclusive_unchecked(items: RangeInclusive<T>) -> Self {
         NonEmpty { items }
+    }
+
+    /// # Safety
+    ///
+    /// `items` must be ordered and non-empty. For example, it is unsound to call this function
+    /// with the range `9..=0`. Note that ordered [`RangeInclusive`]s are implicitly non-empty.
+    pub unsafe fn from_legacy_range_inclusive_unchecked(items: LegacyRangeInclusive<T>) -> Self {
+        NonEmpty {
+            items: items.into(),
+        }
     }
 
     pub fn into_range_inclusive(self) -> RangeInclusive<T> {
