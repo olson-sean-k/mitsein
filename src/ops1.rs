@@ -64,7 +64,7 @@ impl<T> Range1<T> {
 }
 
 impl Range1<usize> {
-    pub fn zero_to_non_zero(end: NonZeroUsize) -> Self {
+    pub const fn zero_to_non_zero(end: NonZeroUsize) -> Self {
         // SAFETY: `end` is non-zero, so the half-open range is non-empty.
         unsafe {
             Range1::from_range_unchecked(Range {
