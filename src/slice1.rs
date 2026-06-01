@@ -21,7 +21,7 @@ use {alloc::borrow::ToOwned, alloc::vec::Vec};
 use crate::iter1::{IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{IntoParallelIterator1, ParallelIterator1};
-use crate::ops1::{Range1, RangeInclusive1};
+use crate::range1::{Range1, RangeInclusive1};
 use crate::safety;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]

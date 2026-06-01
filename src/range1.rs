@@ -1,11 +1,19 @@
-//! Non-empty bounded [ranges][`core::ops`].
+//! Non-empty bounded [ranges][`core::range`].
 
 // Unlike other non-empty types, ranges do not rely on `MaybeEmpty` implementations. One of the
 // primary mechanisms provided by `MaybeEmpty` is `TakeIfMany`, which inspects the cardinality of
 // the target collection, but that API is not used by range types.
 
+// TODO: Use range syntax for maybe-empty range types where possible when it is stabilized.
+
+// TODO: Replace references to this module with `core::range::legacy` when it is stabilized.
+mod legacy {
+    pub use core::ops::{Range, RangeInclusive};
+}
+
 use core::num::NonZeroUsize;
-use core::ops::{Bound, Range, RangeBounds, RangeInclusive};
+use core::ops::{Bound, RangeBounds};
+use core::range::{Range, RangeInclusive};
 
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{IntoIterator1, Iterator1, UnsafeStep};
@@ -17,7 +25,7 @@ impl<T> Range1<T> {
     /// # Safety
     ///
     /// `items` must be ordered and non-empty. For example, it is unsound to call this function
-    /// with the range `0..0`.
+    /// with the range `Range::from(0..0)`.
     pub const unsafe fn from_range_unchecked(items: Range<T>) -> Self {
         NonEmpty { items }
     }
@@ -34,9 +42,9 @@ impl<T> Range1<T> {
         &self.items.end
     }
 
-    pub fn iter1(&self) -> Iterator1<Range<T>>
+    pub fn iter1(&self) -> Iterator1<<Range<T> as IntoIterator>::IntoIter>
     where
-        Range<T>: Iterator<Item = T>,
+        Range<T>: IntoIterator<Item = T>,
         T: UnsafeStep,
     {
         // SAFETY: `self` is non-empty.
@@ -53,9 +61,14 @@ impl<T> Range1<T> {
 }
 
 impl Range1<usize> {
-    pub fn zero_to_non_zero(end: NonZeroUsize) -> Self {
+    pub const fn zero_to_non_zero(end: NonZeroUsize) -> Self {
         // SAFETY: `end` is non-zero, so the half-open range is non-empty.
-        unsafe { Range1::from_range_unchecked(0..end.into()) }
+        unsafe {
+            Range1::from_range_unchecked(Range {
+                start: 0,
+                end: end.get(),
+            })
+        }
     }
 }
 
@@ -65,26 +78,32 @@ impl<T> From<Range1<T>> for Range<T> {
     }
 }
 
+impl<T> From<Range1<T>> for legacy::Range<T> {
+    fn from(items: Range1<T>) -> Self {
+        items.items.into()
+    }
+}
+
 impl<T> IntoIterator for Range1<T>
 where
-    Range<T>: Iterator<Item = T>,
+    Range<T>: IntoIterator<Item = T>,
 {
     type Item = T;
-    type IntoIter = Range<T>;
+    type IntoIter = <Range<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.items
+        self.items.into_iter()
     }
 }
 
 impl<T> IntoIterator1 for Range1<T>
 where
-    Range<T>: Iterator<Item = T>,
+    Range<T>: IntoIterator<Item = T>,
     T: UnsafeStep,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` is non-empty.
-        unsafe { Iterator1::from_iter_unchecked(self.items) }
+        unsafe { Iterator1::from_iter_unchecked(self) }
     }
 }
 
@@ -124,13 +143,25 @@ where
     }
 }
 
+impl<T> TryFrom<legacy::Range<T>> for Range1<T>
+where
+    T: UnsafeOrd,
+{
+    type Error = EmptyError<legacy::Range<T>>;
+
+    fn try_from(items: legacy::Range<T>) -> Result<Self, Self::Error> {
+        Range1::try_from(Range::from(items)).map_err(|error| error.map(From::from))
+    }
+}
+
 pub type RangeInclusive1<T> = NonEmpty<RangeInclusive<T>>;
 
 impl<T> RangeInclusive1<T> {
     /// # Safety
     ///
-    /// `items` must be ordered and non-empty. For example, it is unsound to call this function
-    /// with the range `9..=0`. Note that ordered [`RangeInclusive`]s are implicitly non-empty.
+    /// `items` must be ordered and non-empty. For example, it is unsound to call this function with
+    /// the range `RangeInclusive::from(9..=0)`. Note that ordered [`RangeInclusive`]s are
+    /// implicitly non-empty.
     pub const unsafe fn from_range_inclusive_unchecked(items: RangeInclusive<T>) -> Self {
         NonEmpty { items }
     }
@@ -140,16 +171,16 @@ impl<T> RangeInclusive1<T> {
     }
 
     pub const fn start(&self) -> &T {
-        self.items.start()
+        &self.items.start
     }
 
-    pub const fn end(&self) -> &T {
-        self.items.end()
+    pub const fn last(&self) -> &T {
+        &self.items.last
     }
 
-    pub fn iter1(&self) -> Iterator1<RangeInclusive<T>>
+    pub fn iter1(&self) -> Iterator1<<RangeInclusive<T> as IntoIterator>::IntoIter>
     where
-        RangeInclusive<T>: Iterator<Item = T>,
+        RangeInclusive<T>: IntoIterator<Item = T>,
         T: UnsafeStep,
     {
         // SAFETY: `self` is non-empty.
@@ -166,10 +197,12 @@ impl<T> RangeInclusive1<T> {
 }
 
 impl RangeInclusive1<usize> {
-    pub fn zero_to(end: usize) -> Self {
+    pub fn zero_to(last: usize) -> Self {
         // SAFETY: The closed range starts at zero and can only end at an inclusive minimum of
         //         zero, and so is non-empty.
-        unsafe { RangeInclusive1::from_range_inclusive_unchecked(0..=end) }
+        unsafe {
+            RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive { start: 0, last })
+        }
     }
 }
 
@@ -179,7 +212,12 @@ impl From<Range1<usize>> for RangeInclusive1<usize> {
         // SAFETY: The half-open `Range1` is non-empty, and so `end` must be greater than `start`
         //         and therefore non-zero. This means that this subtraction (predecessor) need not
         //         be checked.
-        unsafe { RangeInclusive1::from_range_inclusive_unchecked(start..=(end - 1)) }
+        unsafe {
+            RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive {
+                start,
+                last: (end - 1),
+            })
+        }
     }
 }
 
@@ -189,21 +227,27 @@ impl<T> From<RangeInclusive1<T>> for RangeInclusive<T> {
     }
 }
 
+impl<T> From<RangeInclusive1<T>> for legacy::RangeInclusive<T> {
+    fn from(items: RangeInclusive1<T>) -> Self {
+        items.items.into()
+    }
+}
+
 impl<T> IntoIterator for RangeInclusive1<T>
 where
-    RangeInclusive<T>: Iterator<Item = T>,
+    RangeInclusive<T>: IntoIterator<Item = T>,
 {
     type Item = T;
-    type IntoIter = RangeInclusive<T>;
+    type IntoIter = <RangeInclusive<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.items
+        self.items.into_iter()
     }
 }
 
 impl<T> IntoIterator1 for RangeInclusive1<T>
 where
-    RangeInclusive<T>: Iterator<Item = T>,
+    RangeInclusive<T>: IntoIterator<Item = T>,
     T: UnsafeStep,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
@@ -248,32 +292,44 @@ where
     }
 }
 
+impl<T> TryFrom<legacy::RangeInclusive<T>> for RangeInclusive1<T>
+where
+    T: UnsafeOrd,
+{
+    type Error = EmptyError<legacy::RangeInclusive<T>>;
+
+    fn try_from(items: legacy::RangeInclusive<T>) -> Result<Self, Self::Error> {
+        RangeInclusive1::try_from(RangeInclusive::from(items))
+            .map_err(|error| error.map(From::from))
+    }
+}
+
 #[macro_export]
 macro_rules! range1 {
     ($start:literal .. $end:literal) => {{
-        $crate::ops1::range1!(@closed $start, @open $end)
+        $crate::range1::range1!(@closed $start, @open $end)
     }};
     ($start:literal .. $end:tt) => {{
-        $crate::ops1::range1!(@closed $start, @open $end)
+        $crate::range1::range1!(@closed $start, @open $end)
     }};
     ($start:tt .. $end:literal) => {{
-        $crate::ops1::range1!(@closed $start, @open $end)
+        $crate::range1::range1!(@closed $start, @open $end)
     }};
     ($start:tt .. $end:tt) => {{
-        $crate::ops1::range1!(@closed $start, @open $end)
+        $crate::range1::range1!(@closed $start, @open $end)
     }};
 
-    ($start:literal ..= $end:literal) => {{
-        $crate::ops1::range1!(@closed $start, @closed $end)
+    ($start:literal ..= $last:literal) => {{
+        $crate::range1::range1!(@closed $start, @closed $last)
     }};
-    ($start:literal ..= $end:tt) => {{
-        $crate::ops1::range1!(@closed $start, @closed $end)
+    ($start:literal ..= $last:tt) => {{
+        $crate::range1::range1!(@closed $start, @closed $last)
     }};
-    ($start:tt ..= $end:literal) => {{
-        $crate::ops1::range1!(@closed $start, @closed $end)
+    ($start:tt ..= $last:literal) => {{
+        $crate::range1::range1!(@closed $start, @closed $last)
     }};
-    ($start:tt ..= $end:tt) => {{
-        $crate::ops1::range1!(@closed $start, @closed $end)
+    ($start:tt ..= $last:tt) => {{
+        $crate::range1::range1!(@closed $start, @closed $last)
     }};
 
     (@closed $start:expr, @open $end:expr) => {{
@@ -297,12 +353,17 @@ macro_rules! range1 {
 
             // SAFETY: `start` is less than `end` (per the above assertion) and so the range is
             //         non-empty.
-            unsafe { $crate::ops1::Range1::from_range_unchecked(start..end) }
+            unsafe {
+                $crate::range1::Range1::from_range_unchecked(::core::range::Range {
+                    start,
+                    end,
+                })
+            }
         }
     }};
-    (@closed $start:expr, @closed $end:expr) => {{
+    (@closed $start:expr, @closed $last:expr) => {{
         const {
-            const fn congruent_unsafe_ord_bounds<T>(_start: &T, _end: &T)
+            const fn congruent_unsafe_ord_bounds<T>(_start: &T, _last: &T)
             where
                 T: $crate::cmp::UnsafeOrd,
             {
@@ -315,13 +376,20 @@ macro_rules! range1 {
             #[allow(unused_parens)]
             let start = $start;
             #[allow(unused_parens)]
-            let end = $end;
-            congruent_unsafe_ord_bounds(&start, &end);
-            assert!(start <= end);
+            let last = $last;
+            congruent_unsafe_ord_bounds(&start, &last);
+            assert!(start <= last);
 
-            // SAFETY: `start` is less than or equal to `end` (per the above assertion) and so the
+            // SAFETY: `start` is less than or equal to `last` (per the above assertion) and so the
             //         range is non-empty.
-            unsafe { $crate::ops1::RangeInclusive1::from_range_inclusive_unchecked(start..=end) }
+            unsafe {
+                $crate::range1::RangeInclusive1::from_range_inclusive_unchecked(
+                    ::core::range::RangeInclusive {
+                        start,
+                        last,
+                    },
+                )
+            }
         }
     }};
 }
@@ -329,10 +397,10 @@ pub use range1;
 
 #[cfg(test)]
 mod tests {
-    use core::ops::{Range, RangeInclusive};
+    use core::range::{Range, RangeInclusive};
     use rstest::rstest;
 
-    use crate::ops1::{Range1, RangeInclusive1};
+    use crate::range1::{Range1, RangeInclusive1};
     #[cfg(feature = "alloc")]
     use {
         crate::iter1::IntoIterator1,
@@ -351,8 +419,8 @@ mod tests {
     #[case::one(0..1)]
     #[case::one(42..43)]
     #[case::many(0..10)]
-    fn unwrap_range1_from_range_then_ok_or_panic(#[case] range: Range<usize>) {
-        let _ = Range1::try_from(range).unwrap();
+    fn unwrap_range1_from_range_then_ok_or_panic(#[case] range: impl Into<Range<usize>>) {
+        let _ = Range1::try_from(range.into()).unwrap();
     }
 
     #[rstest]
@@ -363,9 +431,9 @@ mod tests {
     #[case::one(42..=42)]
     #[case::many(0..=9)]
     fn unwrap_range_inclusive1_from_range_inclusive_then_ok_or_panic(
-        #[case] range: RangeInclusive<usize>,
+        #[case] range: impl Into<RangeInclusive<usize>>,
     ) {
-        let _ = RangeInclusive1::try_from(range).unwrap();
+        let _ = RangeInclusive1::try_from(range.into()).unwrap();
     }
 
     #[cfg(feature = "alloc")]
@@ -397,31 +465,31 @@ mod tests {
 
 mod _compile_fail_tests {
     /// ```compile_fail
-    /// let xs = mitsein::ops1::range1!(0..0);
+    /// let xs = mitsein::range1::range1!(0..0);
     /// ```
     #[doc(hidden)]
     const fn _empty_bounds_then_exclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::ops1::range1!(0u64..1u32);
+    /// let xs = mitsein::range1::range1!(0u64..1u32);
     /// ```
     #[doc(hidden)]
     const fn _incongruent_bounds_then_exclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::ops1::range1!(0u64..=1u32);
+    /// let xs = mitsein::range1::range1!(0u64..=1u32);
     /// ```
     #[doc(hidden)]
     const fn _incongruent_bounds_then_inclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::ops1::range1!(1..0);
+    /// let xs = mitsein::range1::range1!(1..0);
     /// ```
     #[doc(hidden)]
     const fn _unordered_bounds_then_exclusive_range1_macro_compilation_fails() {}
 
     /// ```compile_fail
-    /// let xs = mitsein::ops1::range1!(1..=0);
+    /// let xs = mitsein::range1::range1!(1..=0);
     /// ```
     #[doc(hidden)]
     const fn _unordered_bounds_then_inclusive_range1_macro_compilation_fails() {}

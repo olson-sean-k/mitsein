@@ -180,14 +180,11 @@
 //! - [`RangeInclusive1`]
 //!
 //! Like collections, non-empty ranges are represented with the [`NonEmpty`] type constructor.
-//! Non-empty range types implement the [`IntoIterator`] and [`IntoIterator1`] traits. These types
-//! avoid what is largely seen as a design mistake in core range APIs: they do **not** implement
-//! [`Iterator`].
-//!
+//! Non-empty range types implement both the [`IntoIterator`] and [`IntoIterator1`] traits.
 //! Non-empty ranges can be used to index slices and types that can be trivially coerced or
 //! converted to slices. The output of slicing by a non-empty range is a [`Slice1`].
 //!
-//! See the [`ops1`] module.
+//! See the [`range1`][`mod@crate::range1`] module.
 //!
 //! # Subsets
 //!
@@ -265,8 +262,8 @@
 //! [`Iterator1::map`]: crate::iter1::Iterator1::map
 //! [`itertools`]: https://crates.io/crates/itertools
 //! [`ParallelIterator1`]: crate::iter1::ParallelIterator1
-//! [`Range1`]: crate::ops1::Range1
-//! [`RangeInclusive1`]: crate::ops1::RangeInclusive1
+//! [`Range1`]: crate::range1::Range1
+//! [`RangeInclusive1`]: crate::range1::RangeInclusive1
 //! [`rayon`]: https://crates.io/crates/rayon
 //! [`RcSlice1Ext`]: crate::rc1::RcSlice1Ext
 //! [`RcStr1Ext`]: crate::rc1::RcStr1Ext
@@ -356,7 +353,7 @@ pub mod heapless;
 pub mod index_map1;
 pub mod index_set1;
 pub mod iter1;
-pub mod ops1;
+pub mod range1;
 pub mod rc1;
 pub mod slice1;
 pub mod small_vec1;
@@ -561,7 +558,6 @@ impl<T> EmptyError<T> {
         self.items
     }
 
-    #[cfg(feature = "alloc")]
     fn map<U, F>(self, f: F) -> EmptyError<U>
     where
         F: FnOnce(T) -> U,
