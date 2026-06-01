@@ -1367,7 +1367,7 @@ where
 }
 
 pub fn once<T>(item: T) -> Iterator1<Once<T>> {
-    // SAFETY: `Some(item)` is non-empty.
+    // SAFETY: `iter::once(item)` is non-empty.
     unsafe { Iterator1::from_iter_unchecked(iter::once(item)) }
 }
 
