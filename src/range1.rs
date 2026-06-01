@@ -13,7 +13,7 @@ mod legacy {
 
 use core::num::NonZeroUsize;
 use core::ops::{Bound, RangeBounds};
-use core::range::{Range, RangeInclusive};
+use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
 
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{IntoIterator1, Iterator1, UnsafeStep};
@@ -47,7 +47,7 @@ impl<T> Range1<T> {
         Range<T>: IntoIterator<Item = T>,
         T: UnsafeStep,
     {
-        // SAFETY: `self` is non-empty.
+        // SAFETY: `self` is non-empty and `T` is `UnsafeStep`.
         unsafe { Iterator1::from_iter_unchecked(self.items.clone()) }
     }
 
@@ -57,6 +57,10 @@ impl<T> Range1<T> {
         U: PartialOrd<T> + ?Sized,
     {
         self.items.contains(item)
+    }
+
+    pub const fn as_range(&self) -> &Range<T> {
+        &self.items
     }
 }
 
@@ -102,7 +106,7 @@ where
     T: UnsafeStep,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` is non-empty.
+        // SAFETY: `self` is non-empty and `T` is `UnsafeStep`.
         unsafe { Iterator1::from_iter_unchecked(self) }
     }
 }
@@ -154,6 +158,50 @@ where
     }
 }
 
+impl TryFrom<RangeFrom<usize>> for Range1<usize> {
+    // TODO: Introduce an appropriate error type for this.
+    //
+    //       This is not an `EmptyError` but instead more of an out-of-bounds error. `RangeFrom`
+    //       specifies only an inclusive lower bound, so it is never empty over `usize`. However,
+    //       `Range` cannot represent the extreme of a `usize::MAX` lower bound, because it would
+    //       require a successor of `usize::MAX` for the upper bound.
+    type Error = RangeFrom<usize>;
+
+    fn try_from(items: RangeFrom<usize>) -> Result<Self, Self::Error> {
+        if items.start < usize::MAX {
+            Ok(unsafe {
+                Range1::from_range_unchecked(Range {
+                    start: items.start,
+                    end: usize::MAX,
+                })
+            })
+        }
+        else {
+            Err(items)
+        }
+    }
+}
+
+impl TryFrom<RangeToInclusive<usize>> for Range1<usize> {
+    // TODO: Introduce an appropriate error type for this.
+    //
+    //       This is not an `EmptyError` but instead more of an out-of-bounds error.
+    //       `RangeToInclusive` specifies only an inclusive upper bound, so it is never empty over
+    //       `usize`. However, `Range` cannot represent the extreme of an _inclusive_ `usize::MAX`
+    //       upper bound, because it would require a successor of `usize::MAX` for the _exclusive_
+    //       upper bound.
+    type Error = RangeToInclusive<usize>;
+
+    fn try_from(items: RangeToInclusive<usize>) -> Result<Self, Self::Error> {
+        if let Some(end) = items.last.checked_add(1) {
+            Ok(unsafe { Range1::from_range_unchecked(Range { start: 0, end }) })
+        }
+        else {
+            Err(items)
+        }
+    }
+}
+
 pub type RangeInclusive1<T> = NonEmpty<RangeInclusive<T>>;
 
 impl<T> RangeInclusive1<T> {
@@ -183,7 +231,7 @@ impl<T> RangeInclusive1<T> {
         RangeInclusive<T>: IntoIterator<Item = T>,
         T: UnsafeStep,
     {
-        // SAFETY: `self` is non-empty.
+        // SAFETY: `self` is non-empty and `T` is `UnsafeStep`.
         unsafe { Iterator1::from_iter_unchecked(self.items.clone()) }
     }
 
@@ -194,14 +242,29 @@ impl<T> RangeInclusive1<T> {
     {
         self.items.contains(item)
     }
+
+    pub const fn as_range_inclusive(&self) -> &RangeInclusive<T> {
+        &self.items
+    }
 }
 
 impl RangeInclusive1<usize> {
-    pub fn zero_to(last: usize) -> Self {
+    pub const fn zero_to(last: usize) -> Self {
         // SAFETY: The closed range starts at zero and can only end at an inclusive minimum of
         //         zero, and so is non-empty.
         unsafe {
             RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive { start: 0, last })
+        }
+    }
+
+    pub const fn to_max_from(start: usize) -> Self {
+        // SAFETY: Because the bounds of `RangeInclusive1` are inclusive, any `usize` lower bound
+        //         forms a non-empty `RangeInclusive`, even when the upper bound is `usize::MAX`.
+        unsafe {
+            RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive {
+                start,
+                last: usize::MAX,
+            })
         }
     }
 }
@@ -221,6 +284,12 @@ impl From<Range1<usize>> for RangeInclusive1<usize> {
     }
 }
 
+impl From<RangeFrom<usize>> for RangeInclusive1<usize> {
+    fn from(items: RangeFrom<usize>) -> Self {
+        RangeInclusive1::to_max_from(items.start)
+    }
+}
+
 impl<T> From<RangeInclusive1<T>> for RangeInclusive<T> {
     fn from(items: RangeInclusive1<T>) -> Self {
         items.items
@@ -230,6 +299,12 @@ impl<T> From<RangeInclusive1<T>> for RangeInclusive<T> {
 impl<T> From<RangeInclusive1<T>> for legacy::RangeInclusive<T> {
     fn from(items: RangeInclusive1<T>) -> Self {
         items.items.into()
+    }
+}
+
+impl From<RangeToInclusive<usize>> for RangeInclusive1<usize> {
+    fn from(items: RangeToInclusive<usize>) -> Self {
+        RangeInclusive1::zero_to(items.last)
     }
 }
 
@@ -251,7 +326,7 @@ where
     T: UnsafeStep,
 {
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
-        // SAFETY: `self` is non-empty.
+        // SAFETY: `self` is non-empty and `T` is `UnsafeStep`.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
     }
 }
