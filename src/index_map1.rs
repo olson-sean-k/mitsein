@@ -36,7 +36,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::subset::range::{self, IndexRange, Project, RangeError};
+use crate::subset::range::{IndexRange, Project, RangeError};
 use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -1689,30 +1689,6 @@ impl<K, V, S> OnlyRangeSubset<'_, K, V, S> {
         F: FnMut(&K, &mut V) -> bool,
     {
         self.items.retain(self.range.retain_key_value_from_end(f))
-    }
-
-    pub fn move_index(&mut self, from: usize, to: usize) {
-        let from = self
-            .range
-            .project(from)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        let to = self
-            .range
-            .project(to)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.move_index(from, to)
-    }
-
-    pub fn swap_indices(&mut self, a: usize, b: usize) {
-        let a = self
-            .range
-            .project(a)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        let b = self
-            .range
-            .project(b)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.swap_indices(a, b)
     }
 
     pub fn shift_remove_index(&mut self, index: usize) -> Option<(K, V)> {

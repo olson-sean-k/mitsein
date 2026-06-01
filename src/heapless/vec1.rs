@@ -545,22 +545,6 @@ where
         self.items.retain_mut(self.range.retain_mut_from_end(f))
     }
 
-    pub fn insert(&mut self, index: usize, item: T) -> Result<(), T> {
-        let index = self
-            .range
-            .project(index)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.insert(index, item)?;
-        self.range.put_from_end(1);
-        Ok(())
-    }
-
-    pub fn insert_back(&mut self, item: T) -> Result<(), T> {
-        self.items.insert(self.range.end(), item)?;
-        self.range.put_from_end(1);
-        Ok(())
-    }
-
     pub fn remove(&mut self, index: usize) -> T {
         let index = self
             .range
@@ -779,7 +763,6 @@ mod tests {
 
     use crate::heapless::vec1::Vec1;
     use crate::heapless::vec1::harness::{self, N, xs1};
-    use crate::iter1::IntoIterator1;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
@@ -849,31 +832,6 @@ mod tests {
         let xss = xs1.only(range).unwrap();
         let xs: Vec<_, N> = xss.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
-    }
-
-    #[rstest]
-    #[case::one_into_empty_front(0..0, [42], slice1![42, 0, 1, 2, 3, 4])]
-    #[case::many_into_empty_front(0..0, [42, 88], slice1![42, 88, 0, 1, 2, 3, 4])]
-    #[case::one_into_empty_back(5..5, [42], slice1![0, 1, 2, 3, 4, 42])]
-    #[case::many_into_empty_back(5..5, [42, 88], slice1![0, 1, 2, 3, 4, 42, 88])]
-    #[case::one_into_empty_middle(2..2, [42], slice1![0, 1, 42, 2, 3, 4])]
-    #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
-    #[case::one_into_non_empty(0..2, [42], slice1![0, 1, 42, 2, 3, 4])]
-    #[case::many_into_non_empty(0..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
-    fn insert_back_into_vec1_only_range_subset_then_vec1_eq<R, T>(
-        mut xs1: Vec1<u8, N>,
-        #[case] range: R,
-        #[case] items: T,
-        #[case] expected: &Slice1<u8>,
-    ) where
-        R: RangeBounds<usize>,
-        T: IntoIterator1<Item = u8>,
-    {
-        let mut xss = xs1.only(range).unwrap();
-        for item in items {
-            xss.insert_back(item).unwrap();
-        }
-        assert_eq!(xs1.as_slice1(), expected);
     }
 
     #[rstest]

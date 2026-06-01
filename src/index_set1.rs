@@ -35,7 +35,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::subset::range::{self, IndexRange, Intersect, Project, RangeError};
+use crate::subset::range::{IndexRange, Intersect, Project, RangeError};
 use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -1345,30 +1345,6 @@ impl<T, S> OnlyRangeSubset<'_, T, S> {
         self.items.retain(self.range.retain_from_end(f))
     }
 
-    pub fn move_index(&mut self, from: usize, to: usize) {
-        let from = self
-            .range
-            .project(from)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        let to = self
-            .range
-            .project(to)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.move_index(from, to)
-    }
-
-    pub fn swap_indices(&mut self, a: usize, b: usize) {
-        let a = self
-            .range
-            .project(a)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        let b = self
-            .range
-            .project(b)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.swap_indices(a, b)
-    }
-
     pub fn shift_remove_index(&mut self, index: usize) -> Option<T> {
         let index = self.range.project(index).ok()?;
         self.items
@@ -1393,26 +1369,6 @@ impl<T, S> OnlyRangeSubset<'_, T, S> {
 
     pub fn iter(&self) -> Take<Skip<index_set::Iter<'_, T>>> {
         self.items.iter().skip(self.range.start()).take(self.len())
-    }
-}
-
-impl<T, S> OnlyRangeSubset<'_, T, S>
-where
-    T: Eq + Hash,
-    S: BuildHasher,
-{
-    pub fn shift_insert(&mut self, index: usize, item: T) -> bool {
-        let index = self
-            .range
-            .project(index)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        if self.items.shift_insert(index, item) {
-            self.range.put_from_end(1);
-            true
-        }
-        else {
-            false
-        }
     }
 }
 

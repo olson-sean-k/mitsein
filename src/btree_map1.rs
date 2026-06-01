@@ -1266,62 +1266,6 @@ where
         }
     }
 
-    pub fn insert_in_range(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)> {
-        if self.range.contains(&key) {
-            Ok(self.items.insert(key, value))
-        }
-        else {
-            Err((key, value))
-        }
-    }
-
-    pub fn append_in_range(&mut self, other: &mut BTreeMap<K, V>)
-    where
-        K: Clone,
-    {
-        if let Some(range) = self.range.as_ref() {
-            // To append within the range of the subset, `other` is split into `low`, `middle`, and
-            // `high`. The `middle` set contains any and all items in range, and so it extends the
-            // subset. `low` and `high` are out of bounds of the range, and so these items are not
-            // inserted into the subset and must remain in `other`.
-            //
-            // Note that `low` is just an alias for `other` here, and so it is an exclusive
-            // reference to the input `BTreeMap` (unlike `middle` and `high`).
-            let low = other;
-            let mut middle = match range.start_bound() {
-                Bound::Excluded(start) => {
-                    let mut middle = low.split_off(start);
-                    low.extend(middle.remove_entry(start));
-                    middle
-                },
-                Bound::Included(start) => low.split_off(start),
-                Bound::Unbounded => {
-                    if let Some(first) = low.keys().next().cloned() {
-                        // The subset has no lower bound, so all of `low` is split off into `middle`
-                        // (leaving `low` empty).
-                        low.split_off(&first)
-                    }
-                    else {
-                        // If `other` is empty (and so `low.first()` is `None`), then the middle
-                        // items are also empty.
-                        BTreeMap::new()
-                    }
-                },
-            };
-            let high = match range.end_bound() {
-                Bound::Excluded(end) => middle.split_off(end),
-                Bound::Included(end) => {
-                    let mut high = middle.split_off(end);
-                    middle.extend(high.remove_entry(end));
-                    high
-                },
-                Bound::Unbounded => BTreeMap::new(),
-            };
-            self.items.extend(middle);
-            low.extend(high);
-        }
-    }
-
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + UnsafeOrdIsomorph<Q>,
@@ -1482,22 +1426,6 @@ where
         })
     }
 
-    pub fn insert_in_range(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
-    where
-        K: Clone,
-    {
-        let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
-        OnlyRangeSubset::<K, V, _>::unchecked(self.items, range).insert_in_range(key, value)
-    }
-
-    pub fn append_in_range(&mut self, other: &mut BTreeMap<K, V>)
-    where
-        K: Clone,
-    {
-        let range: Option<ItemRange<_>> = self.items.resolve_trim_range(self.range);
-        OnlyRangeSubset::<K, V, _>::unchecked(self.items, range).append_in_range(other)
-    }
-
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         K: Borrow<Q> + UnsafeOrdIsomorph<Q>,
@@ -1584,11 +1512,6 @@ pub mod harness {
     pub fn xs1(#[default(4)] end: u8) -> BTreeMap1<u8, char> {
         BTreeMap1::from_iter1(iter1::harness::xs1(end).map(|x| (x, VALUE)))
     }
-
-    #[fixture]
-    pub fn terminals1(#[default(0)] first: u8, #[default(9)] last: u8) -> BTreeMap1<u8, char> {
-        BTreeMap1::from_iter1([(first, VALUE), (last, VALUE)])
-    }
 }
 
 #[cfg(test)]
@@ -1599,14 +1522,13 @@ mod tests {
     use serde_test::Token;
 
     use crate::btree_map1::BTreeMap1;
-    use crate::btree_map1::harness::{self, VALUE, terminals1, xs1};
+    use crate::btree_map1::harness::{self, VALUE, xs1};
     use crate::harness::KeyValueRef;
     use crate::iter1::FromIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::map};
-    use crate::subset::range::IntoRangeBounds;
 
     #[rstest]
     #[case(0, &[(1, VALUE), (2, VALUE), (3, VALUE), (4, VALUE)])]
@@ -1711,27 +1633,6 @@ mod tests {
         let mut xss = xss.rtail();
         xss.clear();
         assert_eq!(xs1, expected);
-    }
-
-    #[rstest]
-    #[case::absent_in_range(4.., 4, Ok(None))]
-    #[case::absent_in_range(..=4, 4, Ok(None))]
-    #[case::present_in_range(4.., 9, Ok(Some(VALUE)))]
-    #[case::out_of_range_lower_bound(4.., 0, Err((0, VALUE)))]
-    #[case::out_of_range_lower_bound(4.., 1, Err((1, VALUE)))]
-    #[case::out_of_range_upper_bound(..5, 5, Err((5, VALUE)))]
-    #[case::out_of_range_upper_bound(3..=5, 6, Err((6, VALUE)))]
-    #[case::out_of_range_upper_bound(..5, 6, Err((6, VALUE)))]
-    fn insert_into_btree_map1_only_range_subset_then_output_eq<R>(
-        #[from(terminals1)] mut xs1: BTreeMap1<u8, char>,
-        #[case] range: R,
-        #[case] key: u8,
-        #[case] expected: Result<Option<char>, (u8, char)>,
-    ) where
-        R: IntoRangeBounds<u8>,
-    {
-        let mut xss = xs1.only(range).unwrap();
-        assert_eq!(xss.insert_in_range(key, VALUE), expected);
     }
 
     #[cfg(feature = "schemars")]

@@ -9,7 +9,7 @@ use alloc::vec::{self, Drain, Vec};
 use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{self, FusedIterator, Skip, Take};
+use core::iter::{FusedIterator, Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
@@ -1047,28 +1047,6 @@ impl<T> OnlyRangeSubset<'_, T> {
         items
     }
 
-    pub fn resize(&mut self, len: usize, fill: T)
-    where
-        T: Clone,
-    {
-        self.resize_with(len, move || fill.clone())
-    }
-
-    pub fn resize_with<F>(&mut self, len: usize, f: F)
-    where
-        F: FnMut() -> T,
-    {
-        let from = self.len();
-        let to = len;
-        if to > from {
-            let n = to - from;
-            self.extend(iter::repeat_with(f).take(n))
-        }
-        else {
-            self.truncate(to)
-        }
-    }
-
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
             self.items.drain(range);
@@ -1140,20 +1118,6 @@ impl<T> OnlyRangeSubset<'_, T> {
                 swapped: None,
             }
         }
-    }
-
-    pub fn insert(&mut self, index: usize, item: T) {
-        let index = self
-            .range
-            .project(index)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.insert(index, item);
-        self.range.put_from_end(1);
-    }
-
-    pub fn insert_back(&mut self, item: T) {
-        self.items.insert(self.range.end(), item);
-        self.range.put_from_end(1);
     }
 
     pub fn remove(&mut self, index: usize) -> T {
@@ -1291,41 +1255,6 @@ impl<T> DerefMut for OnlyRangeSubset<'_, T> {
 
 impl<T> Eq for OnlyRangeSubset<'_, T> where T: Eq {}
 
-impl<T> Extend<T> for OnlyRangeSubset<'_, T> {
-    fn extend<I>(&mut self, items: I)
-    where
-        I: IntoIterator<Item = T>,
-    {
-        let n = self.items.len();
-        // Split off the remainder beyond the subset to avoid spurious inserts and copying. This
-        // comes at the cost of a necessary allocation and bulk copy, which isn't great when
-        // extending from a small number of items with a small remainder.
-        let tail = self.items.split_off(self.range.end());
-        self.items.extend(items);
-        self.items.extend(tail);
-        let n = self.items.len() - n;
-        self.range.put_from_end(n);
-    }
-}
-
-// TODO: At time of writing, this implementation conflicts with the `Extend` implementation above
-//       (E0119). However, `T` does not generalize `&'i T` here, because the associated `Target`
-//       type is the same (`Vec<T>`) in both implementations (and a reference would be added to all
-//       `T`)! This appears to be a limitation rather than a true conflict. See other subset
-//       implementations as well.
-//
-// impl<'i, T> Extend<&'i T> for OnlyRangeSubset<'_, T>
-// where
-//     T: 'i + Copy,
-// {
-//     fn extend<I>(&mut self, items: I)
-//     where
-//         I: IntoIterator<Item = &'i T>,
-//     {
-//         self.extend(items.into_iter().copied())
-//     }
-// }
-
 impl<T> Ord for OnlyRangeSubset<'_, T>
 where
     T: Ord,
@@ -1402,7 +1331,6 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde_test::Token;
 
-    use crate::iter1::IntoIterator1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
     #[cfg(feature = "serde")]
@@ -1528,31 +1456,6 @@ mod tests {
         let xss = xs1.only(range).unwrap();
         let xs: Vec<_> = xss.iter().copied().collect();
         assert_eq!(xs.as_slice(), expected);
-    }
-
-    #[rstest]
-    #[case::one_into_empty_front(0..0, [42], slice1![42, 0, 1, 2, 3, 4])]
-    #[case::many_into_empty_front(0..0, [42, 88], slice1![42, 88, 0, 1, 2, 3, 4])]
-    #[case::one_into_empty_back(5..5, [42], slice1![0, 1, 2, 3, 4, 42])]
-    #[case::many_into_empty_back(5..5, [42, 88], slice1![0, 1, 2, 3, 4, 42, 88])]
-    #[case::one_into_empty_middle(2..2, [42], slice1![0, 1, 42, 2, 3, 4])]
-    #[case::many_into_empty_middle(2..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
-    #[case::one_into_non_empty(0..2, [42], slice1![0, 1, 42, 2, 3, 4])]
-    #[case::many_into_non_empty(0..2, [42, 88], slice1![0, 1, 42, 88, 2, 3, 4])]
-    fn insert_back_into_vec1_only_range_subset_then_vec1_eq<R, T>(
-        mut xs1: Vec1<u8>,
-        #[case] range: R,
-        #[case] items: T,
-        #[case] expected: &Slice1<u8>,
-    ) where
-        R: RangeBounds<usize>,
-        T: IntoIterator1<Item = u8>,
-    {
-        let mut xss = xs1.only(range).unwrap();
-        for item in items {
-            xss.insert_back(item);
-        }
-        assert_eq!(xs1.as_slice1(), expected);
     }
 
     #[rstest]

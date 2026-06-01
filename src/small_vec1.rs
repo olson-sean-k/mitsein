@@ -8,7 +8,7 @@ use alloc::borrow::{Borrow, BorrowMut};
 use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{self, Skip, Take};
+use core::iter::{Skip, Take};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
@@ -844,28 +844,6 @@ impl<A, T> OnlyRangeSubset<'_, A>
 where
     A: Array<Item = T>,
 {
-    pub fn resize(&mut self, len: usize, fill: T)
-    where
-        T: Clone,
-    {
-        self.resize_with(len, move || fill.clone())
-    }
-
-    pub fn resize_with<F>(&mut self, len: usize, f: F)
-    where
-        F: FnMut() -> T,
-    {
-        let from = self.len();
-        let to = len;
-        if to > from {
-            let n = to - from;
-            self.extend(iter::repeat_with(f).take(n))
-        }
-        else {
-            self.truncate(to)
-        }
-    }
-
     pub fn truncate(&mut self, len: usize) {
         if let Some(range) = self.range.truncate_from_end(len) {
             self.items.drain(range);
@@ -884,20 +862,6 @@ where
         F: FnMut(&mut T) -> bool,
     {
         self.items.retain_mut(self.range.retain_mut_from_end(f))
-    }
-
-    pub fn insert(&mut self, index: usize, item: T) {
-        let index = self
-            .range
-            .project(index)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.insert(index, item);
-        self.range.put_from_end(1);
-    }
-
-    pub fn insert_back(&mut self, item: T) {
-        self.items.insert(self.range.end(), item);
-        self.range.put_from_end(1);
     }
 
     pub fn remove(&mut self, index: usize) -> T {
@@ -1059,25 +1023,6 @@ where
     A: Array<Item = T>,
     T: Eq,
 {
-}
-
-impl<A, T> Extend<T> for OnlyRangeSubset<'_, A>
-where
-    A: Array<Item = T>,
-{
-    fn extend<I>(&mut self, items: I)
-    where
-        I: IntoIterator<Item = T>,
-    {
-        let n = self.items.len();
-        // TODO: This can be a very expensive operation. Implementations for other non-empty
-        //       collections split the collection and then extend onto the end, though even this is
-        //       inefficient. Use a faster implementation, though it will likely require unsafe
-        //       code.
-        self.items.insert_many(self.range.end(), items);
-        let n = self.items.len() - n;
-        self.range.put_from_end(n);
-    }
 }
 
 impl<A, T> Ord for OnlyRangeSubset<'_, A>

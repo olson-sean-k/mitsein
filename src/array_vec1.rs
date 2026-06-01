@@ -826,20 +826,6 @@ impl<T, const N: usize> OnlyRangeSubset<'_, T, N> {
         self.items.retain(self.range.retain_mut_from_end(f))
     }
 
-    pub fn insert(&mut self, index: usize, item: T) {
-        let index = self
-            .range
-            .project(index)
-            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-        self.items.insert(index, item);
-        self.range.put_from_end(1);
-    }
-
-    pub fn insert_back(&mut self, item: T) {
-        self.items.insert(self.range.end(), item);
-        self.range.put_from_end(1);
-    }
-
     pub fn remove(&mut self, index: usize) -> T {
         let index = self
             .range
@@ -974,22 +960,6 @@ impl<T, const N: usize> DerefMut for OnlyRangeSubset<'_, T, N> {
 }
 
 impl<T, const N: usize> Eq for OnlyRangeSubset<'_, T, N> where T: Eq {}
-
-impl<T, const N: usize> Extend<T> for OnlyRangeSubset<'_, T, N> {
-    fn extend<I>(&mut self, items: I)
-    where
-        I: IntoIterator<Item = T>,
-    {
-        let n = self.items.len();
-        // Split off the remainder beyond the range to avoid spurious inserts and copying. This
-        // comes at the cost of a necessary array on the stack and bulk copy.
-        let tail: ArrayVec<_, N> = self.items.drain(self.range.end()..).collect();
-        self.items.extend(items);
-        self.items.extend(tail);
-        let n = self.items.len() - n;
-        self.range.put_from_end(n);
-    }
-}
 
 impl<T, const N: usize> Ord for OnlyRangeSubset<'_, T, N>
 where
