@@ -21,15 +21,20 @@ use crate::{EmptyError, NonEmpty};
 
 pub type Range1<T> = NonEmpty<Range<T>>;
 
-impl<T> Range1<T> {
+impl<T> Range1<T>
+where
+    T: UnsafeOrd,
+{
     /// # Safety
     ///
     /// `items` must be ordered and non-empty. For example, it is unsound to call this function
-    /// with the range `Range::from(0..0)`.
+    /// with the range `Range::from(0..0)` or `Range::from(4..1)`.
     pub const unsafe fn from_range_unchecked(items: Range<T>) -> Self {
         NonEmpty { items }
     }
+}
 
+impl<T> Range1<T> {
     pub fn into_range(self) -> Range<T> {
         self.items
     }
@@ -204,7 +209,10 @@ impl TryFrom<RangeToInclusive<usize>> for Range1<usize> {
 
 pub type RangeInclusive1<T> = NonEmpty<RangeInclusive<T>>;
 
-impl<T> RangeInclusive1<T> {
+impl<T> RangeInclusive1<T>
+where
+    T: UnsafeOrd,
+{
     /// # Safety
     ///
     /// `items` must be ordered and non-empty. For example, it is unsound to call this function with
@@ -213,7 +221,9 @@ impl<T> RangeInclusive1<T> {
     pub const unsafe fn from_range_inclusive_unchecked(items: RangeInclusive<T>) -> Self {
         NonEmpty { items }
     }
+}
 
+impl<T> RangeInclusive1<T> {
     pub fn into_range_inclusive(self) -> RangeInclusive<T> {
         self.items
     }
