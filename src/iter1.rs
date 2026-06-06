@@ -1450,11 +1450,11 @@ pub mod harness {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "either")]
+    #[cfg(all(feature = "alloc", feature = "either"))]
     use either::Either;
     use rstest::rstest;
 
-    #[cfg(feature = "either")]
+    #[cfg(all(feature = "alloc", feature = "either"))]
     use crate::iter1::EitherExt as _;
     use crate::iter1::{IntoIterator1, ThenIterator1};
     use crate::slice1::{Slice1, slice1};

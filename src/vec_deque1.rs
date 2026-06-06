@@ -875,12 +875,14 @@ mod tests {
 
     #[cfg(feature = "schemars")]
     use crate::schemars;
-    #[cfg(feature = "serde")]
-    use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
     use crate::vec_deque1::VecDeque1;
     use crate::vec_deque1::harness;
-    use crate::vec_deque1::harness::xs1;
+    #[cfg(feature = "serde")]
+    use {
+        crate::serde::{self, harness::sequence},
+        crate::vec_deque1::harness::xs1,
+    };
 
     #[rstest]
     #[case::empty_tail(harness::xs1(0))]
