@@ -33,28 +33,6 @@ use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type ArrayFor<K> = <K as ClosedSmallVec>::Array;
-type ItemFor<K> = <K as ClosedSmallVec>::Item;
-
-pub trait ClosedSmallVec {
-    type Array: Array<Item = Self::Item>;
-    type Item;
-
-    fn as_small_vec(&self) -> &SmallVec<Self::Array>;
-}
-
-impl<A> ClosedSmallVec for SmallVec<A>
-where
-    A: Array,
-{
-    type Array = A;
-    type Item = A::Item;
-
-    fn as_small_vec(&self) -> &SmallVec<Self::Array> {
-        self
-    }
-}
-
 impl<A> Extend1<A::Item> for SmallVec<A>
 where
     A: Array,
@@ -79,13 +57,13 @@ where
     }
 }
 
-type TakeIfMany<'a, A, T, N = ()> = take::TakeIfMany<'a, SmallVec<A>, T, N>;
+type TakeIfMany<'a, A, N = ()> = take::TakeIfMany<'a, SmallVec<A>, <A as Array>::Item, N>;
 
-pub type PopIfMany<'a, K> = TakeIfMany<'a, ArrayFor<K>, ItemFor<K>, ()>;
+pub type PopIfMany<'a, A> = TakeIfMany<'a, A, ()>;
 
-pub type RemoveIfMany<'a, K> = TakeIfMany<'a, ArrayFor<K>, ItemFor<K>, usize>;
+pub type RemoveIfMany<'a, A> = TakeIfMany<'a, A, usize>;
 
-impl<'a, A, T, N> TakeIfMany<'a, A, T, N>
+impl<'a, A, T, N> TakeIfMany<'a, A, N>
 where
     A: Array<Item = T>,
 {
@@ -105,7 +83,7 @@ where
     }
 }
 
-impl<'a, A, T> TakeIfMany<'a, A, T, usize>
+impl<'a, A, T> TakeIfMany<'a, A, usize>
 where
     A: Array<Item = T>,
 {
@@ -266,7 +244,7 @@ where
         self.items.push(item)
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, A> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
@@ -284,11 +262,11 @@ where
         self.items.insert_from_slice(index, items)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, A> {
         TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, A> {
         TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
@@ -505,18 +483,6 @@ where
 {
     fn borrow_mut(&mut self) -> &mut Slice1<T> {
         self.as_mut_slice1()
-    }
-}
-
-impl<A, T> ClosedSmallVec for SmallVec1<A>
-where
-    A: Array<Item = T>,
-{
-    type Array = A;
-    type Item = T;
-
-    fn as_small_vec(&self) -> &SmallVec<Self::Array> {
-        self.as_ref()
     }
 }
 

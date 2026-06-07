@@ -33,15 +33,13 @@ use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type ItemFor<K> = <K as ClosedBTreeSet>::Item;
-
-pub trait ClosedBTreeSet {
+pub trait AsBTreeSet {
     type Item;
 
     fn as_btree_set(&self) -> &BTreeSet<Self::Item>;
 }
 
-impl<T> ClosedBTreeSet for BTreeSet<T> {
+impl<T> AsBTreeSet for BTreeSet<T> {
     type Item = T;
 
     fn as_btree_set(&self) -> &BTreeSet<Self::Item> {
@@ -98,11 +96,11 @@ where
 
 type TakeIfMany<'a, T, U, N = ()> = take::TakeIfMany<'a, BTreeSet<T>, U, N>;
 
-pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, ItemFor<K>>;
+pub type PopIfMany<'a, T> = TakeIfMany<'a, T, T>;
 
-pub type DropRemoveIfMany<'a, 'q, K, Q> = TakeIfMany<'a, ItemFor<K>, bool, &'q Q>;
+pub type DropRemoveIfMany<'a, 'q, T, Q> = TakeIfMany<'a, T, bool, &'q Q>;
 
-pub type TakeRemoveIfMany<'a, 'q, K, Q> = TakeIfMany<'a, ItemFor<K>, Option<ItemFor<K>>, &'q Q>;
+pub type TakeRemoveIfMany<'a, 'q, T, Q> = TakeIfMany<'a, T, Option<T>, &'q Q>;
 
 impl<'a, T, U, N> TakeIfMany<'a, T, U, N>
 where
@@ -254,7 +252,7 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_if_many(&mut self) -> PopIfMany<'_, Self>
+    pub fn pop_first_if_many(&mut self) -> PopIfMany<'_, T>
     where
         T: Ord,
     {
@@ -271,7 +269,7 @@ impl<T> BTreeSet1<T> {
         PopFirstUntilOnly { items: self }
     }
 
-    pub fn pop_last_if_many(&mut self) -> PopIfMany<'_, Self>
+    pub fn pop_last_if_many(&mut self) -> PopIfMany<'_, T>
     where
         T: Ord,
     {
@@ -288,10 +286,7 @@ impl<T> BTreeSet1<T> {
         PopLastUntilOnly { items: self }
     }
 
-    pub fn remove_if_many<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> DropRemoveIfMany<'a, 'q, Self, Q>
+    pub fn remove_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveIfMany<'a, 'q, T, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -299,7 +294,7 @@ impl<T> BTreeSet1<T> {
         TakeIfMany::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn take_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveIfMany<'a, 'q, Self, Q>
+    pub fn take_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveIfMany<'a, 'q, T, Q>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -348,7 +343,7 @@ impl<T> BTreeSet1<T> {
     pub fn difference<'a, R>(&'a self, other: &'a R) -> btree_set::Difference<'a, T>
     where
         T: Ord,
-        R: ClosedBTreeSet<Item = T>,
+        R: AsBTreeSet<Item = T>,
     {
         self.items.difference(other.as_btree_set())
     }
@@ -359,7 +354,7 @@ impl<T> BTreeSet1<T> {
     ) -> btree_set::SymmetricDifference<'a, T>
     where
         T: Ord,
-        R: ClosedBTreeSet<Item = T>,
+        R: AsBTreeSet<Item = T>,
     {
         self.items.symmetric_difference(other.as_btree_set())
     }
@@ -367,7 +362,7 @@ impl<T> BTreeSet1<T> {
     pub fn intersection<'a, R>(&'a self, other: &'a R) -> btree_set::Intersection<'a, T>
     where
         T: Ord,
-        R: ClosedBTreeSet<Item = T>,
+        R: AsBTreeSet<Item = T>,
     {
         self.items.intersection(other.as_btree_set())
     }
@@ -375,7 +370,7 @@ impl<T> BTreeSet1<T> {
     pub fn union<'a, R>(&'a self, other: &'a R) -> Iterator1<btree_set::Union<'a, T>>
     where
         T: Ord,
-        R: ClosedBTreeSet<Item = T>,
+        R: AsBTreeSet<Item = T>,
     {
         // SAFETY: `self` is non-empty and `BTreeSet::union` cannot reduce the cardinality of its
         //         inputs.
@@ -390,7 +385,7 @@ impl<T> BTreeSet1<T> {
     pub fn is_disjoint<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: ClosedBTreeSet<Item = T>,
+        R: AsBTreeSet<Item = T>,
     {
         self.items.is_disjoint(other.as_btree_set())
     }
@@ -398,7 +393,7 @@ impl<T> BTreeSet1<T> {
     pub fn is_subset<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: ClosedBTreeSet<Item = T>,
+        R: AsBTreeSet<Item = T>,
     {
         self.items.is_subset(other.as_btree_set())
     }
@@ -406,7 +401,7 @@ impl<T> BTreeSet1<T> {
     pub fn is_superset<R>(&self, other: &R) -> bool
     where
         T: Ord,
-        R: ClosedBTreeSet<Item = T>,
+        R: AsBTreeSet<Item = T>,
     {
         self.items.is_superset(other.as_btree_set())
     }
@@ -521,9 +516,17 @@ where
     }
 }
 
+impl<T> AsBTreeSet for BTreeSet1<T> {
+    type Item = T;
+
+    fn as_btree_set(&self) -> &BTreeSet<Self::Item> {
+        self.as_ref()
+    }
+}
+
 impl<R, T> BitAnd<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: ClosedBTreeSet<Item = T>,
+    R: AsBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
@@ -546,7 +549,7 @@ where
 
 impl<R, T> BitOr<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: ClosedBTreeSet<Item = T>,
+    R: AsBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet1<T>;
@@ -573,7 +576,7 @@ where
 
 impl<R, T> BitXor<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: ClosedBTreeSet<Item = T>,
+    R: AsBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;
@@ -591,14 +594,6 @@ where
 
     fn bitxor(self, rhs: &'_ BTreeSet1<T>) -> Self::Output {
         self ^ rhs.as_btree_set()
-    }
-}
-
-impl<T> ClosedBTreeSet for BTreeSet1<T> {
-    type Item = T;
-
-    fn as_btree_set(&self) -> &BTreeSet<Self::Item> {
-        self.as_ref()
     }
 }
 
@@ -783,7 +778,7 @@ where
 
 impl<R, T> Sub<&'_ R> for &'_ BTreeSet1<T>
 where
-    R: ClosedBTreeSet<Item = T>,
+    R: AsBTreeSet<Item = T>,
     T: Clone + Ord,
 {
     type Output = BTreeSet<T>;

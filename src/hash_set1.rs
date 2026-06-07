@@ -31,17 +31,14 @@ use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type ItemFor<K> = <K as ClosedHashSet>::Item;
-type StateFor<K> = <K as ClosedHashSet>::State;
-
-pub trait ClosedHashSet {
+pub trait AsHashSet {
     type Item;
     type State;
 
     fn as_hash_set(&self) -> &HashSet<Self::Item, Self::State>;
 }
 
-impl<T, S> ClosedHashSet for HashSet<T, S> {
+impl<T, S> AsHashSet for HashSet<T, S> {
     type Item = T;
     type State = S;
 
@@ -83,10 +80,9 @@ unsafe impl<T, S> MaybeEmpty for HashSet<T, S> {
 
 type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, HashSet<T, S>, U, N>;
 
-pub type DropRemoveIfMany<'a, 'q, K, Q> = TakeIfMany<'a, ItemFor<K>, StateFor<K>, bool, &'q Q>;
+pub type DropRemoveIfMany<'a, 'q, T, S, Q> = TakeIfMany<'a, T, S, bool, &'q Q>;
 
-pub type TakeRemoveIfMany<'a, 'q, K, Q> =
-    TakeIfMany<'a, ItemFor<K>, StateFor<K>, Option<ItemFor<K>>, &'q Q>;
+pub type TakeRemoveIfMany<'a, 'q, T, S, Q> = TakeIfMany<'a, T, S, Option<T>, &'q Q>;
 
 impl<'a, T, S, U, N> TakeIfMany<'a, T, S, U, N>
 where
@@ -333,7 +329,7 @@ where
     pub fn remove_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> DropRemoveIfMany<'a, 'q, Self, Q>
+    ) -> DropRemoveIfMany<'a, 'q, T, S, Q>
     where
         T: Borrow<Q>,
         Q: Eq + Hash + ?Sized,
@@ -341,7 +337,7 @@ where
         TakeIfMany::with(self, query, |items, query| items.items.remove(query))
     }
 
-    pub fn take_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveIfMany<'a, 'q, Self, Q>
+    pub fn take_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveIfMany<'a, 'q, T, S, Q>
     where
         T: Borrow<Q>,
         Q: Eq + Hash + ?Sized,
@@ -359,7 +355,7 @@ where
 
     pub fn difference<'a, R>(&'a self, other: &'a R) -> hash_set::Difference<'a, T, S>
     where
-        R: ClosedHashSet<Item = T, State = S>,
+        R: AsHashSet<Item = T, State = S>,
     {
         self.items.difference(other.as_hash_set())
     }
@@ -369,21 +365,21 @@ where
         other: &'a R,
     ) -> hash_set::SymmetricDifference<'a, T, S>
     where
-        R: ClosedHashSet<Item = T, State = S>,
+        R: AsHashSet<Item = T, State = S>,
     {
         self.items.symmetric_difference(other.as_hash_set())
     }
 
     pub fn intersection<'a, R>(&'a self, other: &'a R) -> hash_set::Intersection<'a, T, S>
     where
-        R: ClosedHashSet<Item = T, State = S>,
+        R: AsHashSet<Item = T, State = S>,
     {
         self.items.intersection(other.as_hash_set())
     }
 
     pub fn union<'a, R>(&'a self, other: &'a R) -> Iterator1<hash_set::Union<'a, T, S>>
     where
-        R: ClosedHashSet<Item = T, State = S>,
+        R: AsHashSet<Item = T, State = S>,
     {
         // SAFETY: `self` is non-empty and `HashSet::union` cannot reduce the cardinality of its
         //         inputs.
@@ -392,21 +388,21 @@ where
 
     pub fn is_disjoint<R>(&self, other: &R) -> bool
     where
-        R: ClosedHashSet<Item = T, State = S>,
+        R: AsHashSet<Item = T, State = S>,
     {
         self.items.is_disjoint(other.as_hash_set())
     }
 
     pub fn is_subset<R>(&self, other: &R) -> bool
     where
-        R: ClosedHashSet<Item = T, State = S>,
+        R: AsHashSet<Item = T, State = S>,
     {
         self.items.is_subset(other.as_hash_set())
     }
 
     pub fn is_superset<R>(&self, other: &R) -> bool
     where
-        R: ClosedHashSet<Item = T, State = S>,
+        R: AsHashSet<Item = T, State = S>,
     {
         self.items.is_superset(other.as_hash_set())
     }
@@ -486,9 +482,18 @@ where
     }
 }
 
+impl<T, S> AsHashSet for HashSet1<T, S> {
+    type Item = T;
+    type State = S;
+
+    fn as_hash_set(&self) -> &HashSet<Self::Item, Self::State> {
+        self.as_ref()
+    }
+}
+
 impl<R, T, S> BitAnd<&'_ R> for &'_ HashSet1<T, S>
 where
-    R: ClosedHashSet<Item = T, State = S>,
+    R: AsHashSet<Item = T, State = S>,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
@@ -513,7 +518,7 @@ where
 
 impl<R, T, S> BitOr<&'_ R> for &'_ HashSet1<T, S>
 where
-    R: ClosedHashSet<Item = T, State = S>,
+    R: AsHashSet<Item = T, State = S>,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
@@ -542,7 +547,7 @@ where
 
 impl<R, T, S> BitXor<&'_ R> for &'_ HashSet1<T, S>
 where
-    R: ClosedHashSet<Item = T, State = S>,
+    R: AsHashSet<Item = T, State = S>,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {
@@ -562,15 +567,6 @@ where
 
     fn bitxor(self, rhs: &'_ HashSet1<T, S>) -> Self::Output {
         self ^ rhs.as_hash_set()
-    }
-}
-
-impl<T, S> ClosedHashSet for HashSet1<T, S> {
-    type Item = T;
-    type State = S;
-
-    fn as_hash_set(&self) -> &HashSet<Self::Item, Self::State> {
-        self.as_ref()
     }
 }
 
@@ -758,7 +754,7 @@ where
 
 impl<R, T, S> Sub<&'_ R> for &'_ HashSet1<T, S>
 where
-    R: ClosedHashSet<Item = T, State = S>,
+    R: AsHashSet<Item = T, State = S>,
     T: Clone + Eq + Hash,
     S: BuildHasher + Default,
 {

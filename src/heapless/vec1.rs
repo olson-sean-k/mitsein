@@ -21,30 +21,6 @@ use crate::subset::range::{self, IndexRange, Project, RangeError};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type ItemFor<K> = <K as ClosedVec>::Item;
-type StorageFor<K> = <K as ClosedVec>::Storage;
-
-// The name `Vec` here is used very generally; this trait operates against `VecInner` and so covers
-// the family of `Vec` types from `heapless`. This module makes `VecInner` types less explicit.
-pub trait ClosedVec {
-    type Item;
-    type Storage: ?Sized + VecStorage<Self::Item>;
-
-    fn as_vec_inner(&self) -> &VecInner<Self::Item, usize, Self::Storage>;
-}
-
-impl<T, S> ClosedVec for VecInner<T, usize, S>
-where
-    S: ?Sized + VecStorage<T>,
-{
-    type Item = T;
-    type Storage = S;
-
-    fn as_vec_inner(&self) -> &VecInner<Self::Item, usize, Self::Storage> {
-        self
-    }
-}
-
 unsafe impl<T, S> MaybeEmpty for VecInner<T, usize, S>
 where
     S: ?Sized + VecStorage<T>,
@@ -56,9 +32,9 @@ where
 
 type TakeIfMany<'a, T, S, N = ()> = take::TakeIfMany<'a, VecInner<T, usize, S>, T, N>;
 
-pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, StorageFor<K>, ()>;
+pub type PopIfMany<'a, T, S> = TakeIfMany<'a, T, S, ()>;
 
-pub type RemoveIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, StorageFor<K>, usize>;
+pub type RemoveIfMany<'a, T, S> = TakeIfMany<'a, T, S, usize>;
 
 impl<'a, T, S, N> TakeIfMany<'a, T, S, N>
 where
@@ -133,7 +109,7 @@ where
         unsafe { self.items.push_unchecked(item) }
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, T, S> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
@@ -144,11 +120,11 @@ where
         self.items.insert(index, item)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T, S> {
         TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T, S> {
         TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
@@ -279,18 +255,6 @@ where
 {
     fn borrow_mut(&mut self) -> &mut Slice1<T> {
         self.as_mut_slice1()
-    }
-}
-
-impl<T, S> ClosedVec for VecInner1<T, S>
-where
-    S: ?Sized + VecStorage<T>,
-{
-    type Item = T;
-    type Storage = S;
-
-    fn as_vec_inner(&self) -> &VecInner<Self::Item, usize, Self::Storage> {
-        &self.items
     }
 }
 

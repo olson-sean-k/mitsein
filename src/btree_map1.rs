@@ -36,26 +36,6 @@ use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type KeyFor<T> = <T as ClosedBTreeMap>::Key;
-type ValueFor<T> = <T as ClosedBTreeMap>::Value;
-type EntryFor<T> = (KeyFor<T>, ValueFor<T>);
-
-pub trait ClosedBTreeMap {
-    type Key;
-    type Value;
-
-    fn as_btree_map(&self) -> &BTreeMap<Self::Key, Self::Value>;
-}
-
-impl<K, V> ClosedBTreeMap for BTreeMap<K, V> {
-    type Key = K;
-    type Value = V;
-
-    fn as_btree_map(&self) -> &BTreeMap<Self::Key, Self::Value> {
-        self
-    }
-}
-
 impl<K, V> Extend1<(K, V)> for BTreeMap<K, V>
 where
     K: Ord,
@@ -360,13 +340,11 @@ where
 
 type TakeIfMany<'a, K, V, U, N = ()> = take::TakeIfMany<'a, BTreeMap<K, V>, U, N>;
 
-pub type PopIfMany<'a, T> = TakeIfMany<'a, KeyFor<T>, ValueFor<T>, EntryFor<T>>;
+pub type PopIfMany<'a, K, V> = TakeIfMany<'a, K, V, (K, V)>;
 
-pub type RemoveIfMany<'a, 'q, T, Q> =
-    TakeIfMany<'a, KeyFor<T>, ValueFor<T>, Option<ValueFor<T>>, &'q Q>;
+pub type RemoveIfMany<'a, 'q, K, V, Q> = TakeIfMany<'a, K, V, Option<V>, &'q Q>;
 
-pub type RemoveEntryIfMany<'a, 'q, T, Q> =
-    TakeIfMany<'a, KeyFor<T>, ValueFor<T>, Option<EntryFor<T>>, &'q Q>;
+pub type RemoveEntryIfMany<'a, 'q, K, V, Q> = TakeIfMany<'a, K, V, Option<(K, V)>, &'q Q>;
 
 impl<'a, K, V, U, N> TakeIfMany<'a, K, V, U, N>
 where
@@ -562,7 +540,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.items.insert(key, value)
     }
 
-    pub fn pop_first_if_many(&mut self) -> PopIfMany<'_, Self>
+    pub fn pop_first_if_many(&mut self) -> PopIfMany<'_, K, V>
     where
         K: Ord,
     {
@@ -579,7 +557,7 @@ impl<K, V> BTreeMap1<K, V> {
         PopFirstUntilOnly { items: self }
     }
 
-    pub fn pop_last_if_many(&mut self) -> PopIfMany<'_, Self>
+    pub fn pop_last_if_many(&mut self) -> PopIfMany<'_, K, V>
     where
         K: Ord,
     {
@@ -596,7 +574,7 @@ impl<K, V> BTreeMap1<K, V> {
         PopLastUntilOnly { items: self }
     }
 
-    pub fn remove_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveIfMany<'a, 'q, Self, Q>
+    pub fn remove_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveIfMany<'a, 'q, K, V, Q>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -607,7 +585,7 @@ impl<K, V> BTreeMap1<K, V> {
     pub fn remove_entry_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> RemoveEntryIfMany<'a, 'q, Self, Q>
+    ) -> RemoveEntryIfMany<'a, 'q, K, V, Q>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
@@ -840,15 +818,6 @@ where
 
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
         (<(K, V)>::size_hint(depth).0, None)
-    }
-}
-
-impl<K, V> ClosedBTreeMap for BTreeMap1<K, V> {
-    type Key = K;
-    type Value = V;
-
-    fn as_btree_map(&self) -> &BTreeMap<Self::Key, Self::Value> {
-        self.as_ref()
     }
 }
 

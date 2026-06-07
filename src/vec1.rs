@@ -41,22 +41,6 @@ use crate::take;
 use crate::vec_deque1::VecDeque1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type ItemFor<K> = <K as ClosedVec>::Item;
-
-pub trait ClosedVec {
-    type Item;
-
-    fn as_vec(&self) -> &Vec<Self::Item>;
-}
-
-impl<T> ClosedVec for Vec<T> {
-    type Item = T;
-
-    fn as_vec(&self) -> &Vec<Self::Item> {
-        self
-    }
-}
-
 impl<T> Extend1<T> for Vec<T> {
     fn extend_non_empty<I>(mut self, items: I) -> Vec1<T>
     where
@@ -105,9 +89,9 @@ unsafe impl<T> MaybeEmpty for Vec<T> {
 
 type TakeIfMany<'a, T, N = ()> = take::TakeIfMany<'a, Vec<T>, T, N>;
 
-pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, ()>;
+pub type PopIfMany<'a, T> = TakeIfMany<'a, T, ()>;
 
-pub type RemoveIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, usize>;
+pub type RemoveIfMany<'a, T> = TakeIfMany<'a, T, usize>;
 
 impl<'a, T, N> TakeIfMany<'a, T, N> {
     pub fn or_get_only(self) -> Result<T, &'a T> {
@@ -297,7 +281,7 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, T> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
@@ -325,11 +309,11 @@ impl<T> Vec1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T> {
         TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T> {
         TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
@@ -498,14 +482,6 @@ impl<T> BorrowMut<[T]> for Vec1<T> {
 impl<T> BorrowMut<Slice1<T>> for Vec1<T> {
     fn borrow_mut(&mut self) -> &mut Slice1<T> {
         self.as_mut_slice1()
-    }
-}
-
-impl<T> ClosedVec for Vec1<T> {
-    type Item = T;
-
-    fn as_vec(&self) -> &Vec<Self::Item> {
-        self.as_ref()
     }
 }
 

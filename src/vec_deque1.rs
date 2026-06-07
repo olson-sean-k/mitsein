@@ -36,22 +36,6 @@ use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type ItemFor<K> = <K as ClosedVecDeque>::Item;
-
-pub trait ClosedVecDeque {
-    type Item;
-
-    fn as_vec_deque(&self) -> &VecDeque<Self::Item>;
-}
-
-impl<T> ClosedVecDeque for VecDeque<T> {
-    type Item = T;
-
-    fn as_vec_deque(&self) -> &VecDeque<Self::Item> {
-        self
-    }
-}
-
 impl<T> Extend1<T> for VecDeque<T> {
     fn extend_non_empty<I>(mut self, items: I) -> VecDeque1<T>
     where
@@ -76,9 +60,9 @@ unsafe impl<T> MaybeEmpty for VecDeque<T> {
 
 type TakeIfMany<'a, T, U, N = ()> = take::TakeIfMany<'a, VecDeque<T>, U, N>;
 
-pub type PopIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, ItemFor<K>, ()>;
+pub type PopIfMany<'a, T> = TakeIfMany<'a, T, T, ()>;
 
-pub type RemoveIfMany<'a, K> = TakeIfMany<'a, ItemFor<K>, Option<ItemFor<K>>, usize>;
+pub type RemoveIfMany<'a, T> = TakeIfMany<'a, T, Option<T>, usize>;
 
 impl<'a, T, N> TakeIfMany<'a, T, T, N> {
     pub fn or_get_only(self) -> Result<T, &'a T> {
@@ -243,14 +227,14 @@ impl<T> VecDeque1<T> {
         self.items.push_back(item)
     }
 
-    pub fn pop_front_if_many(&mut self) -> PopIfMany<'_, Self> {
+    pub fn pop_front_if_many(&mut self) -> PopIfMany<'_, T> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop_front().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn pop_back_if_many(&mut self) -> PopIfMany<'_, Self> {
+    pub fn pop_back_if_many(&mut self) -> PopIfMany<'_, T> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeIfMany::with(self, (), |items, ()| unsafe {
             items.items.pop_back().unwrap_maybe_unchecked()
@@ -261,17 +245,17 @@ impl<T> VecDeque1<T> {
         self.items.insert(index, item)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T> {
         TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_front_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn swap_remove_front_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T> {
         TakeIfMany::with(self, index, |items, index| {
             items.items.swap_remove_front(index)
         })
     }
 
-    pub fn swap_remove_back_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self> {
+    pub fn swap_remove_back_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T> {
         TakeIfMany::with(self, index, |items, index| {
             items.items.swap_remove_back(index)
         })
@@ -402,14 +386,6 @@ where
 
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
         (T::size_hint(depth).0, None)
-    }
-}
-
-impl<T> ClosedVecDeque for VecDeque1<T> {
-    type Item = T;
-
-    fn as_vec_deque(&self) -> &VecDeque<Self::Item> {
-        self.as_ref()
     }
 }
 

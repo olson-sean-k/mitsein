@@ -35,34 +35,6 @@ use crate::subset::range::{self, IndexRange, Project, RangeError};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type ItemFor<K, const N: usize> = <K as ClosedArrayVec<N>>::Item;
-
-// TODO: At time of writing, Rust does not support generic parameters in `const` expressions and
-//       operatations, so `N` is an input of this trait. When support lands, factor `N` into the
-//       trait:
-//
-//       pub trait ClosedArrayVec {
-//           ...
-//           const N: usize;
-//
-//           fn as_array_vec(&self) -> &ArrayVec<Self::Item, { Self::N }>;
-//       }
-//
-//       This factorization applies to many types and implementations below as well.
-pub trait ClosedArrayVec<const N: usize> {
-    type Item;
-
-    fn as_array_vec(&self) -> &ArrayVec<Self::Item, N>;
-}
-
-impl<T, const N: usize> ClosedArrayVec<N> for ArrayVec<T, N> {
-    type Item = T;
-
-    fn as_array_vec(&self) -> &ArrayVec<Self::Item, N> {
-        self
-    }
-}
-
 impl<T, const N: usize> Extend1<T> for ArrayVec<T, N>
 where
     // This bound isn't necessary for memory safety here, because an `ArrayVec` with no capacity
@@ -153,13 +125,11 @@ impl<T> Error for CardinalityError<T> {}
 
 type TakeIfMany<'a, T, U, M, const N: usize> = take::TakeIfMany<'a, ArrayVec<T, N>, U, M>;
 
-pub type PopIfMany<'a, K, const N: usize> = TakeIfMany<'a, ItemFor<K, N>, ItemFor<K, N>, (), N>;
+pub type PopIfMany<'a, T, const N: usize> = TakeIfMany<'a, T, T, (), N>;
 
-pub type SwapPopIfMany<'a, K, const N: usize> =
-    TakeIfMany<'a, ItemFor<K, N>, Option<ItemFor<K, N>>, usize, N>;
+pub type SwapPopIfMany<'a, T, const N: usize> = TakeIfMany<'a, T, Option<T>, usize, N>;
 
-pub type RemoveIfMany<'a, K, const N: usize> =
-    TakeIfMany<'a, ItemFor<K, N>, ItemFor<K, N>, usize, N>;
+pub type RemoveIfMany<'a, T, const N: usize> = TakeIfMany<'a, T, T, usize, N>;
 
 impl<'a, T, M, const N: usize> TakeIfMany<'a, T, T, M, N>
 where
@@ -356,14 +326,14 @@ where
         unsafe { self.items.push_unchecked(item) }
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self, N> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, T, N> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeIfMany::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
         })
     }
 
-    pub fn swap_pop_if_many(&mut self, index: usize) -> SwapPopIfMany<'_, Self, N> {
+    pub fn swap_pop_if_many(&mut self, index: usize) -> SwapPopIfMany<'_, T, N> {
         TakeIfMany::with(self, index, |items, index| items.items.swap_pop(index))
     }
 
@@ -375,11 +345,11 @@ where
         self.items.try_insert(index, item)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self, N> {
+    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T, N> {
         TakeIfMany::with(self, index, |items, index| items.items.remove(index))
     }
 
-    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, Self, N> {
+    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T, N> {
         TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
     }
 
@@ -543,17 +513,6 @@ where
 {
     fn borrow_mut(&mut self) -> &mut Slice1<T> {
         self.as_mut_slice1()
-    }
-}
-
-impl<T, const N: usize> ClosedArrayVec<N> for ArrayVec1<T, N>
-where
-    [T; N]: Array1,
-{
-    type Item = T;
-
-    fn as_array_vec(&self) -> &ArrayVec<Self::Item, N> {
-        self.as_ref()
     }
 }
 

@@ -41,12 +41,7 @@ use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
-type KeyFor<T> = <T as ClosedIndexMap>::Key;
-type ValueFor<T> = <T as ClosedIndexMap>::Value;
-type EntryFor<T> = (KeyFor<T>, ValueFor<T>);
-type StateFor<T> = <T as ClosedIndexMap>::State;
-
-pub trait ClosedIndexMap {
+pub trait AsIndexMap {
     type Key;
     type Value;
     type State;
@@ -54,7 +49,7 @@ pub trait ClosedIndexMap {
     fn as_index_map(&self) -> &IndexMap<Self::Key, Self::Value, Self::State>;
 }
 
-impl<K, V, S> ClosedIndexMap for IndexMap<K, V, S> {
+impl<K, V, S> AsIndexMap for IndexMap<K, V, S> {
     type Key = K;
     type Value = V;
     type State = S;
@@ -531,13 +526,11 @@ impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrIndexedOnlyEntry<'a, V, K, V> {
 
 type TakeIfMany<'a, K, V, S, U, N = ()> = take::TakeIfMany<'a, IndexMap<K, V, S>, U, N>;
 
-pub type PopIfMany<'a, T> = TakeIfMany<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, EntryFor<T>>;
+pub type PopIfMany<'a, K, V, S> = TakeIfMany<'a, K, V, S, (K, V)>;
 
-pub type RemoveIfMany<'a, 'q, T, Q> =
-    TakeIfMany<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<ValueFor<T>>, &'q Q>;
+pub type RemoveIfMany<'a, 'q, K, V, S, Q> = TakeIfMany<'a, K, V, S, Option<V>, &'q Q>;
 
-pub type RemoveEntryIfMany<'a, 'q, T, Q> =
-    TakeIfMany<'a, KeyFor<T>, ValueFor<T>, StateFor<T>, Option<EntryFor<T>>, &'q Q>;
+pub type RemoveEntryIfMany<'a, 'q, K, V, S, Q> = TakeIfMany<'a, K, V, S, Option<(K, V)>, &'q Q>;
 
 impl<'a, K, V, S, U, N> TakeIfMany<'a, K, V, S, U, N>
 where
@@ -928,7 +921,7 @@ impl<K, V, S> IndexMap1<K, V, S>
 where
     S: BuildHasher,
 {
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, Self> {
+    pub fn pop_if_many(&mut self) -> PopIfMany<'_, K, V, S> {
         // SAFETY: `with` executes this closure only if `self` contains more than one item.
         TakeIfMany::with(self, (), |items, _| unsafe {
             items.items.pop().unwrap_maybe_unchecked()
@@ -938,7 +931,7 @@ where
     pub fn shift_remove_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> RemoveIfMany<'a, 'q, Self, Q>
+    ) -> RemoveIfMany<'a, 'q, K, V, S, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
@@ -948,7 +941,7 @@ where
     pub fn swap_remove_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> RemoveIfMany<'a, 'q, Self, Q>
+    ) -> RemoveIfMany<'a, 'q, K, V, S, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
@@ -958,7 +951,7 @@ where
     pub fn shift_remove_entry_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> RemoveEntryIfMany<'a, 'q, Self, Q>
+    ) -> RemoveEntryIfMany<'a, 'q, K, V, S, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
@@ -970,7 +963,7 @@ where
     pub fn swap_remove_entry_if_many<'a, 'q, Q>(
         &'a mut self,
         query: &'q Q,
-    ) -> RemoveEntryIfMany<'a, 'q, Self, Q>
+    ) -> RemoveEntryIfMany<'a, 'q, K, V, S, Q>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
@@ -1296,7 +1289,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         K: Eq + Hash + Sync,
         V: PartialEq<R::Value> + Sync,
         S: BuildHasher,
-        R: ClosedIndexMap<Key = K>,
+        R: AsIndexMap<Key = K>,
         R::Value: Sync,
         R::State: BuildHasher + Sync,
     {
@@ -1327,7 +1320,7 @@ where
     }
 }
 
-impl<K, V, S> ClosedIndexMap for IndexMap1<K, V, S> {
+impl<K, V, S> AsIndexMap for IndexMap1<K, V, S> {
     type Key = K;
     type Value = V;
     type State = S;
