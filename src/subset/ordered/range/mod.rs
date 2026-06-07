@@ -6,6 +6,7 @@ mod trim;
 
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
+#[cfg(feature = "alloc")]
 use core::ops::{Bound, RangeBounds};
 
 pub use crate::subset::ordered::range::index::IndexRange;
