@@ -17,6 +17,7 @@ use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
 
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{IntoIterator1, Iterator1, UnsafeStep};
+use crate::subset::range::IntoRangeBounds;
 use crate::{EmptyError, NonEmpty};
 
 pub type Range1<T> = NonEmpty<Range<T>>;
@@ -113,6 +114,12 @@ where
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` is non-empty and `T` is `UnsafeStep`.
         unsafe { Iterator1::from_iter_unchecked(self) }
+    }
+}
+
+impl<T> IntoRangeBounds<T> for Range1<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        self.items.into_bounds()
     }
 }
 
@@ -338,6 +345,12 @@ where
     fn into_iter1(self) -> Iterator1<Self::IntoIter> {
         // SAFETY: `self` is non-empty and `T` is `UnsafeStep`.
         unsafe { Iterator1::from_iter_unchecked(self.items) }
+    }
+}
+
+impl<T> IntoRangeBounds<T> for RangeInclusive1<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        self.items.into_bounds()
     }
 }
 
