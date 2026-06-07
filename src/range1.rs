@@ -6,9 +6,10 @@
 
 // TODO: Use range syntax for maybe-empty range types where possible when it is stabilized.
 
-// TODO: Replace references to this module with `core::range::legacy` when it is stabilized.
+// TODO: Replace references to this module with `core::range::legacy` when it is stabilized. See
+//       https://github.com/rust-lang/rust/issues/125687
 mod legacy {
-    pub use core::ops::{Range, RangeInclusive};
+    pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 }
 
 use core::num::NonZeroUsize;
@@ -17,8 +18,78 @@ use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
 
 use crate::cmp::UnsafeOrd;
 use crate::iter1::{IntoIterator1, Iterator1, UnsafeStep};
-use crate::subset::range::IntoRangeBounds;
 use crate::{EmptyError, NonEmpty};
+
+// TODO: Remove this trait and use `core::ops::IntoBounds` instead when it is stabilized. See
+//       https://github.com/rust-lang/rust/issues/136903
+pub trait IntoRangeBounds<T>: RangeBounds<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>);
+}
+
+impl<T> IntoRangeBounds<T> for Range<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        let Range { start, end } = self;
+        (Bound::Included(start), Bound::Excluded(end))
+    }
+}
+
+impl<T> IntoRangeBounds<T> for legacy::Range<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        Range::from(self).into_bounds()
+    }
+}
+
+impl<T> IntoRangeBounds<T> for RangeFrom<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        let RangeFrom { start } = self;
+        (Bound::Included(start), Bound::Unbounded)
+    }
+}
+
+impl<T> IntoRangeBounds<T> for legacy::RangeFrom<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        RangeFrom::from(self).into_bounds()
+    }
+}
+
+impl<T> IntoRangeBounds<T> for legacy::RangeFull {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        (Bound::Unbounded, Bound::Unbounded)
+    }
+}
+
+impl<T> IntoRangeBounds<T> for RangeInclusive<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        let RangeInclusive { start, last } = self;
+        (Bound::Included(start), Bound::Included(last))
+    }
+}
+
+impl<T> IntoRangeBounds<T> for legacy::RangeInclusive<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        RangeInclusive::from(self).into_bounds()
+    }
+}
+
+impl<T> IntoRangeBounds<T> for legacy::RangeTo<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        let legacy::RangeTo { end } = self;
+        (Bound::Unbounded, Bound::Excluded(end))
+    }
+}
+
+impl<T> IntoRangeBounds<T> for RangeToInclusive<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        let RangeToInclusive { last } = self;
+        (Bound::Unbounded, Bound::Included(last))
+    }
+}
+
+impl<T> IntoRangeBounds<T> for legacy::RangeToInclusive<T> {
+    fn into_bounds(self) -> (Bound<T>, Bound<T>) {
+        RangeToInclusive::from(self).into_bounds()
+    }
+}
 
 pub type Range1<T> = NonEmpty<Range<T>>;
 

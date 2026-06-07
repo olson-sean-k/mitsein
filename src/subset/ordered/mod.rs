@@ -15,9 +15,7 @@ use core::ops::RangeBounds;
 use crate::subset::ordered::range::TrimRange;
 use crate::subset::ordered::range::{IndexRange, Intersect, Project};
 
-pub use crate::subset::ordered::range::{
-    IntoRangeBounds, OutOfBoundsError, RangeError, UnorderedError,
-};
+pub use crate::subset::ordered::range::{OutOfBoundsError, RangeError, UnorderedError};
 
 // TODO: Support ranges over a query type `Q` borrowed from a key or owned index type `K`. Note that
 //       any type `Q` must be isomorphic with `K` (i.e., implement `UnsafeOrdIsomorph`), because the

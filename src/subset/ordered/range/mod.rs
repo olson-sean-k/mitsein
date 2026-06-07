@@ -4,15 +4,9 @@ mod index;
 mod item;
 mod trim;
 
-// TODO: Replace references to this module with `core::range::legacy` when it is stabilized.
-mod legacy {
-    pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-}
-
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::ops::{Bound, RangeBounds};
-use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
 
 pub use crate::subset::ordered::range::index::IndexRange;
 #[cfg(feature = "alloc")]
@@ -121,75 +115,6 @@ pub trait Intersect<R>: Sized {
     type Error;
 
     fn intersect(self, range: R) -> Result<Self::Output, Self::Error>;
-}
-
-pub trait IntoRangeBounds<N>: RangeBounds<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>);
-}
-
-impl<N> IntoRangeBounds<N> for Range<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        let Range { start, end } = self;
-        (Bound::Included(start), Bound::Excluded(end))
-    }
-}
-
-impl<N> IntoRangeBounds<N> for legacy::Range<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        Range::from(self).into_bounds()
-    }
-}
-
-impl<N> IntoRangeBounds<N> for RangeFrom<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        let RangeFrom { start } = self;
-        (Bound::Included(start), Bound::Unbounded)
-    }
-}
-
-impl<N> IntoRangeBounds<N> for legacy::RangeFrom<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        RangeFrom::from(self).into_bounds()
-    }
-}
-
-impl<N> IntoRangeBounds<N> for legacy::RangeFull {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        (Bound::Unbounded, Bound::Unbounded)
-    }
-}
-
-impl<N> IntoRangeBounds<N> for RangeInclusive<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        let RangeInclusive { start, last } = self;
-        (Bound::Included(start), Bound::Included(last))
-    }
-}
-
-impl<N> IntoRangeBounds<N> for legacy::RangeInclusive<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        RangeInclusive::from(self).into_bounds()
-    }
-}
-
-impl<N> IntoRangeBounds<N> for legacy::RangeTo<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        let legacy::RangeTo { end } = self;
-        (Bound::Unbounded, Bound::Excluded(end))
-    }
-}
-
-impl<N> IntoRangeBounds<N> for RangeToInclusive<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        let RangeToInclusive { last } = self;
-        (Bound::Unbounded, Bound::Included(last))
-    }
-}
-
-impl<N> IntoRangeBounds<N> for legacy::RangeToInclusive<N> {
-    fn into_bounds(self) -> (Bound<N>, Bound<N>) {
-        RangeToInclusive::from(self).into_bounds()
-    }
 }
 
 pub trait Project<T> {

@@ -27,10 +27,11 @@ use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
+use crate::range1::IntoRangeBounds;
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::subset::range::{
-    self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
-    ResolveTrimRange, TrimRange, UnorderedError,
+    self, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, ResolveTrimRange, TrimRange,
+    UnorderedError,
 };
 use crate::subset::{self, KeyNotFoundError};
 use crate::take;

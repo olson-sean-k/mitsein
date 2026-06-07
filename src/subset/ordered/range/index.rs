@@ -4,8 +4,9 @@ use core::ops::{
     Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
+use crate::range1::IntoRangeBounds;
 use crate::subset::ordered::range::{
-    self, Intersect, IntoRangeBounds, OutOfBoundsError, Project, RangeError, UnorderedError,
+    self, Intersect, OutOfBoundsError, Project, RangeError, UnorderedError,
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

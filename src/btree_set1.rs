@@ -24,10 +24,11 @@ use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
+use crate::range1::IntoRangeBounds;
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::subset::range::{
-    self, IntoRangeBounds, ItemRange, OptionExt as _, OutOfBoundsError, RangeError,
-    ResolveTrimRange, TrimRange, UnorderedError,
+    self, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, ResolveTrimRange, TrimRange,
+    UnorderedError,
 };
 use crate::subset::{self, KeyNotFoundError};
 use crate::take;
@@ -1228,11 +1229,11 @@ mod tests {
     use crate::btree_set1::BTreeSet1;
     use crate::btree_set1::harness::{self, xs1};
     use crate::iter1::FromIterator1;
+    use crate::range1::IntoRangeBounds;
     #[cfg(feature = "schemars")]
     use crate::schemars;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
-    use crate::subset::range::IntoRangeBounds;
 
     // SAFETY: The `FnMut`s constructed in cases (the parameter `f`) must not stash or otherwise
     //         allow access to the parameter beyond the scope of their bodies. (This is difficult
