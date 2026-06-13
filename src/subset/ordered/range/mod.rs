@@ -16,10 +16,7 @@ pub use {
 };
 
 #[cfg(feature = "alloc")]
-pub(crate) use {
-    crate::subset::ordered::range::item::OptionExt,
-    crate::subset::ordered::range::trim::ResolveTrimRange,
-};
+pub(crate) use crate::subset::ordered::range::item::OptionExt;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RangeError<N> {

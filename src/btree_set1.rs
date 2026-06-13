@@ -27,8 +27,7 @@ use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterato
 use crate::range1::IntoRangeBounds;
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::subset::range::{
-    self, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, ResolveTrimRange, TrimRange,
-    UnorderedError,
+    self, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, TrimRange, UnorderedError,
 };
 use crate::subset::{self, KeyNotFoundError};
 use crate::take;
@@ -75,23 +74,6 @@ unsafe impl<T> MaybeEmpty for BTreeSet<T> {
             1 => Some(crate::Cardinality::One(())),
             _ => Some(crate::Cardinality::Many(())),
         }
-    }
-}
-
-impl<T> ResolveTrimRange<Option<ItemRange<T>>> for BTreeSet<T>
-where
-    T: Clone + Ord,
-{
-    fn resolve_trim_range(&self, range: TrimRange) -> Option<ItemRange<T>> {
-        let TrimRange { tail, rtail } = range;
-        self.iter()
-            .nth(tail)
-            .zip(self.iter().rev().nth(rtail))
-            .and_then(|(start, end)| range::ordered_range_bounds(start.clone()..=end.clone()).ok())
-            .map(|range| {
-                let (start, end) = range.into_bounds();
-                ItemRange::unchecked(start, end)
-            })
     }
 }
 
@@ -1107,15 +1089,6 @@ impl<'a, T> OnlyRangeSubset<'a, T, TrimRange>
 where
     T: Ord,
 {
-    pub fn by_item(self) -> OnlyRangeSubset<'a, T, Option<ItemRange<T>>>
-    where
-        T: Clone,
-    {
-        let OnlyRangeSubset { items, range } = self;
-        let range = items.resolve_trim_range(range);
-        OnlyRangeSubset::unchecked(items, range)
-    }
-
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&T) -> bool,

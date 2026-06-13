@@ -1,9 +1,5 @@
 #![cfg(feature = "alloc")]
 
-pub trait ResolveTrimRange<R> {
-    fn resolve_trim_range(&self, range: TrimRange) -> R;
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct TrimRange {
     pub tail: usize,
