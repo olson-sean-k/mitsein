@@ -1,8 +1,13 @@
+// TODO: Replace references to this module with `core::range::legacy` when it is stabilized. See
+//       https://github.com/rust-lang/rust/issues/125687
+mod legacy {
+    pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+}
+
 use core::cmp;
 use core::mem;
-use core::ops::{
-    Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
-};
+use core::ops::{Bound, RangeBounds};
+use core::range::{Range, RangeFrom, RangeToInclusive};
 
 use crate::range1::IntoRangeBounds;
 use crate::subset::ordered::range::{
@@ -93,7 +98,7 @@ impl IndexRange {
     }
 
     #[cfg(any(feature = "alloc", feature = "arrayvec", feature = "smallvec"))]
-    pub(crate) fn truncate_from_end(&mut self, len: usize) -> Option<Range<usize>> {
+    pub(crate) fn truncate_from_end(&mut self, len: usize) -> Option<legacy::Range<usize>> {
         let from = self.len();
         let to = len;
         (to < from).then(|| {
@@ -280,6 +285,15 @@ impl Project<Range<usize>> for IndexRange {
     }
 }
 
+impl Project<legacy::Range<usize>> for IndexRange {
+    type Output = Self;
+    type Error = RangeError<usize>;
+
+    fn project(self, range: legacy::Range<usize>) -> Result<Self::Output, Self::Error> {
+        self::project_range_bounds_onto_index_range(self, range)
+    }
+}
+
 impl Project<RangeFrom<usize>> for IndexRange {
     type Output = Self;
     type Error = RangeError<usize>;
@@ -289,29 +303,38 @@ impl Project<RangeFrom<usize>> for IndexRange {
     }
 }
 
-impl Project<RangeFull> for IndexRange {
+impl Project<legacy::RangeFrom<usize>> for IndexRange {
     type Output = Self;
     type Error = RangeError<usize>;
 
-    fn project(self, range: RangeFull) -> Result<Self::Output, Self::Error> {
+    fn project(self, range: legacy::RangeFrom<usize>) -> Result<Self::Output, Self::Error> {
         self::project_range_bounds_onto_index_range(self, range)
     }
 }
 
-impl Project<RangeInclusive<usize>> for IndexRange {
+impl Project<legacy::RangeFull> for IndexRange {
     type Output = Self;
     type Error = RangeError<usize>;
 
-    fn project(self, range: RangeInclusive<usize>) -> Result<Self::Output, Self::Error> {
+    fn project(self, range: legacy::RangeFull) -> Result<Self::Output, Self::Error> {
         self::project_range_bounds_onto_index_range(self, range)
     }
 }
 
-impl Project<RangeTo<usize>> for IndexRange {
+impl Project<legacy::RangeInclusive<usize>> for IndexRange {
     type Output = Self;
     type Error = RangeError<usize>;
 
-    fn project(self, range: RangeTo<usize>) -> Result<Self::Output, Self::Error> {
+    fn project(self, range: legacy::RangeInclusive<usize>) -> Result<Self::Output, Self::Error> {
+        self::project_range_bounds_onto_index_range(self, range)
+    }
+}
+
+impl Project<legacy::RangeTo<usize>> for IndexRange {
+    type Output = Self;
+    type Error = RangeError<usize>;
+
+    fn project(self, range: legacy::RangeTo<usize>) -> Result<Self::Output, Self::Error> {
         self::project_range_bounds_onto_index_range(self, range)
     }
 }
@@ -321,6 +344,15 @@ impl Project<RangeToInclusive<usize>> for IndexRange {
     type Error = RangeError<usize>;
 
     fn project(self, range: RangeToInclusive<usize>) -> Result<Self::Output, Self::Error> {
+        self::project_range_bounds_onto_index_range(self, range)
+    }
+}
+
+impl Project<legacy::RangeToInclusive<usize>> for IndexRange {
+    type Output = Self;
+    type Error = RangeError<usize>;
+
+    fn project(self, range: legacy::RangeToInclusive<usize>) -> Result<Self::Output, Self::Error> {
         self::project_range_bounds_onto_index_range(self, range)
     }
 }
@@ -353,10 +385,10 @@ impl RangeBounds<usize> for IndexRange {
     }
 }
 
-impl TryFrom<Range<usize>> for IndexRange {
+impl TryFrom<legacy::Range<usize>> for IndexRange {
     type Error = UnorderedError<usize>;
 
-    fn try_from(range: Range<usize>) -> Result<Self, Self::Error> {
+    fn try_from(range: legacy::Range<usize>) -> Result<Self, Self::Error> {
         IndexRange::new(range.start, range.end)
     }
 }
