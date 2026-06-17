@@ -1,18 +1,16 @@
 // TODO: Replace references to this module with `core::range::legacy` when it is stabilized. See
 //       https://github.com/rust-lang/rust/issues/125687
 mod legacy {
-    pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+    pub use core::ops::Range;
 }
 
 use core::cmp;
 use core::mem;
 use core::ops::{Bound, RangeBounds};
-use core::range::{Range, RangeFrom, RangeToInclusive};
+use core::range::Range;
 
 use crate::range1::IntoRangeBounds;
-use crate::subset::ordered::range::{
-    self, Intersect, OutOfBoundsError, Project, RangeError, UnorderedError,
-};
+use crate::subset::ordered::range::{self, OutOfBoundsError, RangeError, UnorderedError};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct IndexRange {
@@ -36,6 +34,80 @@ impl IndexRange {
 
     pub fn empty_at(at: usize) -> Self {
         IndexRange::unchecked(at, at)
+    }
+
+    // This function succeeds for both intersections and adjacencies. For an adjacency, the output
+    // range is empty at the boundary (the point of contact).
+    pub fn contact<R>(self, other: R) -> Result<Self, RangeError<usize>>
+    where
+        R: RangeBounds<usize>,
+    {
+        use Bound::{Excluded, Included, Unbounded};
+
+        let start = match other.start_bound() {
+            Excluded(start) => start
+                .checked_add(1)
+                .unwrap_or_else(|| range::panic_start_overflow()),
+            Included(start) => *start,
+            Unbounded => self.start,
+        };
+        let end = match other.end_bound() {
+            Excluded(end) => *end,
+            Included(end) => end
+                .checked_add(1)
+                .unwrap_or_else(|| range::panic_end_overflow()),
+            Unbounded => self.end,
+        };
+        let other = IndexRange::new(start, end)?;
+
+        if self.start <= other.end && self.end >= other.start {
+            Ok(IndexRange::unchecked(
+                cmp::max(self.start, other.start),
+                cmp::min(self.end, other.end),
+            ))
+        }
+        else {
+            Err(RangeError::OutOfBounds((other.start, other.end).into()))
+        }
+    }
+
+    pub fn project_point(self, index: usize) -> Result<usize, OutOfBoundsError<usize>> {
+        let index = self
+            .start
+            .checked_add(index)
+            .unwrap_or_else(|| range::panic_start_overflow());
+        if index <= self.end {
+            Ok(index)
+        }
+        else {
+            Err(index.into())
+        }
+    }
+
+    pub fn project_range_bounds<R>(self, other: R) -> Result<Self, RangeError<usize>>
+    where
+        R: RangeBounds<usize>,
+    {
+        use Bound::{Excluded, Included, Unbounded};
+
+        let start = match other.start_bound() {
+            Excluded(start) => self.project_point(
+                start
+                    .checked_add(1)
+                    .unwrap_or_else(|| range::panic_start_overflow()),
+            ),
+            Included(start) => self.project_point(*start),
+            Unbounded => Ok(self.start),
+        }?;
+        let end = match other.end_bound() {
+            Excluded(end) => self.project_point(*end),
+            Included(end) => self.project_point(
+                end.checked_add(1)
+                    .unwrap_or_else(|| range::panic_end_overflow()),
+            ),
+            Unbounded => Ok(self.end),
+        }?;
+        IndexRange::new(start, end).map_err(From::from)
     }
 
     pub fn get_and_clear_from_end(&mut self) -> Self {
@@ -190,19 +262,6 @@ impl IndexRange {
         }
     }
 
-    fn intersect(self, other: Self) -> Result<Self, OutOfBoundsError<usize>> {
-        // Accept empty input ranges and adjacencies.
-        if self.start <= other.end && self.end >= other.start {
-            Ok(IndexRange::unchecked(
-                cmp::max(self.start, other.start),
-                cmp::min(self.end, other.end),
-            ))
-        }
-        else {
-            Err((other.start, other.end).into())
-        }
-    }
-
     pub fn start(&self) -> usize {
         self.start
     }
@@ -240,138 +299,10 @@ impl From<IndexRange> for (usize, usize) {
     }
 }
 
-impl<R> Intersect<R> for IndexRange
-where
-    R: RangeBounds<usize>,
-{
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn intersect(self, range: R) -> Result<Self::Output, Self::Error> {
-        use Bound::{Excluded, Included, Unbounded};
-
-        let start = match range.start_bound() {
-            Excluded(start) => start
-                .checked_add(1)
-                .unwrap_or_else(|| range::panic_start_overflow()),
-            Included(start) => *start,
-            Unbounded => self.start,
-        };
-        let end = match range.end_bound() {
-            Excluded(end) => *end,
-            Included(end) => end
-                .checked_add(1)
-                .unwrap_or_else(|| range::panic_end_overflow()),
-            Unbounded => self.end,
-        };
-        let other = IndexRange::new(start, end)?;
-        IndexRange::intersect(self, other).map_err(From::from)
-    }
-}
-
 impl IntoRangeBounds<usize> for IndexRange {
     fn into_bounds(self) -> (Bound<usize>, Bound<usize>) {
         let IndexRange { start, end } = self;
         (Bound::Included(start), Bound::Excluded(end))
-    }
-}
-
-impl Project<Range<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: Range<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<legacy::Range<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: legacy::Range<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<RangeFrom<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: RangeFrom<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<legacy::RangeFrom<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: legacy::RangeFrom<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<legacy::RangeFull> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: legacy::RangeFull) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<legacy::RangeInclusive<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: legacy::RangeInclusive<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<legacy::RangeTo<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: legacy::RangeTo<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<RangeToInclusive<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: RangeToInclusive<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<legacy::RangeToInclusive<usize>> for IndexRange {
-    type Output = Self;
-    type Error = RangeError<usize>;
-
-    fn project(self, range: legacy::RangeToInclusive<usize>) -> Result<Self::Output, Self::Error> {
-        self::project_range_bounds_onto_index_range(self, range)
-    }
-}
-
-impl Project<usize> for IndexRange {
-    type Output = usize;
-    type Error = OutOfBoundsError<usize>;
-
-    fn project(self, index: usize) -> Result<Self::Output, Self::Error> {
-        let index = self
-            .start
-            .checked_add(index)
-            .unwrap_or_else(|| range::panic_start_overflow());
-        if index <= self.end {
-            Ok(index)
-        }
-        else {
-            Err(index.into())
-        }
     }
 }
 
@@ -385,52 +316,28 @@ impl RangeBounds<usize> for IndexRange {
     }
 }
 
-impl TryFrom<legacy::Range<usize>> for IndexRange {
+impl TryFrom<Range<usize>> for IndexRange {
     type Error = UnorderedError<usize>;
 
-    fn try_from(range: legacy::Range<usize>) -> Result<Self, Self::Error> {
+    fn try_from(range: Range<usize>) -> Result<Self, Self::Error> {
         IndexRange::new(range.start, range.end)
     }
 }
 
-fn project_range_bounds_onto_index_range<R>(
-    range: IndexRange,
-    bounds: R,
-) -> Result<IndexRange, RangeError<usize>>
-where
-    R: RangeBounds<usize>,
-{
-    use Bound::{Excluded, Included, Unbounded};
+impl TryFrom<legacy::Range<usize>> for IndexRange {
+    type Error = <IndexRange as TryFrom<Range<usize>>>::Error;
 
-    let start = match bounds.start_bound() {
-        Excluded(start) => range.project(
-            start
-                .checked_add(1)
-                .unwrap_or_else(|| range::panic_start_overflow()),
-        ),
-        Included(start) => range.project(*start),
-        Unbounded => Ok(range.start),
-    }?;
-    let end = match bounds.end_bound() {
-        Excluded(end) => range.project(*end),
-        Included(end) => range.project(
-            end.checked_add(1)
-                .unwrap_or_else(|| range::panic_end_overflow()),
-        ),
-        Unbounded => Ok(range.end),
-    }?;
-    IndexRange::try_from(start..end).map_err(From::from)
+    fn try_from(range: legacy::Range<usize>) -> Result<Self, Self::Error> {
+        IndexRange::try_from(Range::from(range))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use core::fmt::Debug;
     use core::ops::RangeBounds;
     use rstest::rstest;
 
-    use crate::subset::ordered::range::{
-        IndexRange, Intersect, OutOfBoundsError, Project, RangeError,
-    };
+    use crate::subset::ordered::range::{IndexRange, OutOfBoundsError, RangeError};
 
     #[rstest]
     #[case::superset(IndexRange::unchecked(0, 9), 1..3, Ok(IndexRange::unchecked(1, 3)))]
@@ -441,39 +348,32 @@ mod tests {
         4..9,
         Err(RangeError::OutOfBounds(OutOfBoundsError::Range(4, 9))),
     )]
-    fn intersect_index_range_then_intersection_eq<R>(
+    fn contact_index_range_and_range_bounds_then_contact_eq<R>(
         #[case] lhs: IndexRange,
         #[case] rhs: R,
         #[case] expected: Result<IndexRange, RangeError<usize>>,
     ) where
         R: RangeBounds<usize>,
     {
-        assert_eq!(Intersect::intersect(lhs, rhs), expected);
+        assert_eq!(lhs.contact(rhs), expected);
     }
 
     #[rstest]
-    #[case::index(IndexRange::unchecked(1, 9), 0, Ok(1))]
-    #[case::index_out_of_bounds(IndexRange::unchecked(1, 3), 5, Err(OutOfBoundsError::Point(6)))]
-    #[case::range(IndexRange::unchecked(1, 9), 2..5, Ok(IndexRange::unchecked(3, 6)))]
-    #[case::range_unbounded_end(IndexRange::unchecked(1, 9), 2.., Ok(IndexRange::unchecked(3, 9)))]
-    #[case::range_unbounded_start(IndexRange::unchecked(1, 9), ..2, Ok(IndexRange::unchecked(1, 3)))]
-    #[case::range_out_of_bounds(
+    #[case::bounded(IndexRange::unchecked(1, 9), 2..5, Ok(IndexRange::unchecked(3, 6)))]
+    #[case::unbounded_end(IndexRange::unchecked(1, 9), 2.., Ok(IndexRange::unchecked(3, 9)))]
+    #[case::unbounded_start(IndexRange::unchecked(1, 9), ..2, Ok(IndexRange::unchecked(1, 3)))]
+    #[case::out_of_bounds(
         IndexRange::unchecked(1, 3),
         1..5,
         Err(RangeError::OutOfBounds(OutOfBoundsError::Point(6))),
     )]
-    fn project_index_range_then_projection_eq<T>(
+    fn project_range_bounds_onto_index_range_then_projection_eq<R>(
         #[case] lhs: IndexRange,
-        #[case] rhs: T,
-        #[case] expected: Result<
-            <IndexRange as Project<T>>::Output,
-            <IndexRange as Project<T>>::Error,
-        >,
+        #[case] rhs: R,
+        #[case] expected: Result<IndexRange, RangeError<usize>>,
     ) where
-        IndexRange: Project<T>,
-        <IndexRange as Project<T>>::Output: Debug + PartialEq,
-        <IndexRange as Project<T>>::Error: Debug + PartialEq,
+        R: RangeBounds<usize>,
     {
-        assert_eq!(Project::project(lhs, rhs), expected);
+        assert_eq!(lhs.project_range_bounds(rhs), expected);
     }
 }

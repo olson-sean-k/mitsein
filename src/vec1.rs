@@ -36,7 +36,7 @@ use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::string1::String1;
 use crate::subset;
-use crate::subset::range::{self, IndexRange, Intersect, Project, RangeError};
+use crate::subset::range::{self, IndexRange, RangeError};
 use crate::take;
 use crate::vec_deque1::VecDeque1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -398,7 +398,7 @@ impl<T> Vec1<T> {
         R: RangeBounds<usize>,
     {
         let n = self.items.len();
-        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::contacted_strict_subset(&mut self.items, n, range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, T> {
@@ -907,28 +907,27 @@ impl Write for Vec1<u8> {
 
 #[derive(Debug)]
 struct DrainRange {
-    intersection: IndexRange,
+    contact: IndexRange,
     before: IndexRange,
     after: IndexRange,
 }
 
 impl DrainRange {
-    fn project_and_intersect<R>(subset: IndexRange, range: R) -> Result<Self, RangeError<usize>>
+    fn project_and_contact<R>(subset: IndexRange, range: R) -> Result<Self, RangeError<usize>>
     where
-        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
-        let intersection = subset.intersect(subset.project(range)?)?;
+        let contact = subset.contact(subset.project_range_bounds(range)?)?;
         let before = IndexRange::unchecked(
             subset.start(),
-            intersection
+            contact
                 .start()
                 .checked_add(1)
                 .unwrap_or_else(|| range::panic_end_overflow()),
         );
-        let after = IndexRange::unchecked(subset.start(), subset.end() - intersection.len());
+        let after = IndexRange::unchecked(subset.start(), subset.end() - contact.len());
         Ok(DrainRange {
-            intersection,
+            contact,
             before,
             after,
         })
@@ -1015,7 +1014,7 @@ impl<T> OnlyRangeSubset<'_, T> {
     pub fn split_off(&mut self, at: usize) -> Vec<T> {
         let at = self
             .range
-            .project(at)
+            .project_point(at)
             .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         let range = IndexRange::unchecked(at, self.range.end());
         let items = self.items.drain(range).collect();
@@ -1049,15 +1048,14 @@ impl<T> OnlyRangeSubset<'_, T> {
     // change. This API is unsound if this assumption does not hold.
     pub fn swap_drain<R>(&mut self, range: R) -> SwapDrainOnlyRangeSubset<'_, T>
     where
-        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
         let DrainRange {
-            mut intersection,
+            mut contact,
             before,
             after,
-        } = DrainRange::project_and_intersect(self.range, range).expect("invalid drain range");
-        if self.range.is_prefix() && intersection.is_prefix() {
+        } = DrainRange::project_and_contact(self.range, range).expect("invalid drain range");
+        if self.range.is_prefix() && contact.is_prefix() {
             // If both the subset and drain ranges are prefixes, then the target `Vec` may be left
             // empty if the drain iterator leaks (e.g., via `mem::forget`). Before the drain
             // operation begins and data beyond the start of the drain range may be left
@@ -1072,11 +1070,11 @@ impl<T> OnlyRangeSubset<'_, T> {
             // remainder is restored with the swapped item in the correct position.
             self.items
                 .as_mut_slice()
-                .swap(intersection.start(), intersection.end());
-            intersection.advance_by(1);
+                .swap(contact.start(), contact.end());
+            contact.advance_by(1);
             self.range = before;
             let mut drain = DrainOnlyRangeSubset {
-                drain: self.items.drain(intersection),
+                drain: self.items.drain(contact),
                 range: &mut self.range,
                 after,
             };
@@ -1087,7 +1085,7 @@ impl<T> OnlyRangeSubset<'_, T> {
             self.range = before;
             SwapDrainOnlyRangeSubset {
                 drain: DrainOnlyRangeSubset {
-                    drain: self.items.drain(intersection),
+                    drain: self.items.drain(contact),
                     range: &mut self.range,
                     after,
                 },
@@ -1099,7 +1097,7 @@ impl<T> OnlyRangeSubset<'_, T> {
     pub fn remove(&mut self, index: usize) -> T {
         let index = self
             .range
-            .project(index)
+            .project_point(index)
             .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         let item = self.items.remove(index);
         self.range.take_from_end(1);
@@ -1124,7 +1122,7 @@ impl<T> OnlyRangeSubset<'_, T> {
         else {
             let index = self
                 .range
-                .project(index)
+                .project_point(index)
                 .unwrap_or_else(|_| range::panic_index_out_of_bounds());
             let swapped = self.range.end() - 1;
             self.items.as_mut_slice().swap(index, swapped);
@@ -1175,10 +1173,9 @@ impl<T> OnlyRangeSubset<'_, T> {
 impl<T> OnlyRangeSubset<'_, T> {
     pub fn only<R>(&mut self, range: R) -> Result<OnlyRangeSubset<'_, T>, RangeError<usize>>
     where
-        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
-        self.project_and_intersect(range)
+        self.project_and_contact(range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, T> {
@@ -1312,7 +1309,6 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
-    use crate::subset::range::{IndexRange, Project, RangeError};
     use crate::vec1::Vec1;
     use crate::vec1::harness::{self, xs1};
 
@@ -1533,7 +1529,6 @@ mod tests {
         #[case] drain: D,
         #[case] expected: &Slice1<u8>,
     ) where
-        IndexRange: Project<D, Output = IndexRange, Error = RangeError<usize>>,
         S: RangeBounds<usize>,
         D: RangeBounds<usize>,
     {
@@ -1556,7 +1551,6 @@ mod tests {
         #[case] drain: D,
         #[case] expected: &Slice1<u8>,
     ) where
-        IndexRange: Project<D, Output = IndexRange, Error = RangeError<usize>>,
         S: RangeBounds<usize>,
         D: RangeBounds<usize>,
     {

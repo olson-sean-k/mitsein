@@ -1574,6 +1574,8 @@ mod tests {
         let mut xss = xss.rtail();
         let mut xss = xss.rtail();
         let mut xss = xss.rtail();
+        // For the given cases `xs1`, this subset is expected to be empty, because the opposing
+        // nominal ranges have intersected and collapsed.
         xss.clear();
         assert_eq!(xs1, expected);
     }

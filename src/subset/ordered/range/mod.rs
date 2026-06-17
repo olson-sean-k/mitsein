@@ -106,22 +106,6 @@ where
 
 impl<N> Error for UnorderedError<N> where N: Debug {}
 
-// Though they are not intersections in the most strict sense, implementations of this trait must
-// consider adjacencies as intersections.
-pub trait Intersect<R>: Sized {
-    type Output;
-    type Error;
-
-    fn intersect(self, range: R) -> Result<Self::Output, Self::Error>;
-}
-
-pub trait Project<T> {
-    type Output;
-    type Error;
-
-    fn project(self, other: T) -> Result<Self::Output, Self::Error>;
-}
-
 #[cfg(feature = "alloc")]
 pub fn ordered_range_bounds<N, R>(range: R) -> Result<R, R>
 where

@@ -11,9 +11,9 @@ pub(crate) mod range;
 use core::cmp;
 use core::ops::RangeBounds;
 
+use crate::subset::ordered::range::IndexRange;
 #[cfg(feature = "alloc")]
 use crate::subset::ordered::range::TrimRange;
-use crate::subset::ordered::range::{IndexRange, Intersect, Project};
 
 pub use crate::subset::ordered::range::{OutOfBoundsError, RangeError, UnorderedError};
 
@@ -59,7 +59,7 @@ where
         OnlyRangeSubset::unchecked(items, IndexRange::unchecked(0, n.saturating_sub(1)))
     }
 
-    pub(crate) fn intersected_strict_subset<R>(
+    pub(crate) fn contacted_strict_subset<R>(
         items: &mut T,
         n: usize,
         range: R,
@@ -68,7 +68,7 @@ where
         R: RangeBounds<usize>,
     {
         let all = IndexRange::unchecked(0, n);
-        let range = all.intersect(range)?;
+        let range = all.contact(range)?;
         if range.is_strict_subset_of(&all) {
             Ok(OnlyRangeSubset::unchecked(items, range))
         }
@@ -78,25 +78,29 @@ where
         }
     }
 
-    pub(crate) fn project_and_intersect<R>(
+    pub(crate) fn project_and_contact<R>(
         &mut self,
         range: R,
     ) -> Result<OnlyRangeSubset<'_, T, IndexRange>, RangeError<usize>>
     where
-        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
-        let range = self.range.intersect(self.range.project(range)?)?;
+        let range = self
+            .range
+            .contact(self.range.project_range_bounds(range)?)?;
         Ok(OnlyRangeSubset::unchecked(self.items, range))
     }
 
     pub(crate) fn project_tail_range(&mut self) -> OnlyRangeSubset<'_, T, IndexRange> {
-        let range = self.range.project(1..).unwrap();
+        let range = self.range.project_range_bounds(1..).unwrap();
         OnlyRangeSubset::unchecked(self.items, range)
     }
 
     pub(crate) fn project_rtail_range(&mut self, n: usize) -> OnlyRangeSubset<'_, T, IndexRange> {
-        let range = self.range.project(..n.saturating_sub(1)).unwrap();
+        let range = self
+            .range
+            .project_range_bounds(..n.saturating_sub(1))
+            .unwrap();
         OnlyRangeSubset::unchecked(self.items, range)
     }
 }

@@ -28,7 +28,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
-use crate::subset::range::{self, IndexRange, Project, RangeError};
+use crate::subset::range::{self, IndexRange, RangeError};
 use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -362,7 +362,7 @@ where
         R: RangeBounds<usize>,
     {
         let n = self.items.len();
-        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::contacted_strict_subset(&mut self.items, n, range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, A> {
@@ -833,7 +833,7 @@ where
     pub fn remove(&mut self, index: usize) -> T {
         let index = self
             .range
-            .project(index)
+            .project_point(index)
             .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         let item = self.items.remove(index);
         self.range.take_from_end(1);
@@ -858,7 +858,7 @@ where
         else {
             let index = self
                 .range
-                .project(index)
+                .project_point(index)
                 .unwrap_or_else(|_| range::panic_index_out_of_bounds());
             let swapped = self.range.end() - 1;
             self.items.as_mut_slice().swap(index, swapped);
@@ -912,10 +912,9 @@ where
 {
     pub fn only<R>(&mut self, range: R) -> Result<OnlyRangeSubset<'_, A>, RangeError<usize>>
     where
-        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
-        self.project_and_intersect(range)
+        self.project_and_contact(range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, A> {

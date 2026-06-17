@@ -31,7 +31,7 @@ use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterato
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
-use crate::subset::range::{self, IndexRange, Project, RangeError};
+use crate::subset::range::{self, IndexRange, RangeError};
 use crate::take;
 use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -340,7 +340,7 @@ impl<T> VecDeque1<T> {
         R: RangeBounds<usize>,
     {
         let n = self.items.len();
-        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::contacted_strict_subset(&mut self.items, n, range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, T> {
@@ -685,7 +685,7 @@ impl<T> OnlyRangeSubset<'_, T> {
     pub fn split_off(&mut self, at: usize) -> VecDeque<T> {
         let at = self
             .range
-            .project(at)
+            .project_point(at)
             .unwrap_or_else(|_| range::panic_index_out_of_bounds());
         let range = IndexRange::unchecked(at, self.range.end());
         let items = self.items.drain(range).collect();
@@ -714,7 +714,7 @@ impl<T> OnlyRangeSubset<'_, T> {
     }
 
     pub fn remove(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(index).ok()?;
+        let index = self.range.project_point(index).ok()?;
         self.items
             .remove(index)
             .inspect(|_| self.range.take_from_end(1))
@@ -743,7 +743,7 @@ impl<T> OnlyRangeSubset<'_, T> {
     }
 
     pub fn swap_remove_front(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(index).ok()?;
+        let index = self.range.project_point(index).ok()?;
         self.items.swap(index, self.range.start());
         self.items
             .remove(self.range.start())
@@ -751,7 +751,7 @@ impl<T> OnlyRangeSubset<'_, T> {
     }
 
     pub fn swap_remove_back(&mut self, index: usize) -> Option<T> {
-        let index = self.range.project(index).ok()?;
+        let index = self.range.project_point(index).ok()?;
         let swapped = self.range.end() - 1;
         self.items.swap(index, swapped);
         self.items
@@ -783,10 +783,9 @@ impl<T> OnlyRangeSubset<'_, T> {
 impl<T> OnlyRangeSubset<'_, T> {
     pub fn only<R>(&mut self, range: R) -> Result<OnlyRangeSubset<'_, T>, RangeError<usize>>
     where
-        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
-        self.project_and_intersect(range)
+        self.project_and_contact(range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, T> {

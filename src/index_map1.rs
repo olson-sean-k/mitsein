@@ -36,7 +36,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
-use crate::subset::range::{IndexRange, Project, RangeError};
+use crate::subset::range::{IndexRange, RangeError};
 use crate::subset::{self, KeyNotFoundError};
 use crate::take;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
@@ -903,7 +903,7 @@ impl<K, V, S> IndexMap1<K, V, S> {
         R: RangeBounds<usize>,
     {
         let n = self.items.len();
-        OnlyRangeSubset::intersected_strict_subset(&mut self.items, n, range)
+        OnlyRangeSubset::contacted_strict_subset(&mut self.items, n, range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, K, V, S> {
@@ -1685,14 +1685,14 @@ impl<K, V, S> OnlyRangeSubset<'_, K, V, S> {
     }
 
     pub fn shift_remove_index(&mut self, index: usize) -> Option<(K, V)> {
-        let index = self.range.project(index).ok()?;
+        let index = self.range.project_point(index).ok()?;
         self.items
             .shift_remove_index(index)
             .inspect(|_| self.range.take_from_end(1))
     }
 
     pub fn swap_remove_index(&mut self, index: usize) -> Option<(K, V)> {
-        let index = self.range.project(index).ok()?;
+        let index = self.range.project_point(index).ok()?;
         self.items
             .swap_remove_index(index)
             .inspect(|_| self.range.take_from_end(1))
@@ -1733,10 +1733,9 @@ where
 impl<K, V, S> OnlyRangeSubset<'_, K, V, S> {
     pub fn only<R>(&mut self, range: R) -> Result<OnlyRangeSubset<'_, K, V, S>, RangeError<usize>>
     where
-        IndexRange: Project<R, Output = IndexRange, Error = RangeError<usize>>,
         R: RangeBounds<usize>,
     {
-        self.project_and_intersect(range)
+        self.project_and_contact(range)
     }
 
     pub fn tail(&mut self) -> OnlyRangeSubset<'_, K, V, S> {
