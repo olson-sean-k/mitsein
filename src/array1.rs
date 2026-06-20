@@ -3,7 +3,7 @@
 use core::borrow::{Borrow, BorrowMut};
 use core::num::NonZeroUsize;
 
-use crate::iter1::IntoIterator1;
+use crate::iter1::{IntoIterator1, Iterator1};
 use crate::slice1::Slice1;
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 use crate::sync1::ArcSlice1;
@@ -41,6 +41,14 @@ pub trait Array1:
     fn as_slice1(&self) -> &Slice1<Self::Item>;
 
     fn as_mut_slice1(&mut self) -> &mut Slice1<Self::Item>;
+
+    fn iter1(&self) -> Iterator1<core::slice::Iter<'_, Self::Item>> {
+        self.as_slice1().iter1()
+    }
+
+    fn iter1_mut(&mut self) -> Iterator1<core::slice::IterMut<'_, Self::Item>> {
+        self.as_mut_slice1().iter1_mut()
+    }
 }
 
 macro_rules! with_non_zero_array_size_literals {
