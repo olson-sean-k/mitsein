@@ -19,8 +19,8 @@ use core::result;
 use either::Either;
 #[cfg(feature = "itertools")]
 use itertools::{
-    Dedup, DedupBy, DedupByWithCount, DedupWithCount, Itertools, MapInto, MapOk, Merge, MergeBy,
-    MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
+    ChunkBy, Dedup, DedupBy, DedupByWithCount, DedupWithCount, Group, Groups, Itertools, MapInto,
+    MapOk, Merge, MergeBy, MinMaxResult, PadUsing, Update, WithPosition, ZipLongest,
 };
 #[cfg(feature = "rayon")]
 use rayon::iter::{
@@ -329,11 +329,100 @@ pub trait ItertoolsExt: Itertools {
     {
         self.into_grouping_map_by(f).collect1()
     }
+
+    fn chunk_by1<K, F>(self, key: F) -> ChunkBy1<K, Self, F>
+    where
+        Self: Sized,
+        F: FnMut(&Self::Item) -> K,
+        K: PartialEq,
+    {
+        ChunkBy1 {
+            inner: self.chunk_by(key),
+        }
+    }
 }
 
 #[cfg(feature = "itertools")]
 #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
 impl<I> ItertoolsExt for I where I: Itertools {}
+
+#[cfg(feature = "itertools")]
+pub struct ChunkBy1<K, I: Iterator, F> {
+    inner: ChunkBy<K, I, F>,
+}
+
+#[cfg(feature = "itertools")]
+impl<'a, K, I, F> IntoIterator for &'a ChunkBy1<K, I, F>
+where
+    I: Iterator,
+    I::Item: 'a,
+    F: FnMut(&I::Item) -> K,
+    K: PartialEq,
+{
+    type Item = (K, Iterator1<Group<'a, K, I, F>>);
+
+    type IntoIter = Groups1<'a, K, I, F>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Groups1 {
+            inner: self.inner.into_iter(),
+        }
+    }
+}
+
+#[cfg(feature = "itertools")]
+pub struct Groups1<'a, K, I: Iterator, F> {
+    inner: Groups<'a, K, I, F>,
+}
+
+#[cfg(feature = "itertools")]
+impl<'a, K, I, F> Iterator for Groups1<'a, K, I, F>
+where
+    I: Iterator,
+    I::Item: 'a,
+    F: FnMut(&I::Item) -> K,
+    K: PartialEq,
+{
+    type Item = (K, Iterator1<Group<'a, K, I, F>>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (key, group) = self.inner.next()?;
+        // SAFETY: Each group yielded by `Groups` is non-empty
+        let group = unsafe { Iterator1::from_iter_unchecked(group) };
+        Some((key, group))
+    }
+}
+
+#[cfg(feature = "itertools")]
+impl<'a, K, I, F> IntoIterator for &'a NonEmpty<ChunkBy1<K, I, F>>
+where
+    I: Iterator,
+    I::Item: 'a,
+    F: FnMut(&I::Item) -> K,
+    K: PartialEq,
+{
+    type Item = (K, Iterator1<Group<'a, K, I, F>>);
+
+    type IntoIter = Groups1<'a, K, I, F>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+#[cfg(feature = "itertools")]
+impl<'a, K, I, F> IntoIterator1 for &'a NonEmpty<ChunkBy1<K, I, F>>
+where
+    I: Iterator,
+    I::Item: 'a,
+    F: FnMut(&I::Item) -> K,
+    K: PartialEq,
+{
+    fn into_iter1(self) -> Iterator1<Self::IntoIter> {
+        // SAFETY: Since `self.items` is non-empty, it yields at least one group.
+        unsafe { Iterator1::from_iter_unchecked(self) }
+    }
+}
 
 // The input type parameter `K` is unused in this trait, but is required to prevent a coherence
 // error. This trait is implemented for any `Iterator` type `I` and for `iter1::Result<I>`.
@@ -1144,6 +1233,17 @@ where
         let item = self.items.find_or_last(f);
         // SAFETY: `self` is non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
+    }
+
+    pub fn chunk_by1<K, F>(self, key: F) -> NonEmpty<ChunkBy1<K, I, F>>
+    where
+        I: Sized,
+        F: FnMut(&I::Item) -> K,
+        K: PartialEq,
+    {
+        NonEmpty {
+            items: self.items.chunk_by1(key),
+        }
     }
 }
 
