@@ -93,6 +93,10 @@ pub trait SliceExt<T> {
     fn chunk_by1_mut<F>(&mut self, f: F) -> ChunkBy1Mut<'_, T, F>
     where
         F: FnMut(&T, &T) -> bool;
+
+    fn windows1<'a>(&'a self, n: NonZeroUsize) -> impl Iterator<Item = &'a Slice1<T>>
+    where
+        T: 'a;
 }
 
 impl<T> SliceExt<T> for [T] {
@@ -111,6 +115,17 @@ impl<T> SliceExt<T> for [T] {
     {
         ChunkBy1Mut {
             chunks: self.chunk_by_mut(f),
+        }
+    }
+
+    fn windows1<'a>(&'a self, n: NonZeroUsize) -> impl Iterator<Item = &'a Slice1<T>>
+    where
+        T: 'a,
+    {
+        // SAFETY: Since n is non-zero, each yielded window is non-empty
+        unsafe {
+            self.windows(n.get())
+                .map(|slice| Slice1::from_slice_unchecked(slice))
         }
     }
 }
