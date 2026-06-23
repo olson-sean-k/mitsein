@@ -219,8 +219,6 @@
 //! assert_eq!(xs, HashSet1::from_one(0));
 #![doc = "```"]
 //!
-//! See the [`subset`] module.
-//!
 //! # Integrations and Feature Flags
 //!
 //! Mitsein supports `no_std` environments and provides feature flags for integrating as needed
@@ -339,6 +337,7 @@ mod error;
 mod safety;
 mod schemars;
 mod serde;
+mod subset;
 mod take;
 
 pub mod array1;
@@ -360,7 +359,6 @@ pub mod slice1;
 pub mod small_vec1;
 pub mod str1;
 pub mod string1;
-pub mod subset;
 pub mod sync1;
 pub mod vec1;
 pub mod vec_deque1;
@@ -452,7 +450,7 @@ use core::num::NonZeroUsize;
 
 pub use error::*;
 #[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
-pub use take::*;
+pub use {subset::*, take::*};
 
 /// Extension methods for [`MaybeEmpty`] types.
 trait MaybeEmptyExt: MaybeEmpty {

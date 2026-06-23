@@ -7,12 +7,12 @@ mod trim;
 #[cfg(feature = "alloc")]
 use core::ops::{Bound, RangeBounds};
 
-pub use crate::subset::ordered::range::index::IndexRange;
+pub use crate::subset::ranged::range::index::IndexRange;
 #[cfg(feature = "alloc")]
-pub use crate::subset::ordered::range::{item::ItemRange, trim::TrimRange};
+pub use crate::subset::ranged::range::{item::ItemRange, trim::TrimRange};
 
 #[cfg(feature = "alloc")]
-pub(crate) use crate::subset::ordered::range::item::OptionExt;
+pub(crate) use crate::subset::ranged::range::item::OptionExt;
 
 #[cfg(feature = "alloc")]
 pub fn ordered_range_bounds<N, R>(range: R) -> Result<R, R>
@@ -68,7 +68,7 @@ mod tests {
     use core::ops::{Bound, RangeBounds};
     use rstest::rstest;
 
-    use crate::subset::ordered::range;
+    use crate::subset::ranged::range;
 
     #[rstest]
     #[case::empty(0i32..0)]

@@ -5,10 +5,10 @@
 //         guarantee. In particular, features of internal range types like contact and projection
 //         must be correct.
 
-mod ordered;
-mod unordered;
+mod keyed;
+mod ranged;
 
-#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
-pub use crate::subset::ordered::*;
 #[cfg(feature = "alloc")]
-pub use crate::subset::unordered::*;
+pub use crate::subset::keyed::*;
+#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
+pub use crate::subset::ranged::*;

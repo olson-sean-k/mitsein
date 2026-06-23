@@ -1,4 +1,4 @@
-//! Ordered subsets of non-empty collections by range.
+//! Subsets of non-empty collections by range.
 
 #![cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
 #![cfg_attr(
@@ -12,9 +12,9 @@ use core::cmp;
 use core::ops::RangeBounds;
 
 use crate::error::{OutOfBoundsError, RangeError};
-use crate::subset::ordered::range::IndexRange;
+use crate::subset::ranged::range::IndexRange;
 #[cfg(feature = "alloc")]
-use crate::subset::ordered::range::TrimRange;
+use crate::subset::ranged::range::TrimRange;
 
 // TODO: Support ranges over a query type `Q` borrowed from a key or owned index type `K`. Note that
 //       any type `Q` must be isomorphic with `K` (i.e., implement `UnsafeOrdIsomorph`), because the

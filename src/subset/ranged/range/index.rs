@@ -11,7 +11,7 @@ use core::range::Range;
 
 use crate::error::{OutOfBoundsError, RangeError, UnorderedError};
 use crate::range1::IntoRangeBounds;
-use crate::subset::ordered::range;
+use crate::subset::ranged::range;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct IndexRange {
@@ -339,7 +339,7 @@ mod tests {
     use rstest::rstest;
 
     use crate::error::{OutOfBoundsError, RangeError};
-    use crate::subset::ordered::range::IndexRange;
+    use crate::subset::ranged::range::IndexRange;
 
     #[rstest]
     #[case::superset(IndexRange::unchecked(0, 9), 1..3, Ok(IndexRange::unchecked(1, 3)))]
