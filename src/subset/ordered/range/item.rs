@@ -3,8 +3,8 @@
 use core::borrow::Borrow;
 use core::ops::{Bound, RangeBounds};
 
+use crate::error::UnorderedError;
 use crate::range1::IntoRangeBounds;
-use crate::subset::ordered::range::UnorderedError;
 
 pub trait OptionExt<N> {
     fn contains<Q>(&self, key: &Q) -> bool

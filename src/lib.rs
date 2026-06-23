@@ -335,6 +335,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod error;
 mod safety;
 mod schemars;
 mod serde;
@@ -445,18 +446,13 @@ pub mod prelude {
     };
 }
 
-#[cfg(feature = "alloc")]
-use alloc::borrow::ToOwned;
 use core::cmp::Ordering;
-use core::error::Error;
-use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
-pub use take::TakeIfMany;
-
-const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
+pub use error::*;
+#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
+pub use take::*;
 
 /// Extension methods for [`MaybeEmpty`] types.
 trait MaybeEmptyExt: MaybeEmpty {
@@ -541,71 +537,6 @@ where
     /// `items` must be non-empty. See [`MaybeEmpty::cardinality`].
     unsafe fn from_maybe_empty_unchecked(items: T) -> Self;
 }
-
-/// An error in which a non-empty value is expected but an empty value is observed.
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-pub struct EmptyError<T> {
-    items: T,
-}
-
-impl<T> EmptyError<T> {
-    fn from_empty(items: T) -> Self {
-        EmptyError { items }
-    }
-
-    /// Converts the error into the empty value.
-    pub fn into_empty(self) -> T {
-        self.items
-    }
-
-    fn map<U, F>(self, f: F) -> EmptyError<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        EmptyError::from_empty(f(self.items))
-    }
-
-    /// Takes the empty value out of the error, returning it and a unit error.
-    pub fn take(self) -> (T, EmptyError<()>) {
-        (self.items, EmptyError::from_empty(()))
-    }
-
-    /// Takes the empty value out of the error and immediately drops it, returning a unit error.
-    pub fn take_and_drop(self) -> EmptyError<()> {
-        EmptyError::from_empty(())
-    }
-
-    /// Converts the error to a reference to the empty value.
-    pub fn as_empty(&self) -> &T {
-        &self.items
-    }
-}
-
-impl<T> EmptyError<&'_ T> {
-    /// Maps the empty value from a borrowed type into its owned type.
-    #[cfg(feature = "alloc")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-    pub fn into_owning(self) -> EmptyError<T::Owned>
-    where
-        T: ToOwned,
-    {
-        EmptyError::from_empty(self.items.to_owned())
-    }
-}
-
-impl<T> Debug for EmptyError<T> {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("EmptyError").finish_non_exhaustive()
-    }
-}
-
-impl<T> Display for EmptyError<T> {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{EMPTY_ERROR_MESSAGE}")
-    }
-}
-
-impl<T> Error for EmptyError<T> {}
 
 /// A collection or slice type that must contain one or more items (is never empty).
 ///

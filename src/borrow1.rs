@@ -5,7 +5,7 @@
 
 use alloc::borrow::{Cow, ToOwned};
 
-use crate::EmptyError;
+use crate::error::EmptyError;
 use crate::rc1::{RcSlice1, RcSlice1Ext as _, RcStr1, RcStr1Ext as _};
 use crate::slice1::Slice1;
 use crate::str1::Str1;

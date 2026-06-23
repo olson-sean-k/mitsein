@@ -24,14 +24,15 @@ use {
 
 use crate::array1::Array1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
+use crate::error::{EmptyError, RangeError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
-use crate::subset::range::{self, IndexRange, RangeError};
+use crate::subset::range::{self, IndexRange};
 use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 impl<A> Extend1<A::Item> for SmallVec<A>
 where

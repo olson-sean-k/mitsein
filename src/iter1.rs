@@ -39,12 +39,13 @@ use {
 };
 
 use crate::cmp::UnsafeOrd;
+use crate::error::EmptyError;
 use crate::safety::OptionExt as _;
 #[cfg(any(all(feature = "alloc", feature = "itertools"), feature = "rayon"))]
 use crate::vec1::Vec1;
 #[cfg(feature = "itertools")]
 use crate::{Cardinality, safety};
-use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty, NonZeroExt as _};
+use crate::{FromMaybeEmpty, MaybeEmpty, NonEmpty, NonZeroExt as _};
 
 // Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
 // implementation. In particular, the `IntoIterator::IntoIter` type for `Either` is itself, and so

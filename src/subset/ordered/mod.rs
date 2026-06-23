@@ -11,11 +11,10 @@ pub(crate) mod range;
 use core::cmp;
 use core::ops::RangeBounds;
 
+use crate::error::{OutOfBoundsError, RangeError};
 use crate::subset::ordered::range::IndexRange;
 #[cfg(feature = "alloc")]
 use crate::subset::ordered::range::TrimRange;
-
-pub use crate::subset::ordered::range::{OutOfBoundsError, RangeError, UnorderedError};
 
 // TODO: Support ranges over a query type `Q` borrowed from a key or owned index type `K`. Note that
 //       any type `Q` must be isomorphic with `K` (i.e., implement `UnsafeOrdIsomorph`), because the

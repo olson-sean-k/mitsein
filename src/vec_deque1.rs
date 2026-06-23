@@ -25,16 +25,17 @@ use {
 };
 
 use crate::array1::Array1;
+use crate::error::{EmptyError, RangeError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
-use crate::subset::range::{self, IndexRange, RangeError};
+use crate::subset::range::{self, IndexRange};
 use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 impl<T> Extend1<T> for VecDeque<T> {
     fn extend_non_empty<I>(mut self, items: I) -> VecDeque1<T>

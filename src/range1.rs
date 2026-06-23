@@ -16,9 +16,10 @@ use core::num::NonZeroUsize;
 use core::ops::{Bound, RangeBounds};
 use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
 
+use crate::NonEmpty;
 use crate::cmp::UnsafeOrd;
+use crate::error::{EmptyError, OutOfBoundsError};
 use crate::iter1::{IntoIterator1, Iterator1, UnsafeStep};
-use crate::{EmptyError, NonEmpty};
 
 // TODO: Remove this trait and use `core::ops::IntoBounds` instead when it is stabilized. See
 //       https://github.com/rust-lang/rust/issues/136903
@@ -242,13 +243,7 @@ where
 }
 
 impl TryFrom<RangeFrom<usize>> for Range1<usize> {
-    // TODO: Introduce an appropriate error type for this.
-    //
-    //       This is not an `EmptyError` but instead more of an out-of-bounds error. `RangeFrom`
-    //       specifies only an inclusive lower bound, so it is never empty over `usize`. However,
-    //       `Range` cannot represent the extreme of a `usize::MAX` lower bound, because it would
-    //       require a successor of `usize::MAX` for the upper bound.
-    type Error = RangeFrom<usize>;
+    type Error = OutOfBoundsError<usize>;
 
     fn try_from(items: RangeFrom<usize>) -> Result<Self, Self::Error> {
         if items.start < usize::MAX {
@@ -260,27 +255,27 @@ impl TryFrom<RangeFrom<usize>> for Range1<usize> {
             })
         }
         else {
-            Err(items)
+            // `RangeFrom` specifies only an inclusive lower bound, so it is never empty over
+            // `usize`. However, `Range` cannot represent the extreme of a `usize::MAX` lower bound,
+            // because it would require a successor of `usize::MAX` for the upper bound.
+            Err(OutOfBoundsError::Point(items.start))
         }
     }
 }
 
 impl TryFrom<RangeToInclusive<usize>> for Range1<usize> {
-    // TODO: Introduce an appropriate error type for this.
-    //
-    //       This is not an `EmptyError` but instead more of an out-of-bounds error.
-    //       `RangeToInclusive` specifies only an inclusive upper bound, so it is never empty over
-    //       `usize`. However, `Range` cannot represent the extreme of an _inclusive_ `usize::MAX`
-    //       upper bound, because it would require a successor of `usize::MAX` for the _exclusive_
-    //       upper bound.
-    type Error = RangeToInclusive<usize>;
+    type Error = OutOfBoundsError<usize>;
 
     fn try_from(items: RangeToInclusive<usize>) -> Result<Self, Self::Error> {
         if let Some(end) = items.last.checked_add(1) {
             Ok(unsafe { Range1::from_range_unchecked(Range { start: 0, end }) })
         }
         else {
-            Err(items)
+            // `RangeToInclusive` specifies only an inclusive upper bound, so it is never empty over
+            // `usize`. However, `Range` cannot represent the extreme of an _inclusive_ `usize::MAX`
+            // upper bound, because it would require a successor of `usize::MAX` for the _exclusive_
+            // upper bound.
+            Err(OutOfBoundsError::Point(items.last))
         }
     }
 }

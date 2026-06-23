@@ -50,7 +50,7 @@ pub mod harness {
     use serde::{Deserialize, Serialize};
     use serde_test::{self, Token};
 
-    use crate::EMPTY_ERROR_MESSAGE;
+    use crate::error::EMPTY_ERROR_MESSAGE;
 
     #[cfg(feature = "alloc")]
     #[fixture]

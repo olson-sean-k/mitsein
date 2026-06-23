@@ -27,13 +27,14 @@ use {
 };
 
 use crate::array1::Array1;
+use crate::error::{EmptyError, RangeError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
-use crate::subset::range::{self, IndexRange, RangeError};
+use crate::subset::range::{self, IndexRange};
 use crate::take;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 impl<T, const N: usize> Extend1<T> for ArrayVec<T, N>
 where

@@ -24,17 +24,16 @@ use {
 
 use crate::array1::Array1;
 use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
+use crate::error::{EmptyError, KeyNotFoundError, OutOfBoundsError, RangeError, UnorderedError};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::range1::IntoRangeBounds;
 use crate::safety::{NonZeroExt as _, OptionExt as _};
-use crate::subset::range::{
-    self, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, TrimRange, UnorderedError,
-};
-use crate::subset::{self, KeyNotFoundError};
+use crate::subset;
+use crate::subset::range::{self, ItemRange, OptionExt as _, TrimRange};
 use crate::take;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 impl<K, V> Extend1<(K, V)> for BTreeMap<K, V>
 where

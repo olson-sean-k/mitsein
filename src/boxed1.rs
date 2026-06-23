@@ -11,9 +11,9 @@ use alloc::boxed::Box;
 use alloc::vec::{self, Vec};
 use core::slice;
 
-use crate::EmptyError;
 use crate::MaybeEmpty;
 use crate::array1::Array1;
+use crate::error::EmptyError;
 use crate::iter1::{FromIterator1, IntoIterator1, Iterator1};
 use crate::rc1::{RcSlice1, RcSlice1Ext as _};
 use crate::slice1::Slice1;

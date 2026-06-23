@@ -4,107 +4,15 @@ mod index;
 mod item;
 mod trim;
 
-use core::error::Error;
-use core::fmt::{self, Debug, Display, Formatter};
 #[cfg(feature = "alloc")]
 use core::ops::{Bound, RangeBounds};
 
 pub use crate::subset::ordered::range::index::IndexRange;
 #[cfg(feature = "alloc")]
-pub use {
-    crate::subset::ordered::range::item::ItemRange, crate::subset::ordered::range::trim::TrimRange,
-};
+pub use crate::subset::ordered::range::{item::ItemRange, trim::TrimRange};
 
 #[cfg(feature = "alloc")]
 pub(crate) use crate::subset::ordered::range::item::OptionExt;
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum RangeError<N> {
-    OutOfBounds(OutOfBoundsError<N>),
-    Unordered(UnorderedError<N>),
-}
-
-impl<N> Display for RangeError<N>
-where
-    N: Debug,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            RangeError::OutOfBounds(error) => write!(formatter, "{error}"),
-            RangeError::Unordered(error) => write!(formatter, "{error}"),
-        }
-    }
-}
-
-impl<N> Error for RangeError<N> where N: Debug {}
-
-impl<N> From<OutOfBoundsError<N>> for RangeError<N> {
-    fn from(error: OutOfBoundsError<N>) -> Self {
-        RangeError::OutOfBounds(error)
-    }
-}
-
-impl<N> From<UnorderedError<N>> for RangeError<N> {
-    fn from(error: UnorderedError<N>) -> Self {
-        RangeError::Unordered(error)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum OutOfBoundsError<N> {
-    Point(N),
-    Range(N, N),
-}
-
-impl<N> Display for OutOfBoundsError<N>
-where
-    N: Debug,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            OutOfBoundsError::Point(point) => {
-                write!(formatter, "point at {point:?} is out of bounds")
-            },
-            OutOfBoundsError::Range(start, end) => write!(
-                formatter,
-                "range from {start:?} to {end:?} is out of bounds"
-            ),
-        }
-    }
-}
-
-impl<N> Error for OutOfBoundsError<N> where N: Debug {}
-
-impl<N> From<N> for OutOfBoundsError<N> {
-    fn from(point: N) -> Self {
-        OutOfBoundsError::Point(point)
-    }
-}
-
-impl<N> From<(N, N)> for OutOfBoundsError<N> {
-    fn from(range: (N, N)) -> Self {
-        let (start, end) = range;
-        OutOfBoundsError::Range(start, end)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct UnorderedError<N>(pub N, pub N);
-
-impl<N> Display for UnorderedError<N>
-where
-    N: Debug,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        let UnorderedError(start, end) = self;
-        write!(
-            formatter,
-            "range unordered: starts at {start:?} but ends at {end:?}"
-        )
-    }
-}
-
-impl<N> Error for UnorderedError<N> where N: Debug {}
 
 #[cfg(feature = "alloc")]
 pub fn ordered_range_bounds<N, R>(range: R) -> Result<R, R>

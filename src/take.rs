@@ -9,7 +9,7 @@ use core::mem::{self, MaybeUninit};
 
 use crate::{Cardinality, MaybeEmpty, NonEmpty};
 
-pub type FnMany<T, U, N> = fn(&mut NonEmpty<T>, N) -> U;
+pub(crate) type FnMany<T, U, N> = fn(&mut NonEmpty<T>, N) -> U;
 
 struct Target<'a, T, N>
 where

@@ -19,13 +19,14 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 
 use crate::borrow1::{CowStr1, CowStr1Ext as _};
 use crate::boxed1::{BoxedStr1, BoxedStr1Ext as _};
+use crate::error::EmptyError;
 use crate::iter1::{Extend1, FromIterator1, IntoIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
 use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 impl Add<&Str1> for String {
     type Output = String;

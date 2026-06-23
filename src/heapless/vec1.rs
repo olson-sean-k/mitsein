@@ -12,14 +12,15 @@ use core::ops::{Deref, DerefMut, RangeBounds};
 use core::slice;
 
 use crate::array1::Array1;
+use crate::error::{EmptyError, RangeError};
 use crate::heapless;
 use crate::iter1::{self, FromIterator1, IntoIterator1, Iterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
-use crate::subset::range::{self, IndexRange, RangeError};
+use crate::subset::range::{self, IndexRange};
 use crate::take;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 
 unsafe impl<T, S> MaybeEmpty for VecInner<T, usize, S>
 where

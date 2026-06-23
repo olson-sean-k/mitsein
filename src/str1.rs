@@ -23,12 +23,13 @@ use {
 #[cfg(feature = "alloc")]
 use {alloc::borrow::ToOwned, alloc::string::String};
 
+use crate::error::EmptyError;
 use crate::iter1::Iterator1;
 #[cfg(feature = "rayon")]
 use crate::iter1::ParallelIterator1;
 use crate::safety;
 use crate::slice1::Slice1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, FromMaybeEmpty, MaybeEmpty, NonEmpty};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedStr1, crate::string1::String1};
 
