@@ -453,7 +453,7 @@ use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 
-#[cfg(any(feature = "arrayvec", feature = "alloc"))]
+#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
 pub use take::TakeIfMany;
 
 const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
