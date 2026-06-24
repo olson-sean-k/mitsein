@@ -241,16 +241,12 @@ impl String1 {
     }
 
     pub fn split_off_tail(&mut self) -> String {
-        let index = unsafe {
-            // SAFETY: `self` must be non-empty.
-            self.items
-                .char_indices()
-                .take(2)
-                .last()
-                .map(|(index, _)| index)
-                .unwrap_maybe_unchecked()
-        };
-        self.items.split_off(index)
+        // Unlike `Vec1::split_off_tail` and others, `String1` must consider UTF-8 byte boundaries
+        // here. The byte index of the tail may not be one!
+        match self.items.char_indices().nth(1) {
+            Some((index, _)) => self.items.split_off(index),
+            _ => String::new(),
+        }
     }
 
     pub fn push(&mut self, item: char) {
