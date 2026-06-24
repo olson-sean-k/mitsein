@@ -9,14 +9,12 @@ use core::fmt::{self, Debug, Display, Formatter};
 #[cfg(feature = "alloc")]
 use core::ops::{Bound, RangeBounds};
 
-pub use crate::subset::ordered::range::index::IndexRange;
+pub use crate::subset::ranged::range::index::IndexRange;
 #[cfg(feature = "alloc")]
-pub use {
-    crate::subset::ordered::range::item::ItemRange, crate::subset::ordered::range::trim::TrimRange,
+pub use crate::subset::ranged::range::{
+    item::{ItemRange, OptionExt},
+    trim::TrimRange,
 };
-
-#[cfg(feature = "alloc")]
-pub(crate) use crate::subset::ordered::range::item::OptionExt;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RangeError<N> {
@@ -160,7 +158,7 @@ mod tests {
     use core::ops::{Bound, RangeBounds};
     use rstest::rstest;
 
-    use crate::subset::ordered::range;
+    use crate::subset::ranged::range;
 
     #[rstest]
     #[case::empty(0i32..0)]

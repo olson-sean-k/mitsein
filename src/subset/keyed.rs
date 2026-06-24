@@ -1,4 +1,4 @@
-//! Unordered subsets of non-empty collections by key.
+//! Subsets of non-empty collections by key.
 
 #![cfg(feature = "alloc")]
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
