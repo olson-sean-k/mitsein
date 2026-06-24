@@ -373,7 +373,7 @@ pub trait ThenIterator1<K>: Sized {
         self.or_else_non_empty(move || items)
     }
 
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
         T: IntoIterator1<Item = Self::Item>,
         F: FnOnce() -> T;
@@ -399,7 +399,7 @@ where
         unsafe { Iterator1::from_iter_unchecked(self.chain(items.into_iter1())) }
     }
 
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
         T: IntoIterator1<Item = Self::Item>,
         F: FnOnce() -> T,
@@ -417,8 +417,6 @@ pub type RTailAndHead<T> =
 pub type EmptyOrInto<T> = Flatten<option::IntoIter<<T as IntoIterator>::IntoIter>>;
 
 pub type OrNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
-
-pub type OrElseNonEmpty<I, T> = Iterator1<Chain<Peekable<I>, EmptyOrInto<T>>>;
 
 pub type Result<I> = result::Result<Iterator1<Peekable<I>>, EmptyError<Peekable<I>>>;
 
@@ -446,7 +444,7 @@ where
         }
     }
 
-    fn or_else_non_empty<T, F>(self, f: F) -> OrElseNonEmpty<Self::MaybeEmpty, T>
+    fn or_else_non_empty<T, F>(self, f: F) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
         T: IntoIterator1<Item = Self::Item>,
         F: FnOnce() -> T,
