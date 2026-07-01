@@ -60,7 +60,7 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
-//! while let Ok(_) = xs.pop_if_many().or_get_only() {}
+//! while let Many(_) = xs.pop_if_many() {}
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
@@ -338,7 +338,6 @@ extern crate std;
 mod safety;
 mod schemars;
 mod serde;
-mod take;
 
 pub mod array1;
 pub mod array_vec1;
@@ -434,6 +433,7 @@ pub mod prelude {
     pub use crate::sync1::{
         ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
     };
+    pub use crate::{Many, One};
     #[cfg(feature = "alloc")]
     pub use {
         crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
@@ -453,8 +453,7 @@ use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 
-#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
-pub use take::TakeIfMany;
+pub use Cardinality::{Many, One};
 
 const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
 
@@ -679,8 +678,8 @@ where
     #[cfg(feature = "alloc")]
     fn as_cardinality_items_mut(&mut self) -> Cardinality<&mut T, &mut T> {
         match self.cardinality() {
-            Cardinality::One(_) => Cardinality::One(&mut self.items),
-            Cardinality::Many(_) => Cardinality::Many(&mut self.items),
+            One(_) => One(&mut self.items),
+            Many(_) => Many(&mut self.items),
         }
     }
 }
@@ -766,12 +765,16 @@ where
 
 /// Non-empty cardinality.
 ///
-/// `Cardinality` associates some arbitrary data with a non-empty cardinality: one or many. For
-/// some particular data types, cardinality determines specific behaviors, such as in
-/// [`OccupiedEntry`] APIs for [`BTreeMap1`].
+/// `Cardinality` describes and associates data with a non-empty cardinality: one or many.
+/// Cardinality predicates some behaviors of non-empty types. In particular, it is not possible to
+/// take the only remaining item out of a non-empty collection, and so APIs that take an item like
+/// [`Vec1::pop_if_many`] return [a `Cardinality` type][`OrOnly`]. Similarly, non-empty map types
+/// like [`BTreeMap1`] use `Cardinality` types in [their entry APIs][`OccupiedEntry`].
 ///
 /// [`BTreeMap1`]: crate::btree_map1::BTreeMap1
 /// [`OccupiedEntry`]: crate::btree_map1::OccupiedEntry
+/// [`OrOnly`]: crate::vec1::OrOnly
+/// [`Vec1::pop_if_many`]: crate::vec1::Vec1::pop_if_many
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Cardinality<O, M> {
     /// Exactly one item.
@@ -782,51 +785,53 @@ pub enum Cardinality<O, M> {
 
 impl<O, M> Cardinality<O, M> {
     /// Converts the cardinality into an `Option<O>`, discarding the [`Many`] value, if any.
-    ///
-    /// [`Many`]: crate::Cardinality::Many
     pub fn one(self) -> Option<O> {
         match self {
-            Cardinality::One(one) => Some(one),
+            One(one) => Some(one),
             _ => None,
         }
     }
 
     /// Converts the cardinality into an `Option<M>`, discarding the [`One`] value, if any.
-    ///
-    /// [`One`]: crate::Cardinality::One
     pub fn many(self) -> Option<M> {
         match self {
-            Cardinality::Many(many) => Some(many),
+            Many(many) => Some(many),
             _ => None,
         }
     }
 
     /// Maps a `Cardinality<O, M>` to `Cardinality<U, M>` by applying a function to the [`One`]
     /// value.
-    ///
-    /// [`One`]: crate::Cardinality::One
     pub fn map_one<U, F>(self, f: F) -> Cardinality<U, M>
     where
         F: FnOnce(O) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(f(one)),
-            Cardinality::Many(many) => Cardinality::Many(many),
+            One(one) => One(f(one)),
+            Many(many) => Many(many),
         }
     }
 
     /// Maps a `Cardinality<O, M>` to `Cardinality<O, U>` by applying a function to the [`Many`]
     /// value.
-    ///
-    /// [`Many`]: crate::Cardinality::Many
     pub fn map_many<U, F>(self, f: F) -> Cardinality<O, U>
     where
         F: FnOnce(M) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(one),
-            Cardinality::Many(many) => Cardinality::Many(f(many)),
+            One(one) => One(one),
+            Many(many) => Many(f(many)),
         }
+    }
+
+    /// Returns `true` if the `Cardinality` is [`One`], otherwise `false`.
+    pub fn is_one(&self) -> bool {
+        matches!(self, One(_))
+    }
+
+    /// Returns `true` if the `Cardinality` is [`Many`], otherwise `false`.
+    pub fn is_many(&self) -> bool {
+        matches!(self, Many(_))
     }
 }
 
@@ -838,8 +843,88 @@ impl<T> Cardinality<T, T> {
         F: FnOnce(T) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(f(one)),
-            Cardinality::Many(many) => Cardinality::Many(f(many)),
+            One(one) => One(f(one)),
+            Many(many) => Many(f(many)),
+        }
+    }
+}
+
+impl<T> Cardinality<&mut T, T> {
+    /// Gets the [`Many`] value or replaces the [`One`] reference with `item`.
+    ///
+    /// When taking an item out of a non-empty collection, this function gets the taken item or, if
+    /// there is only one remaining item, replaces it.
+    ///
+    /// # Examples
+    ///
+    /// Implementing a pop (a.k.a. drop) operation in a postfix calculator:
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = "```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// pub struct PostfixCalculator {
+    ///     // There must always be a computation, so this is non-empty.
+    ///     stack: Vec1<f64>,
+    ///     // ...
+    /// }
+    ///
+    /// impl PostfixCalculator {
+    ///     pub fn pop(&mut self) -> f64 {
+    ///         self.stack
+    ///             .pop_if_many()
+    ///             .or_replace_only(0.0)
+    ///     }
+    ///
+    ///     // ...
+    /// }
+    #[doc = "```"]
+    pub fn or_replace_only(self, item: T) -> T {
+        self.or_else_replace_only(|| item)
+    }
+
+    /// Gets the [`Many`] value or replaces the [`One`] reference with the output of the given
+    /// function.
+    ///
+    /// When taking an item out of a non-empty collection, this function gets the taken item or, if
+    /// there is only one remaining item, replaces it.
+    ///
+    /// # Examples
+    ///
+    /// Implementing a back operation in a UI screen navigator:
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = "```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// #[derive(Default)]
+    /// pub enum Screen {
+    ///     #[default]
+    ///     Home,
+    ///     // ...
+    /// }
+    ///
+    /// pub struct Navigator {
+    ///     // There must always be an active `Screen`, so this is non-empty.
+    ///     screens: Vec1<Screen>,
+    ///     // ...
+    /// }
+    ///
+    /// impl Navigator {
+    ///     pub fn back(&mut self) -> Screen {
+    ///         self.screens
+    ///             .pop_if_many()
+    ///             .or_else_replace_only(Screen::default)
+    ///     }
+    /// }
+    #[doc = "```"]
+    pub fn or_else_replace_only<F>(self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        match self {
+            One(only) => mem::replace(only, f()),
+            Many(item) => item,
         }
     }
 }

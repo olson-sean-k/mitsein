@@ -11,7 +11,6 @@ use core::cmp::Ordering;
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::iter::{Skip, Take};
-use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, RangeBounds};
 use core::slice;
@@ -32,8 +31,7 @@ use crate::safety::{self, ArrayVecExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
 use crate::subset::range::{self, IndexRange, RangeError};
-use crate::take;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 impl<T, const N: usize> Extend1<T> for ArrayVec<T, N>
 where
@@ -59,8 +57,8 @@ unsafe impl<T, const N: usize> MaybeEmpty for ArrayVec<T, N> {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         match self.len() {
             0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
     }
 }
@@ -123,75 +121,7 @@ impl<T> From<EmptyError<T>> for CardinalityError<T> {
 
 impl<T> Error for CardinalityError<T> {}
 
-type TakeIfMany<'a, T, U, M, const N: usize> = take::TakeIfMany<'a, ArrayVec<T, N>, U, M>;
-
-pub type PopIfMany<'a, T, const N: usize> = TakeIfMany<'a, T, T, (), N>;
-
-pub type SwapPopIfMany<'a, T, const N: usize> = TakeIfMany<'a, T, Option<T>, usize, N>;
-
-pub type RemoveIfMany<'a, T, const N: usize> = TakeIfMany<'a, T, T, usize, N>;
-
-impl<'a, T, M, const N: usize> TakeIfMany<'a, T, T, M, N>
-where
-    [T; N]: Array1,
-{
-    pub fn or_get_only(self) -> Result<T, &'a T> {
-        self.take_or_else(|items, _| items.first())
-    }
-
-    pub fn or_replace_only(self, replacement: T) -> Result<T, T> {
-        self.or_else_replace_only(move || replacement)
-    }
-
-    pub fn or_else_replace_only<F>(self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.take_or_else(move |items, _| mem::replace(items.first_mut(), f()))
-    }
-}
-
-impl<'a, T, const N: usize> TakeIfMany<'a, T, T, usize, N>
-where
-    [T; N]: Array1,
-{
-    pub fn or_get(self) -> Result<T, &'a T> {
-        self.take_or_else(|items, index| &items[index])
-    }
-
-    pub fn or_replace(self, replacement: T) -> Result<T, T> {
-        self.or_else_replace(move || replacement)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.take_or_else(move |items, index| mem::replace(&mut items[index], f()))
-    }
-}
-
-impl<'a, T, const N: usize> TakeIfMany<'a, T, Option<T>, usize, N>
-where
-    [T; N]: Array1,
-{
-    pub fn or_get(self) -> Option<Result<T, &'a T>> {
-        self.try_take_or_else(|items, index| items.get(index))
-    }
-
-    pub fn or_replace(self, replacement: T) -> Option<Result<T, T>> {
-        self.or_else_replace(move || replacement)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Option<Result<T, T>>
-    where
-        F: FnOnce() -> T,
-    {
-        self.try_take_or_else(move |items, index| {
-            items.get_mut(index).map(|item| mem::replace(item, f()))
-        })
-    }
-}
+pub type OrOnly<'a, O, M> = Cardinality<&'a mut O, M>;
 
 pub type ArrayVec1<T, const N: usize> = NonEmpty<ArrayVec<T, N>>;
 
@@ -326,15 +256,23 @@ where
         unsafe { self.items.push_unchecked(item) }
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, T, N> {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, _| unsafe {
-            items.items.pop().unwrap_maybe_unchecked()
-        })
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<'_, T, U>
+    where
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            One(_) => One(self.first_mut()),
+            Many(_) => Many(f(self)),
+        }
     }
 
-    pub fn swap_pop_if_many(&mut self, index: usize) -> SwapPopIfMany<'_, T, N> {
-        TakeIfMany::with(self, index, |items, index| items.items.swap_pop(index))
+    pub fn pop_if_many(&mut self) -> OrOnly<'_, T, T> {
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop().unwrap_maybe_unchecked() })
+    }
+
+    pub fn swap_pop_if_many(&mut self, index: usize) -> OrOnly<'_, T, Option<T>> {
+        self.get_only_or_else(|items| items.items.swap_pop(index))
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -345,12 +283,12 @@ where
         self.items.try_insert(index, item)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T, N> {
-        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> OrOnly<'_, T, T> {
+        self.get_only_or_else(|items| items.items.remove(index))
     }
 
-    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T, N> {
-        TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_if_many(&mut self, index: usize) -> OrOnly<'_, T, T> {
+        self.get_only_or_else(|items| items.items.swap_remove(index))
     }
 
     pub const fn len(&self) -> NonZeroUsize {

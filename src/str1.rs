@@ -28,7 +28,7 @@ use crate::iter1::Iterator1;
 use crate::iter1::ParallelIterator1;
 use crate::safety;
 use crate::slice1::Slice1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedStr1, crate::string1::String1};
 
@@ -39,8 +39,8 @@ unsafe impl MaybeEmpty for str {
         // code) for a `str` of one or more bytes to yield no code points.
         match self.len() {
             0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
     }
 }

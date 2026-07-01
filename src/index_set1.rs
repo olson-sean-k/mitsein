@@ -37,8 +37,7 @@ use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterato
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::subset::range::{IndexRange, RangeError};
 use crate::subset::{self, KeyNotFoundError};
-use crate::take;
-use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 pub trait AsIndexSet {
     type Item;
@@ -73,59 +72,12 @@ where
 }
 
 unsafe impl<T, S> MaybeEmpty for IndexSet<T, S> {
-    fn cardinality(&self) -> Option<crate::Cardinality<(), ()>> {
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         match self.len() {
             0 => None,
-            1 => Some(crate::Cardinality::One(())),
-            _ => Some(crate::Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
-    }
-}
-
-type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, IndexSet<T, S>, U, N>;
-
-pub type PopIfMany<'a, T, S> = TakeIfMany<'a, T, S, T>;
-
-pub type DropRemoveIfMany<'a, 'q, T, S, Q> = TakeIfMany<'a, T, S, bool, &'q Q>;
-
-pub type TakeRemoveIfMany<'a, T, S, N = usize> = TakeIfMany<'a, T, S, Option<T>, N>;
-
-pub type TakeRemoveFullIfMany<'a, 'q, T, S, Q> = TakeIfMany<'a, T, S, Option<(usize, T)>, &'q Q>;
-
-impl<'a, T, S, U, N> TakeIfMany<'a, T, S, U, N> {
-    pub fn or_get_only(self) -> Result<U, &'a T> {
-        self.take_or_else(|items, _| items.first())
-    }
-}
-
-impl<'a, T, S> TakeIfMany<'a, T, S, Option<T>, usize>
-where
-    S: BuildHasher,
-{
-    pub fn or_get(self) -> Option<Result<T, &'a T>> {
-        self.try_take_or_else(|items, index| items.get_index(index))
-    }
-}
-
-impl<'a, T, S, Q> TakeIfMany<'a, T, S, bool, &'_ Q>
-where
-    T: Borrow<Q>,
-    S: BuildHasher,
-    Q: Equivalent<T> + Hash + ?Sized,
-{
-    pub fn or_get(self) -> Result<bool, Option<&'a T>> {
-        self.take_or_else(|items, query| items.get(query))
-    }
-}
-
-impl<'a, T, S, Q> TakeIfMany<'a, T, S, Option<T>, &'_ Q>
-where
-    T: Borrow<Q>,
-    S: BuildHasher,
-    Q: Equivalent<T> + Hash + ?Sized,
-{
-    pub fn or_get(self) -> Option<Result<T, &'a T>> {
-        self.try_take_or_else(|items, query| items.get(query))
     }
 }
 
@@ -183,6 +135,8 @@ impl<T> Deref for Slice1<T> {
         &self.items
     }
 }
+
+pub type OrOnly<'a, O, M> = Cardinality<&'a O, M>;
 
 // TODO: Remove unnecessary bounds on `Borrow`. The `Equivalent` trait encapsulates this. Use
 //       `Equivalent::equivalent` where possible.
@@ -324,26 +278,30 @@ impl<T, S> IndexSet1<T, S> {
         self.items.swap_indices(a, b)
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, T, S>
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<'_, T, U>
+    where
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            One(_) => One(self.first()),
+            Many(_) => Many(f(self)),
+        }
+    }
+
+    pub fn pop_if_many(&mut self) -> OrOnly<'_, T, T>
     where
         T: Eq + Hash,
     {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, _| unsafe {
-            items.items.pop().unwrap_maybe_unchecked()
-        })
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop().unwrap_maybe_unchecked() })
     }
 
-    pub fn shift_remove_index_if_many(&mut self, index: usize) -> TakeRemoveIfMany<'_, T, S> {
-        TakeIfMany::with(self, index, |items, index| {
-            items.items.shift_remove_index(index)
-        })
+    pub fn shift_remove_index_if_many(&mut self, index: usize) -> OrOnly<'_, T, Option<T>> {
+        self.get_only_or_else(|items| items.items.shift_remove_index(index))
     }
 
-    pub fn swap_remove_index_if_many(&mut self, index: usize) -> TakeRemoveIfMany<'_, T, S> {
-        TakeIfMany::with(self, index, |items, index| {
-            items.items.swap_remove_index(index)
-        })
+    pub fn swap_remove_index_if_many(&mut self, index: usize) -> OrOnly<'_, T, Option<T>> {
+        self.get_only_or_else(|items| items.items.swap_remove_index(index))
     }
 
     pub fn get_index(&self, index: usize) -> Option<&T> {
@@ -477,74 +435,58 @@ where
         self.items.get(query)
     }
 
-    pub fn shift_remove_if_many<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> DropRemoveIfMany<'a, 'q, T, S, Q>
+    pub fn shift_remove_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, bool>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.shift_remove(query))
+        self.get_only_or_else(|items| items.items.shift_remove(query))
     }
 
-    pub fn swap_remove_if_many<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> DropRemoveIfMany<'a, 'q, T, S, Q>
+    pub fn swap_remove_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, bool>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.swap_remove(query))
+        self.get_only_or_else(|items| items.items.swap_remove(query))
     }
 
-    pub fn shift_remove_full_if_many<'a, 'q, Q>(
+    pub fn shift_remove_full_if_many<'a, Q>(
         &'a mut self,
-        query: &'q Q,
-    ) -> TakeRemoveFullIfMany<'a, 'q, T, S, Q>
+        query: &Q,
+    ) -> OrOnly<'a, T, Option<(usize, T)>>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| {
-            items.items.shift_remove_full(query)
-        })
+        self.get_only_or_else(|items| items.items.shift_remove_full(query))
     }
 
-    pub fn swap_remove_full_if_many<'a, 'q, Q>(
+    pub fn swap_remove_full_if_many<'a, Q>(
         &'a mut self,
-        query: &'q Q,
-    ) -> TakeRemoveFullIfMany<'a, 'q, T, S, Q>
+        query: &Q,
+    ) -> OrOnly<'a, T, Option<(usize, T)>>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| {
-            items.items.swap_remove_full(query)
-        })
+        self.get_only_or_else(|items| items.items.swap_remove_full(query))
     }
 
-    pub fn shift_take_if_many<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> TakeRemoveIfMany<'a, T, S, &'q Q>
+    pub fn shift_take_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, Option<T>>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.shift_take(query))
+        self.get_only_or_else(|items| items.items.shift_take(query))
     }
 
-    pub fn swap_take_if_many<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> TakeRemoveIfMany<'a, T, S, &'q Q>
+    pub fn swap_take_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, Option<T>>
     where
         T: Borrow<Q>,
         Q: Equivalent<T> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.swap_take(query))
+        self.get_only_or_else(|items| items.items.swap_take(query))
     }
 
     pub fn contains<Q>(&self, item: &Q) -> bool
