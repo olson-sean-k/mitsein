@@ -1,8 +1,6 @@
 //! Non-empty bounded [ranges][`core::range`].
 
-// Unlike other non-empty types, ranges do not rely on `MaybeEmpty` implementations. One of the
-// primary mechanisms provided by `MaybeEmpty` is `TakeIfMany`, which inspects the cardinality of
-// the target collection, but that API is not used by range types.
+// Unlike other `NonEmpty` types, ranges do not rely on `MaybeEmpty` implementations.
 
 // TODO: Use range syntax for maybe-empty range types where possible when it is stabilized.
 

@@ -23,9 +23,8 @@ use crate::iter1::{Extend1, FromIterator1, IntoIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::str1::Str1;
-use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 impl Add<&Str1> for String {
     type Output = String;
@@ -78,66 +77,7 @@ unsafe impl MaybeEmpty for String {
     }
 }
 
-type TakeIfMany<'a, N = ()> = take::TakeIfMany<'a, String, char, N>;
-
-pub type PopIfMany<'a> = TakeIfMany<'a, ()>;
-
-pub type RemoveIfMany<'a> = TakeIfMany<'a, usize>;
-
-impl<N> TakeIfMany<'_, N> {
-    pub fn or_get_only(self) -> Result<char, char> {
-        self.take_or_else(|items, _| items.first())
-    }
-
-    pub fn or_replace_only(self, replacement: char) -> Result<char, char> {
-        self.or_else_replace_only(move || replacement)
-    }
-
-    pub fn or_else_replace_only<F>(self, f: F) -> Result<char, char>
-    where
-        F: FnOnce() -> char,
-    {
-        self.take_or_else(move |items, _| {
-            let target = items.first();
-            items.items.clear();
-            items.items.push(f());
-            target
-        })
-    }
-}
-
-impl TakeIfMany<'_, usize> {
-    pub fn or_get(self) -> Result<char, char> {
-        self.take_or_else(|items, index| {
-            if items.is_char_boundary(index) {
-                items.first()
-            }
-            else {
-                self::panic_index_is_not_char_boundary()
-            }
-        })
-    }
-
-    pub fn or_replace(self, replacement: char) -> Result<char, char> {
-        self.or_else_replace(move || replacement)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Result<char, char>
-    where
-        F: FnOnce() -> char,
-    {
-        self.take_or_else(move |items, index| {
-            if items.is_char_boundary(index) {
-                let target = items.items.remove(index);
-                items.items.push(f());
-                target
-            }
-            else {
-                self::panic_index_is_not_char_boundary()
-            }
-        })
-    }
-}
+pub type OrOnly<M> = Cardinality<char, M>;
 
 pub type String1 = NonEmpty<String>;
 
@@ -257,19 +197,27 @@ impl String1 {
         self.items.push_str(items)
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_> {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, ()| unsafe {
-            items.items.pop().unwrap_maybe_unchecked()
-        })
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<U>
+    where
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            One(_) => One(self.first()),
+            Many(_) => Many(f(self)),
+        }
+    }
+
+    pub fn pop_if_many(&mut self) -> OrOnly<char> {
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: char) {
         self.items.insert(index, item)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_> {
-        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> OrOnly<char> {
+        self.get_only_or_else(|items| items.items.remove(index))
     }
 
     pub fn len(&self) -> NonZeroUsize {
@@ -669,10 +617,6 @@ impl Write for String1 {
     fn write_char(&mut self, item: char) -> fmt::Result {
         self.items.write_char(item)
     }
-}
-
-const fn panic_index_is_not_char_boundary() -> ! {
-    panic!("index is not at a UTF-8 code point boundary")
 }
 
 #[cfg(test)]

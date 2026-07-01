@@ -60,7 +60,7 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
-//! while let Ok(_) = xs.pop_if_many().or_get_only() {}
+//! while let Many(_) = xs.pop_if_many() {}
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
@@ -338,7 +338,6 @@ extern crate std;
 mod safety;
 mod schemars;
 mod serde;
-mod take;
 
 pub mod array1;
 pub mod array_vec1;
@@ -434,6 +433,7 @@ pub mod prelude {
     pub use crate::sync1::{
         ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
     };
+    pub use crate::{Many, One};
     #[cfg(feature = "alloc")]
     pub use {
         crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
@@ -453,8 +453,7 @@ use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 
-#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
-pub use take::TakeIfMany;
+pub use Cardinality::{Many, One};
 
 const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
 
@@ -679,8 +678,8 @@ where
     #[cfg(feature = "alloc")]
     fn as_cardinality_items_mut(&mut self) -> Cardinality<&mut T, &mut T> {
         match self.cardinality() {
-            Cardinality::One(_) => Cardinality::One(&mut self.items),
-            Cardinality::Many(_) => Cardinality::Many(&mut self.items),
+            One(_) => One(&mut self.items),
+            Many(_) => Many(&mut self.items),
         }
     }
 }
@@ -786,7 +785,7 @@ impl<O, M> Cardinality<O, M> {
     /// [`Many`]: crate::Cardinality::Many
     pub fn one(self) -> Option<O> {
         match self {
-            Cardinality::One(one) => Some(one),
+            One(one) => Some(one),
             _ => None,
         }
     }
@@ -796,7 +795,7 @@ impl<O, M> Cardinality<O, M> {
     /// [`One`]: crate::Cardinality::One
     pub fn many(self) -> Option<M> {
         match self {
-            Cardinality::Many(many) => Some(many),
+            Many(many) => Some(many),
             _ => None,
         }
     }
@@ -810,8 +809,8 @@ impl<O, M> Cardinality<O, M> {
         F: FnOnce(O) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(f(one)),
-            Cardinality::Many(many) => Cardinality::Many(many),
+            One(one) => One(f(one)),
+            Many(many) => Many(many),
         }
     }
 
@@ -824,8 +823,8 @@ impl<O, M> Cardinality<O, M> {
         F: FnOnce(M) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(one),
-            Cardinality::Many(many) => Cardinality::Many(f(many)),
+            One(one) => One(one),
+            Many(many) => Many(f(many)),
         }
     }
 }
@@ -838,8 +837,8 @@ impl<T> Cardinality<T, T> {
         F: FnOnce(T) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(f(one)),
-            Cardinality::Many(many) => Cardinality::Many(f(many)),
+            One(one) => One(f(one)),
+            Many(many) => Many(f(many)),
         }
     }
 }
