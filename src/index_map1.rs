@@ -38,8 +38,7 @@ use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterato
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::subset::range::{IndexRange, RangeError};
 use crate::subset::{self, KeyNotFoundError};
-use crate::take;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 pub trait AsIndexMap {
     type Key;
@@ -79,8 +78,8 @@ unsafe impl<K, V, S> MaybeEmpty for IndexMap<K, V, S> {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         match self.len() {
             0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
     }
 }
@@ -129,98 +128,86 @@ pub type OccupiedEntry<'a, K, V> = Cardinality<OnlyEntry<'a, K, V>, ManyEntry<'a
 impl<'a, K, V> OccupiedEntry<'a, K, V> {
     pub fn into_mut(self) -> &'a mut V {
         match self {
-            OccupiedEntry::Many(many) => many.into_mut(),
-            OccupiedEntry::One(only) => only.into_mut(),
+            One(only) => only.into_mut(),
+            Many(many) => many.into_mut(),
         }
     }
 
     pub fn move_index(self, to: usize) {
         match self {
-            OccupiedEntry::Many(many) => many.move_index(to),
-            OccupiedEntry::One(only) => only.entry.move_index(to),
+            One(only) => only.entry.move_index(to),
+            Many(many) => many.move_index(to),
         }
     }
 
     pub fn swap_indices(self, other: usize) {
         match self {
-            OccupiedEntry::Many(many) => many.swap_indices(other),
-            OccupiedEntry::One(only) => only.entry.swap_indices(other),
+            One(only) => only.entry.swap_indices(other),
+            Many(many) => many.swap_indices(other),
         }
     }
 
-    pub fn shift_remove_entry_or_get_only(self) -> OrOnlyEntry<'a, (K, V), K, V> {
-        match self {
-            OccupiedEntry::Many(many) => Ok(many.shift_remove_entry()),
-            OccupiedEntry::One(only) => Err(only),
-        }
+    pub fn shift_remove_entry_or_get_only(self) -> OrOnlyEntry<'a, K, V, (K, V)> {
+        self.map_many(index_map::OccupiedEntry::shift_remove_entry)
     }
 
-    pub fn swap_remove_entry_or_get_only(self) -> OrOnlyEntry<'a, (K, V), K, V> {
-        match self {
-            OccupiedEntry::Many(many) => Ok(many.swap_remove_entry()),
-            OccupiedEntry::One(only) => Err(only),
-        }
+    pub fn swap_remove_entry_or_get_only(self) -> OrOnlyEntry<'a, K, V, (K, V)> {
+        self.map_many(index_map::OccupiedEntry::swap_remove_entry)
     }
 
-    pub fn shift_remove_or_get_only(self) -> OrOnlyEntry<'a, V, K, V> {
-        match self {
-            OccupiedEntry::Many(many) => Ok(many.shift_remove()),
-            OccupiedEntry::One(only) => Err(only),
-        }
+    pub fn shift_remove_or_get_only(self) -> OrOnlyEntry<'a, K, V, V> {
+        self.map_many(index_map::OccupiedEntry::shift_remove)
     }
 
-    pub fn swap_remove_or_get_only(self) -> OrOnlyEntry<'a, V, K, V> {
-        match self {
-            OccupiedEntry::Many(many) => Ok(many.swap_remove()),
-            OccupiedEntry::One(only) => Err(only),
-        }
+    pub fn swap_remove_or_get_only(self) -> OrOnlyEntry<'a, K, V, V> {
+        self.map_many(index_map::OccupiedEntry::swap_remove)
     }
 
     pub fn insert(&mut self, value: V) -> V {
         match self {
-            OccupiedEntry::Many(many) => many.insert(value),
-            OccupiedEntry::One(only) => only.insert(value),
+            Many(many) => many.insert(value),
+            One(only) => only.insert(value),
         }
     }
 
     pub fn get(&self) -> &V {
         match self {
-            OccupiedEntry::Many(many) => many.get(),
-            OccupiedEntry::One(only) => only.get(),
+            Many(many) => many.get(),
+            One(only) => only.get(),
         }
     }
 
     pub fn get_mut(&mut self) -> &mut V {
         match self {
-            OccupiedEntry::Many(many) => many.get_mut(),
-            OccupiedEntry::One(only) => only.get_mut(),
+            Many(many) => many.get_mut(),
+            One(only) => only.get_mut(),
         }
     }
 
     pub fn key(&self) -> &K {
         match self {
-            OccupiedEntry::Many(many) => many.key(),
-            OccupiedEntry::One(only) => only.key(),
+            Many(many) => many.key(),
+            One(only) => only.key(),
         }
     }
 
     pub fn index(&self) -> usize {
         match self {
-            OccupiedEntry::Many(many) => many.index(),
-            OccupiedEntry::One(only) => only.index(),
+            Many(many) => many.index(),
+            One(only) => only.index(),
         }
     }
 }
 
 impl<'a, K, V> From<ManyEntry<'a, K, V>> for OccupiedEntry<'a, K, V> {
     fn from(many: ManyEntry<'a, K, V>) -> Self {
-        OccupiedEntry::Many(many)
+        Many(many)
     }
 }
 
 impl<'a, K, V> From<OnlyEntry<'a, K, V>> for OccupiedEntry<'a, K, V> {
     fn from(only: OnlyEntry<'a, K, V>) -> Self {
-        OccupiedEntry::One(only)
+        One(only)
     }
 }
 
@@ -332,7 +319,7 @@ impl<'a, K, V> From<OnlyEntry<'a, K, V>> for Entry<'a, K, V> {
     }
 }
 
-pub type OrOnlyEntry<'a, T, K, V> = Result<T, OnlyEntry<'a, K, V>>;
+pub type OrOnlyEntry<'a, K, V, M> = Cardinality<OnlyEntry<'a, K, V>, M>;
 
 pub trait OrOnlyEntryExt<'a, K, V> {
     fn get(&self) -> &V;
@@ -340,34 +327,34 @@ pub trait OrOnlyEntryExt<'a, K, V> {
     fn get_mut(&mut self) -> &mut V;
 }
 
-impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, V, K, V> {
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, K, V, V> {
     fn get(&self) -> &V {
         match self {
-            Ok(value) => value,
-            Err(only) => only.get(),
+            One(only) => only.get(),
+            Many(value) => value,
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok(value) => value,
-            Err(only) => only.get_mut(),
+            One(only) => only.get_mut(),
+            Many(value) => value,
         }
     }
 }
 
-impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, (K, V), K, V> {
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, K, V, (K, V)> {
     fn get(&self) -> &V {
         match self {
-            Ok((_, value)) => value,
-            Err(only) => only.get(),
+            One(only) => only.get(),
+            Many((_, value)) => value,
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok((_, value)) => value,
-            Err(only) => only.get_mut(),
+            One(only) => only.get_mut(),
+            Many((_, value)) => value,
         }
     }
 }
@@ -425,160 +412,102 @@ pub type IndexedEntry<'a, K, V> =
 impl<'a, K, V> IndexedEntry<'a, K, V> {
     pub fn into_mut(self) -> &'a mut V {
         match self {
-            IndexedEntry::Many(many) => many.into_mut(),
-            IndexedEntry::One(only) => only.into_mut(),
+            One(only) => only.into_mut(),
+            Many(many) => many.into_mut(),
         }
     }
 
-    pub fn shift_remove_entry_or_get_only(self) -> OrIndexedOnlyEntry<'a, (K, V), K, V> {
+    pub fn shift_remove_entry_or_get_only(self) -> OrIndexedOnlyEntry<'a, K, V, (K, V)> {
         match self {
-            IndexedEntry::Many(many) => Ok(many.shift_remove_entry()),
-            IndexedEntry::One(only) => Err(only),
+            One(only) => One(only),
+            Many(many) => Many(many.shift_remove_entry()),
         }
     }
 
-    pub fn swap_remove_entry_or_get_only(self) -> OrIndexedOnlyEntry<'a, (K, V), K, V> {
+    pub fn swap_remove_entry_or_get_only(self) -> OrIndexedOnlyEntry<'a, K, V, (K, V)> {
         match self {
-            IndexedEntry::Many(many) => Ok(many.swap_remove_entry()),
-            IndexedEntry::One(only) => Err(only),
+            One(only) => One(only),
+            Many(many) => Many(many.swap_remove_entry()),
         }
     }
 
-    pub fn shift_remove_or_get_only(self) -> OrIndexedOnlyEntry<'a, V, K, V> {
+    pub fn shift_remove_or_get_only(self) -> OrIndexedOnlyEntry<'a, K, V, V> {
         match self {
-            IndexedEntry::Many(many) => Ok(many.shift_remove()),
-            IndexedEntry::One(only) => Err(only),
+            One(only) => One(only),
+            Many(many) => Many(many.shift_remove()),
         }
     }
 
-    pub fn swap_remove_or_get_only(self) -> OrIndexedOnlyEntry<'a, V, K, V> {
+    pub fn swap_remove_or_get_only(self) -> OrIndexedOnlyEntry<'a, K, V, V> {
         match self {
-            IndexedEntry::Many(many) => Ok(many.swap_remove()),
-            IndexedEntry::One(only) => Err(only),
+            One(only) => One(only),
+            Many(many) => Many(many.swap_remove()),
         }
     }
 
     pub fn insert(&mut self, value: V) -> V {
         match self {
-            IndexedEntry::Many(many) => many.insert(value),
-            IndexedEntry::One(only) => only.insert(value),
+            One(only) => only.insert(value),
+            Many(many) => many.insert(value),
         }
     }
 
     pub fn get(&self) -> &V {
         match self {
-            IndexedEntry::Many(many) => many.get(),
-            IndexedEntry::One(only) => only.get(),
+            One(only) => only.get(),
+            Many(many) => many.get(),
         }
     }
 
     pub fn get_mut(&mut self) -> &mut V {
         match self {
-            IndexedEntry::Many(many) => many.get_mut(),
-            IndexedEntry::One(only) => only.get_mut(),
+            One(only) => only.get_mut(),
+            Many(many) => many.get_mut(),
         }
     }
 
     pub fn key(&self) -> &K {
         match self {
-            IndexedEntry::Many(many) => many.key(),
-            IndexedEntry::One(only) => only.key(),
+            One(only) => only.key(),
+            Many(many) => many.key(),
         }
     }
 
     pub fn index(&self) -> usize {
         match self {
-            IndexedEntry::Many(many) => many.index(),
-            IndexedEntry::One(only) => only.index(),
+            One(only) => only.index(),
+            Many(many) => many.index(),
         }
     }
 }
 
 impl<'a, K, V> From<IndexedManyEntry<'a, K, V>> for IndexedEntry<'a, K, V> {
     fn from(many: IndexedManyEntry<'a, K, V>) -> Self {
-        IndexedEntry::Many(many)
+        Many(many)
     }
 }
 
 impl<'a, K, V> From<IndexedOnlyEntry<'a, K, V>> for IndexedEntry<'a, K, V> {
     fn from(one: IndexedOnlyEntry<'a, K, V>) -> Self {
-        IndexedEntry::One(one)
+        One(one)
     }
 }
 
-pub type OrIndexedOnlyEntry<'a, T, K, V> = Result<T, IndexedOnlyEntry<'a, K, V>>;
+pub type OrIndexedOnlyEntry<'a, K, V, M> = Cardinality<IndexedOnlyEntry<'a, K, V>, M>;
 
-impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrIndexedOnlyEntry<'a, V, K, V> {
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrIndexedOnlyEntry<'a, K, V, V> {
     fn get(&self) -> &V {
         match self {
-            Ok(value) => value,
-            Err(only) => only.get(),
+            One(only) => only.get(),
+            Many(value) => value,
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok(value) => value,
-            Err(only) => only.get_mut(),
+            One(only) => only.get_mut(),
+            Many(value) => value,
         }
-    }
-}
-
-type TakeIfMany<'a, K, V, S, U, N = ()> = take::TakeIfMany<'a, IndexMap<K, V, S>, U, N>;
-
-pub type PopIfMany<'a, K, V, S> = TakeIfMany<'a, K, V, S, (K, V)>;
-
-pub type RemoveIfMany<'a, 'q, K, V, S, Q> = TakeIfMany<'a, K, V, S, Option<V>, &'q Q>;
-
-pub type RemoveEntryIfMany<'a, 'q, K, V, S, Q> = TakeIfMany<'a, K, V, S, Option<(K, V)>, &'q Q>;
-
-impl<'a, K, V, S, U, N> TakeIfMany<'a, K, V, S, U, N>
-where
-    S: BuildHasher,
-{
-    pub fn or_get_only(self) -> Result<U, IndexedOnlyEntry<'a, K, V>> {
-        self.take_or_else(|items, _| items.first_entry_as_only())
-    }
-
-    pub fn or_replace_only(self, value: V) -> Result<U, V> {
-        self.or_else_replace_only(move || value)
-    }
-
-    pub fn or_else_replace_only<F>(self, f: F) -> Result<U, V>
-    where
-        F: FnOnce() -> V,
-    {
-        self.take_or_else(move |items, _| mem::replace(items.first_entry().get_mut(), f()))
-    }
-}
-
-impl<'a, K, V, S, U, Q> TakeIfMany<'a, K, V, S, Option<U>, &'_ Q>
-where
-    S: BuildHasher,
-    Q: Equivalent<K> + Hash + ?Sized,
-{
-    pub fn or_get(self) -> Option<Result<U, OnlyEntry<'a, K, V>>> {
-        self.try_take_or_else(|items, query| {
-            items
-                .items
-                .contains_key(query)
-                .then(|| items.first_entry_as_only().into())
-        })
-    }
-
-    pub fn or_replace(self, value: V) -> Option<Result<U, V>> {
-        self.or_else_replace(move || value)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Option<Result<U, V>>
-    where
-        F: FnOnce() -> V,
-    {
-        self.try_take_or_else(|items, query| {
-            items
-                .get_mut(query)
-                .map(move |item| mem::replace(item, f()))
-        })
     }
 }
 
@@ -921,55 +850,62 @@ impl<K, V, S> IndexMap1<K, V, S>
 where
     S: BuildHasher,
 {
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, K, V, S> {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, _| unsafe {
-            items.items.pop().unwrap_maybe_unchecked()
-        })
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrIndexedOnlyEntry<'_, K, V, U>
+    where
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            // SAFETY: `self` is non-empty.
+            One(_) => One(IndexedOnlyEntry::from_indexed_entry(unsafe {
+                self.items.first_entry().unwrap_maybe_unchecked()
+            })),
+            Many(_) => Many(f(self)),
+        }
     }
 
-    pub fn shift_remove_if_many<'a, 'q, Q>(
+    pub fn pop_if_many(&mut self) -> OrIndexedOnlyEntry<'_, K, V, (K, V)> {
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop().unwrap_maybe_unchecked() })
+    }
+
+    pub fn shift_remove_if_many<'a, Q>(
         &'a mut self,
-        query: &'q Q,
-    ) -> RemoveIfMany<'a, 'q, K, V, S, Q>
+        query: &Q,
+    ) -> OrIndexedOnlyEntry<'a, K, V, Option<V>>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.shift_remove(query))
+        self.get_only_or_else(|items| items.items.shift_remove(query))
     }
 
-    pub fn swap_remove_if_many<'a, 'q, Q>(
+    pub fn swap_remove_if_many<'a, Q>(
         &'a mut self,
-        query: &'q Q,
-    ) -> RemoveIfMany<'a, 'q, K, V, S, Q>
+        query: &Q,
+    ) -> OrIndexedOnlyEntry<'a, K, V, Option<V>>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.swap_remove(query))
+        self.get_only_or_else(|items| items.items.swap_remove(query))
     }
 
-    pub fn shift_remove_entry_if_many<'a, 'q, Q>(
+    pub fn shift_remove_entry_if_many<'a, Q>(
         &'a mut self,
-        query: &'q Q,
-    ) -> RemoveEntryIfMany<'a, 'q, K, V, S, Q>
+        query: &Q,
+    ) -> OrIndexedOnlyEntry<'a, K, V, Option<(K, V)>>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| {
-            items.items.shift_remove_entry(query)
-        })
+        self.get_only_or_else(|items| items.items.shift_remove_entry(query))
     }
 
-    pub fn swap_remove_entry_if_many<'a, 'q, Q>(
+    pub fn swap_remove_entry_if_many<'a, Q>(
         &'a mut self,
-        query: &'q Q,
-    ) -> RemoveEntryIfMany<'a, 'q, K, V, S, Q>
+        query: &Q,
+    ) -> OrIndexedOnlyEntry<'a, K, V, Option<(K, V)>>
     where
         Q: Equivalent<K> + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| {
-            items.items.swap_remove_entry(query)
-        })
+        self.get_only_or_else(|items| items.items.swap_remove_entry(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&V>
@@ -1031,13 +967,6 @@ where
             .map_one(IndexedOnlyEntry::from_indexed_entry)
             .map_one(From::from)
             .map_many(From::from)
-    }
-
-    fn first_entry_as_only(&mut self) -> IndexedOnlyEntry<'_, K, V> {
-        // SAFETY: `self` is non-empty.
-        IndexedOnlyEntry::from_indexed_entry(unsafe {
-            self.items.first_entry().unwrap_maybe_unchecked()
-        })
     }
 
     pub fn last(&self) -> (&K, &V) {
@@ -1119,10 +1048,10 @@ where
 
     pub fn entry(&mut self, key: K) -> Entry<'_, K, V> {
         match self.as_cardinality_items_mut() {
-            Cardinality::One(items) => Entry::from_entry_only(items.entry(key)),
+            One(items) => Entry::from_entry_only(items.entry(key)),
             // SAFETY: The `items` method returns the correct non-empty cardinality based on the
             //         `MaybeEmpty` implementation.
-            Cardinality::Many(items) => unsafe { Entry::from_entry_many(items.entry(key)) },
+            Many(items) => unsafe { Entry::from_entry_many(items.entry(key)) },
         }
     }
 

@@ -9,7 +9,6 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::borrow::Borrow;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::{FusedIterator, Skip, Take};
-use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Bound, RangeBounds, RangeFull};
 #[cfg(feature = "rayon")]
@@ -33,8 +32,7 @@ use crate::subset::range::{
     self, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, TrimRange, UnorderedError,
 };
 use crate::subset::{self, KeyNotFoundError};
-use crate::take;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 impl<K, V> Extend1<(K, V)> for BTreeMap<K, V>
 where
@@ -60,8 +58,8 @@ unsafe impl<K, V> MaybeEmpty for BTreeMap<K, V> {
         //         bounds (unlike subsets, which rely on consistently isolating a range).
         match self.len() {
             0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
     }
 }
@@ -114,50 +112,44 @@ where
 {
     pub fn into_mut(self) -> &'a mut V {
         match self {
-            OccupiedEntry::Many(many) => many.into_mut(),
-            OccupiedEntry::One(only) => only.into_mut(),
+            One(only) => only.into_mut(),
+            Many(many) => many.into_mut(),
         }
     }
 
-    pub fn remove_entry_or_get_only(self) -> OrOnlyEntry<'a, (K, V), K, V> {
-        match self {
-            OccupiedEntry::Many(many) => Ok(many.remove_entry()),
-            OccupiedEntry::One(only) => Err(only),
-        }
+    pub fn remove_entry_or_get_only(self) -> OrOnlyEntry<'a, K, V, (K, V)> {
+        self.map_many(ManyEntry::remove_entry)
     }
 
-    pub fn remove_or_get_only(self) -> OrOnlyEntry<'a, V, K, V> {
-        match self {
-            OccupiedEntry::Many(many) => Ok(many.remove()),
-            OccupiedEntry::One(only) => Err(only),
-        }
+    pub fn remove_or_get_only(self) -> OrOnlyEntry<'a, K, V, V> {
+        self.map_many(ManyEntry::remove)
     }
 
     pub fn insert(&mut self, value: V) -> V {
         match self {
-            OccupiedEntry::Many(many) => many.insert(value),
-            OccupiedEntry::One(only) => only.insert(value),
+            One(only) => only.insert(value),
+            Many(many) => many.insert(value),
         }
     }
 
     pub fn get(&self) -> &V {
         match self {
-            OccupiedEntry::Many(many) => many.get(),
-            OccupiedEntry::One(only) => only.get(),
+            One(only) => only.get(),
+            Many(many) => many.get(),
         }
     }
 
     pub fn get_mut(&mut self) -> &mut V {
         match self {
-            OccupiedEntry::Many(many) => many.get_mut(),
-            OccupiedEntry::One(only) => only.get_mut(),
+            One(only) => only.get_mut(),
+            Many(many) => many.get_mut(),
         }
     }
 
     pub fn key(&self) -> &K {
         match self {
-            OccupiedEntry::Many(many) => many.key(),
-            OccupiedEntry::One(only) => only.key(),
+            One(only) => only.key(),
+            Many(many) => many.key(),
         }
     }
 }
@@ -167,7 +159,7 @@ where
     K: Ord,
 {
     fn from(many: ManyEntry<'a, K, V>) -> Self {
-        OccupiedEntry::Many(many)
+        Many(many)
     }
 }
 
@@ -176,7 +168,7 @@ where
     K: Ord,
 {
     fn from(only: OnlyEntry<'a, K, V>) -> Self {
-        OccupiedEntry::One(only)
+        One(only)
     }
 }
 
@@ -272,7 +264,7 @@ where
     }
 }
 
-pub type OrOnlyEntry<'a, T, K, V> = Result<T, OnlyEntry<'a, K, V>>;
+pub type OrOnlyEntry<'a, K, V, M> = Cardinality<OnlyEntry<'a, K, V>, M>;
 
 pub trait OrOnlyEntryExt<'a, K, V>
 where
@@ -283,99 +275,41 @@ where
     fn get_mut(&mut self) -> &mut V;
 }
 
-impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, V, K, V>
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, K, V, V>
 where
     K: Ord,
 {
     fn get(&self) -> &V {
         match self {
-            Ok(value) => value,
-            Err(only) => only.get(),
+            One(only) => only.get(),
+            Many(value) => value,
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok(value) => value,
-            Err(only) => only.get_mut(),
+            One(only) => only.get_mut(),
+            Many(value) => value,
         }
     }
 }
 
-impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, (K, V), K, V>
+impl<'a, K, V> OrOnlyEntryExt<'a, K, V> for OrOnlyEntry<'a, K, V, (K, V)>
 where
     K: Ord,
 {
     fn get(&self) -> &V {
         match self {
-            Ok((_, value)) => value,
-            Err(only) => only.get(),
+            One(only) => only.get(),
+            Many((_, value)) => value,
         }
     }
 
     fn get_mut(&mut self) -> &mut V {
         match self {
-            Ok((_, value)) => value,
-            Err(only) => only.get_mut(),
+            One(only) => only.get_mut(),
+            Many((_, value)) => value,
         }
-    }
-}
-
-type TakeIfMany<'a, K, V, U, N = ()> = take::TakeIfMany<'a, BTreeMap<K, V>, U, N>;
-
-pub type PopIfMany<'a, K, V> = TakeIfMany<'a, K, V, (K, V)>;
-
-pub type RemoveIfMany<'a, 'q, K, V, Q> = TakeIfMany<'a, K, V, Option<V>, &'q Q>;
-
-pub type RemoveEntryIfMany<'a, 'q, K, V, Q> = TakeIfMany<'a, K, V, Option<(K, V)>, &'q Q>;
-
-impl<'a, K, V, U, N> TakeIfMany<'a, K, V, U, N>
-where
-    K: Ord,
-{
-    pub fn or_get_only(self) -> Result<U, OnlyEntry<'a, K, V>> {
-        self.take_or_else(|items, _| items.first_entry_as_only())
-    }
-
-    pub fn or_replace_only(self, value: V) -> Result<U, V> {
-        self.or_else_replace_only(move || value)
-    }
-
-    pub fn or_else_replace_only<F>(self, f: F) -> Result<U, V>
-    where
-        F: FnOnce() -> V,
-    {
-        self.take_or_else(move |items, _| mem::replace(items.first_entry().get_mut(), f()))
-    }
-}
-
-impl<'a, K, V, U, Q> TakeIfMany<'a, K, V, Option<U>, &'_ Q>
-where
-    K: Borrow<Q> + Ord,
-    Q: Ord + ?Sized,
-{
-    pub fn or_get(self) -> Option<Result<U, OnlyEntry<'a, K, V>>> {
-        self.try_take_or_else(|items, query| {
-            items
-                .items
-                .contains_key(query)
-                .then(|| items.first_entry_as_only())
-        })
-    }
-
-    pub fn or_replace(self, value: V) -> Option<Result<U, V>> {
-        self.or_else_replace(move || value)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Option<Result<U, V>>
-    where
-        F: FnOnce() -> V,
-    {
-        self.try_take_or_else(|items, query| {
-            items
-                .get_mut(query)
-                .map(move |item| mem::replace(item, f()))
-        })
     }
 }
 
@@ -523,14 +457,26 @@ impl<K, V> BTreeMap1<K, V> {
         self.items.insert(key, value)
     }
 
-    pub fn pop_first_if_many(&mut self) -> PopIfMany<'_, K, V>
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnlyEntry<'_, K, V, U>
+    where
+        K: Ord,
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            // SAFETY: `self` is non-empty.
+            One(_) => One(OnlyEntry::from_occupied_entry(unsafe {
+                self.items.first_entry().unwrap_maybe_unchecked()
+            })),
+            Many(_) => Many(f(self)),
+        }
+    }
+
+    pub fn pop_first_if_many(&mut self) -> OrOnlyEntry<'_, K, V, (K, V)>
     where
         K: Ord,
     {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, _| unsafe {
-            items.items.pop_first().unwrap_maybe_unchecked()
-        })
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop_first().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_first_until_only(&mut self) -> PopFirstUntilOnly<'_, K, V>
@@ -540,14 +486,12 @@ impl<K, V> BTreeMap1<K, V> {
         PopFirstUntilOnly { items: self }
     }
 
-    pub fn pop_last_if_many(&mut self) -> PopIfMany<'_, K, V>
+    pub fn pop_last_if_many(&mut self) -> OrOnlyEntry<'_, K, V, (K, V)>
     where
         K: Ord,
     {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, _| unsafe {
-            items.items.pop_last().unwrap_maybe_unchecked()
-        })
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop_last().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_last_until_only(&mut self) -> PopLastUntilOnly<'_, K, V>
@@ -557,23 +501,23 @@ impl<K, V> BTreeMap1<K, V> {
         PopLastUntilOnly { items: self }
     }
 
-    pub fn remove_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> RemoveIfMany<'a, 'q, K, V, Q>
+    pub fn remove_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnlyEntry<'a, K, V, Option<V>>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.remove(query))
+        self.get_only_or_else(|items| items.items.remove(query))
     }
 
-    pub fn remove_entry_if_many<'a, 'q, Q>(
+    pub fn remove_entry_if_many<'a, Q>(
         &'a mut self,
-        query: &'q Q,
-    ) -> RemoveEntryIfMany<'a, 'q, K, V, Q>
+        query: &Q,
+    ) -> OrOnlyEntry<'a, K, V, Option<(K, V)>>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.remove_entry(query))
+        self.get_only_or_else(|items| items.items.remove_entry(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&V>
@@ -623,14 +567,6 @@ impl<K, V> BTreeMap1<K, V> {
             .map_one(OnlyEntry::from_occupied_entry)
             .map_one(From::from)
             .map_many(From::from)
-    }
-
-    fn first_entry_as_only(&mut self) -> OnlyEntry<'_, K, V>
-    where
-        K: Ord,
-    {
-        // SAFETY: `self` is non-empty.
-        OnlyEntry::from_occupied_entry(unsafe { self.items.first_entry().unwrap_maybe_unchecked() })
     }
 
     pub fn last_key_value(&self) -> (&K, &V)
@@ -1081,7 +1017,7 @@ where
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_first_if_many().or_none()
+        self.items.pop_first_if_many().many()
     }
 }
 
@@ -1109,7 +1045,7 @@ where
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_first_if_many().or_none()
+        self.items.pop_first_if_many().many()
     }
 }
 

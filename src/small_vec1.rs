@@ -9,7 +9,6 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::{Skip, Take};
-use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 use core::slice;
@@ -29,9 +28,8 @@ use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
 use crate::subset;
 use crate::subset::range::{self, IndexRange, RangeError};
-use crate::take;
 use crate::vec1::Vec1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 impl<A> Extend1<A::Item> for SmallVec<A>
 where
@@ -57,51 +55,7 @@ where
     }
 }
 
-type TakeIfMany<'a, A, N = ()> = take::TakeIfMany<'a, SmallVec<A>, <A as Array>::Item, N>;
-
-pub type PopIfMany<'a, A> = TakeIfMany<'a, A, ()>;
-
-pub type RemoveIfMany<'a, A> = TakeIfMany<'a, A, usize>;
-
-impl<'a, A, T, N> TakeIfMany<'a, A, N>
-where
-    A: Array<Item = T>,
-{
-    pub fn or_get_only(self) -> Result<T, &'a T> {
-        self.take_or_else(|items, _| items.first())
-    }
-
-    pub fn or_replace_only(self, replacement: T) -> Result<T, T> {
-        self.or_else_replace_only(move || replacement)
-    }
-
-    pub fn or_else_replace_only<F>(self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.take_or_else(move |items, _| mem::replace(items.first_mut(), f()))
-    }
-}
-
-impl<'a, A, T> TakeIfMany<'a, A, usize>
-where
-    A: Array<Item = T>,
-{
-    pub fn or_get(self) -> Result<T, &'a T> {
-        self.take_or_else(|items, index| &items[index])
-    }
-
-    pub fn or_replace(self, replacement: T) -> Result<T, T> {
-        self.or_else_replace(move || replacement)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.take_or_else(move |items, index| mem::replace(&mut items[index], f()))
-    }
-}
+pub type OrOnly<'a, O, M> = Cardinality<&'a mut O, M>;
 
 pub type SmallVec1<A> = NonEmpty<SmallVec<A>>;
 
@@ -244,11 +198,19 @@ where
         self.items.push(item)
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, A> {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, ()| unsafe {
-            items.items.pop().unwrap_maybe_unchecked()
-        })
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<'_, T, U>
+    where
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            One(_) => One(self.first_mut()),
+            Many(_) => Many(f(self)),
+        }
+    }
+
+    pub fn pop_if_many(&mut self) -> OrOnly<'_, T, T> {
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop().unwrap_maybe_unchecked() })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
@@ -262,12 +224,12 @@ where
         self.items.insert_from_slice(index, items)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, A> {
-        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> OrOnly<'_, T, T> {
+        self.get_only_or_else(|items| items.items.remove(index))
     }
 
-    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, A> {
-        TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_if_many(&mut self, index: usize) -> OrOnly<'_, T, T> {
+        self.get_only_or_else(|items| items.items.swap_remove(index))
     }
 
     pub fn dedup(&mut self)

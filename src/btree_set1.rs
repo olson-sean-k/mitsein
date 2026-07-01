@@ -30,8 +30,7 @@ use crate::subset::range::{
     self, ItemRange, OptionExt as _, OutOfBoundsError, RangeError, TrimRange, UnorderedError,
 };
 use crate::subset::{self, KeyNotFoundError};
-use crate::take;
-use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 pub trait AsBTreeSet {
     type Item;
@@ -63,7 +62,7 @@ where
 }
 
 unsafe impl<T> MaybeEmpty for BTreeSet<T> {
-    fn cardinality(&self) -> Option<crate::Cardinality<(), ()>> {
+    fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         // SAFETY: This implementation is critical to memory safety. `BTreeSet::len` is reliable
         //         here, because it does not break the contract by returning a non-zero value for
         //         an empty set, even if the `Eq` or `Ord` implementations for `T` are
@@ -71,48 +70,13 @@ unsafe impl<T> MaybeEmpty for BTreeSet<T> {
         //         bounds (unlike subsets, which rely on consistently isolating a range).
         match self.len() {
             0 => None,
-            1 => Some(crate::Cardinality::One(())),
-            _ => Some(crate::Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
     }
 }
 
-type TakeIfMany<'a, T, U, N = ()> = take::TakeIfMany<'a, BTreeSet<T>, U, N>;
-
-pub type PopIfMany<'a, T> = TakeIfMany<'a, T, T>;
-
-pub type DropRemoveIfMany<'a, 'q, T, Q> = TakeIfMany<'a, T, bool, &'q Q>;
-
-pub type TakeRemoveIfMany<'a, 'q, T, Q> = TakeIfMany<'a, T, Option<T>, &'q Q>;
-
-impl<'a, T, U, N> TakeIfMany<'a, T, U, N>
-where
-    T: Ord,
-{
-    pub fn or_get_only(self) -> Result<U, &'a T> {
-        self.take_or_else(|items, _| items.first())
-    }
-}
-
-impl<'a, T, Q> TakeIfMany<'a, T, bool, &'_ Q>
-where
-    T: Borrow<Q> + Ord,
-    Q: Ord + ?Sized,
-{
-    pub fn or_get(self) -> Result<bool, Option<&'a T>> {
-        self.take_or_else(|items, query| items.get(query))
-    }
-}
-
-impl<'a, T, Q> TakeIfMany<'a, T, Option<T>, &'_ Q>
-where
-    T: Borrow<Q> + Ord,
-    Q: Ord + ?Sized,
-{
-    pub fn or_get(self) -> Option<Result<T, &'a T>> {
-        self.try_take_or_else(|items, query| items.get(query))
-    }
-}
+pub type OrOnly<'a, O, M> = Cardinality<&'a O, M>;
 
 pub type BTreeSet1<T> = NonEmpty<BTreeSet<T>>;
 
@@ -235,14 +199,23 @@ impl<T> BTreeSet1<T> {
         self.items.replace(item)
     }
 
-    pub fn pop_first_if_many(&mut self) -> PopIfMany<'_, T>
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<'_, T, U>
+    where
+        T: Ord,
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            One(_) => One(self.first()),
+            Many(_) => Many(f(self)),
+        }
+    }
+
+    pub fn pop_first_if_many(&mut self) -> OrOnly<'_, T, T>
     where
         T: Ord,
     {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, _| unsafe {
-            items.items.pop_first().unwrap_maybe_unchecked()
-        })
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop_first().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_first_until_only(&mut self) -> PopFirstUntilOnly<'_, T>
@@ -252,14 +225,12 @@ impl<T> BTreeSet1<T> {
         PopFirstUntilOnly { items: self }
     }
 
-    pub fn pop_last_if_many(&mut self) -> PopIfMany<'_, T>
+    pub fn pop_last_if_many(&mut self) -> OrOnly<'_, T, T>
     where
         T: Ord,
     {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, _| unsafe {
-            items.items.pop_last().unwrap_maybe_unchecked()
-        })
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop_last().unwrap_maybe_unchecked() })
     }
 
     pub fn pop_last_until_only(&mut self) -> PopLastUntilOnly<'_, T>
@@ -269,20 +240,20 @@ impl<T> BTreeSet1<T> {
         PopLastUntilOnly { items: self }
     }
 
-    pub fn remove_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> DropRemoveIfMany<'a, 'q, T, Q>
+    pub fn remove_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, bool>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.remove(query))
+        self.get_only_or_else(|items| items.items.remove(query))
     }
 
-    pub fn take_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveIfMany<'a, 'q, T, Q>
+    pub fn take_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, Option<T>>
     where
         T: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.take(query))
+        self.get_only_or_else(|items| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>
@@ -830,7 +801,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_first_if_many().or_none()
+        self.items.pop_first_if_many().many()
     }
 }
 
@@ -858,7 +829,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop_last_if_many().or_none()
+        self.items.pop_last_if_many().many()
     }
 }
 

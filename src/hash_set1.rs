@@ -28,8 +28,7 @@ use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::safety::{NonZeroExt as _, OptionExt as _};
 use crate::subset::{self, KeyNotFoundError};
-use crate::take;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 pub trait AsHashSet {
     type Item;
@@ -72,48 +71,13 @@ unsafe impl<T, S> MaybeEmpty for HashSet<T, S> {
         //         implementations for `T`.
         match self.len() {
             0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
     }
 }
 
-type TakeIfMany<'a, T, S, U, N = ()> = take::TakeIfMany<'a, HashSet<T, S>, U, N>;
-
-pub type DropRemoveIfMany<'a, 'q, T, S, Q> = TakeIfMany<'a, T, S, bool, &'q Q>;
-
-pub type TakeRemoveIfMany<'a, 'q, T, S, Q> = TakeIfMany<'a, T, S, Option<T>, &'q Q>;
-
-impl<'a, T, S, U, N> TakeIfMany<'a, T, S, U, N>
-where
-    T: Eq + Hash,
-{
-    pub fn or_get_only(self) -> Result<U, &'a T> {
-        self.take_or_else(|items, _| items.iter1().first())
-    }
-}
-
-impl<'a, T, S, Q> TakeIfMany<'a, T, S, bool, &'_ Q>
-where
-    T: Borrow<Q> + Eq + Hash,
-    S: BuildHasher,
-    Q: Eq + Hash + ?Sized,
-{
-    pub fn or_get(self) -> Result<bool, Option<&'a T>> {
-        self.take_or_else(|items, query| items.get(query))
-    }
-}
-
-impl<'a, T, S, Q> TakeIfMany<'a, T, S, Option<T>, &'_ Q>
-where
-    T: Borrow<Q> + Eq + Hash,
-    S: BuildHasher,
-    Q: Eq + Hash + ?Sized,
-{
-    pub fn or_get(self) -> Option<Result<T, &'a T>> {
-        self.try_take_or_else(|items, query| items.get(query))
-    }
-}
+pub type OrOnly<'a, O, M> = Cardinality<&'a O, M>;
 
 pub type HashSet1<T, S = RandomState> = NonEmpty<HashSet<T, S>>;
 
@@ -326,23 +290,30 @@ where
         self.items.replace(item)
     }
 
-    pub fn remove_if_many<'a, 'q, Q>(
-        &'a mut self,
-        query: &'q Q,
-    ) -> DropRemoveIfMany<'a, 'q, T, S, Q>
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<'_, T, U>
     where
-        T: Borrow<Q>,
-        Q: Eq + Hash + ?Sized,
+        F: FnOnce(&mut Self) -> U,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.remove(query))
+        match self.cardinality() {
+            One(_) => One(self.iter1().first()),
+            Many(_) => Many(f(self)),
+        }
     }
 
-    pub fn take_if_many<'a, 'q, Q>(&'a mut self, query: &'q Q) -> TakeRemoveIfMany<'a, 'q, T, S, Q>
+    pub fn remove_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, bool>
     where
         T: Borrow<Q>,
         Q: Eq + Hash + ?Sized,
     {
-        TakeIfMany::with(self, query, |items, query| items.items.take(query))
+        self.get_only_or_else(|items| items.items.remove(query))
+    }
+
+    pub fn take_if_many<'a, Q>(&'a mut self, query: &Q) -> OrOnly<'a, T, Option<T>>
+    where
+        T: Borrow<Q>,
+        Q: Eq + Hash + ?Sized,
+    {
+        self.get_only_or_else(|items| items.items.take(query))
     }
 
     pub fn get<Q>(&self, query: &Q) -> Option<&T>
