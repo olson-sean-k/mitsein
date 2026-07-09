@@ -843,6 +843,22 @@ impl<T> Cardinality<T, T> {
     }
 }
 
+impl<T> Cardinality<&mut T, T> {
+    pub fn or_replace_only(self, item: T) -> T {
+        self.or_else_replace_only(|| item)
+    }
+
+    pub fn or_else_replace_only<F>(self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        match self {
+            One(only) => mem::replace(only, f()),
+            Many(item) => item,
+        }
+    }
+}
+
 macro_rules! with_literals {
     ($f:ident$(,)?) => {};
     ($f:ident, [$($N:literal $(,)?)+]$(,)?) => {
