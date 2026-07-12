@@ -36,12 +36,17 @@ alloc = [
 ]
 arbitrary = [
     "dep:arbitrary",
+    "compact_str?/arbitrary",
     "indexmap?/arbitrary",
     "std",
 ]
 arrayvec = [
     "dep:arrayvec",
     "schemars?/arrayvec07",
+]
+compact-str = [
+    "dep:compact_str",
+    "alloc",
 ]
 either = ["dep:either"]
 heapless = ["dep:heapless"]
@@ -67,6 +72,7 @@ schemars = [
 serde = [
     "dep:serde",
     "arrayvec?/serde",
+    "compact_str?/serde",
     "heapless?/serde",
     "indexmap?/serde",
     "smallvec?/serde",
@@ -74,10 +80,12 @@ serde = [
 smallvec = [
     "dep:smallvec",
     "alloc",
+    "compact_str?/smallvec",
     "schemars?/smallvec1",
 ]
 std = [
     "alloc",
+    "compact_str?/std",
     "either?/std",
     "indexmap?/std",
     "itertools?/use_std",
@@ -95,6 +103,11 @@ optional = true
 
 [dependencies.arrayvec]
 version = "^0.7.2"
+default-features = false
+optional = true
+
+[dependencies.compact_str]
+version = "^0.9.1"
 default-features = false
 optional = true
 

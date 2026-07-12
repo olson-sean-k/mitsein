@@ -347,6 +347,7 @@ pub mod boxed1;
 pub mod btree_map1;
 pub mod btree_set1;
 pub mod cmp;
+pub mod compact_string1;
 pub mod hash;
 pub mod hash_set1;
 pub mod heapless;
