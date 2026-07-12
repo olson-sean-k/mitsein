@@ -42,6 +42,7 @@
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
 //! - [`BTreeSet1`][`btree_set1`]
+//! - [`CompactString1`][`compact_string1`]
 //! - [`HashSet1`][`hash_set1`]
 //! - [`IndexMap1`][`index_map1`]
 //! - [`IndexSet1`][`index_set1`]
@@ -229,20 +230,21 @@
 //!
 //! The following table summarizes supported feature flags and integrations.
 //!
-//! | Feature     | Also Enables | Default | Crate         | Description                                                    |
-//! |-------------|--------------|---------|---------------|----------------------------------------------------------------|
-//! | `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.              |
-//! | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
-//! | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
-//! | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
-//! | `heapless`  |              | No      | [`heapless`]  | Non-empty implementations of [`heapless`] types.               |
-//! | `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
-//! | `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
-//! | `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                       |
-//! | `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.                    |
-//! | `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`].      |
-//! | `smallvec`  | `alloc`      | No      | [`smallvec`]  | Non-empty implementations of [`smallvec`] types.               |
-//! | `std`       | `alloc`      | Yes     | `std`         | Non-empty hashing collections and integrations with `std::io`. |
+//! | Feature       | Also Enables | Default | Crate           | Description                                                    |
+//! |---------------|--------------|---------|-----------------|----------------------------------------------------------------|
+//! | `alloc`       |              | No      | `alloc`         | Non-empty collections that allocate, like `Vec1`.              |
+//! | `arbitrary`   | `std`        | No      | [`arbitrary`]   | Construction of arbitrary non-empty collections.               |
+//! | `arrayvec`    |              | No      | [`arrayvec`]    | Non-empty implementations of [`arrayvec`] types.               |
+//! | `compact_str` | `alloc`      | No      | [`compact_str`] | Non-empty implementation of [`compact_str`] types.             |
+//! | `either`      |              | No      | [`either`]      | Non-empty iterator implementation for `Either`.                |
+//! | `heapless`    |              | No      | [`heapless`]    | Non-empty implementations of [`heapless`] types.               |
+//! | `indexmap`    | `alloc`      | No      | [`indexmap`]    | Non-empty implementations of [`indexmap`] types.               |
+//! | `itertools`   | `either`     | No      | [`itertools`]   | Combinators from [`itertools`] for `Iterator1`.                |
+//! | `rayon`       | `std`        | No      | [`rayon`]       | Parallel operations for non-empty types.                       |
+//! | `schemars`    | `alloc`      | No      | [`schemars`]    | JSON schema generation for non-empty types.                    |
+//! | `serde`       |              | No      | [`serde`]       | De/serialization of non-empty collections with [`serde`].      |
+//! | `smallvec`    | `alloc`      | No      | [`smallvec`]    | Non-empty implementations of [`smallvec`] types.               |
+//! | `std`         | `alloc`      | Yes     | `std`           | Non-empty hashing collections and integrations with `std::io`. |
 //!
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
@@ -252,6 +254,7 @@
 //! [`arrayvec`]: https://crates.io/crates/arrayvec
 //! [`BoxedSlice1Ext`]: crate::boxed1::BoxedSlice1Ext
 //! [`BoxedStr1Ext`]: crate::boxed1::BoxedStr1Ext
+//! [`compact_str`]: https://crates.io/crates/compact_str
 //! [`CowSlice1Ext`]: crate::borrow1::CowSlice1Ext
 //! [`CowStr1Ext`]: crate::borrow1::CowStr1Ext
 //! [`either`]: https://crates.io/crates/either
