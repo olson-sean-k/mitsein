@@ -915,30 +915,28 @@ where
     }
 }
 
-// `JsonSchema` is not implemented for `CompactString` natively, yet.
-// However, this implementation can still be useful to some.
 #[cfg(feature = "schemars")]
 #[cfg_attr(docsrs, doc(cfg(feature = "schemars")))]
 impl JsonSchema for CompactString1 {
     fn schema_name() -> Cow<'static, str> {
-        str::schema_name()
+        CompactString::schema_name()
     }
 
     fn json_schema(generator: &mut SchemaGenerator) -> Schema {
         use crate::schemars;
 
-        schemars::json_subschema_with_non_empty_property_for::<str>(
+        schemars::json_subschema_with_non_empty_property_for::<CompactString>(
             schemars::NON_EMPTY_KEY_STRING,
             generator,
         )
     }
 
     fn inline_schema() -> bool {
-        str::inline_schema()
+        CompactString::inline_schema()
     }
 
     fn schema_id() -> Cow<'static, str> {
-        str::schema_id()
+        CompactString::schema_id()
     }
 }
 
