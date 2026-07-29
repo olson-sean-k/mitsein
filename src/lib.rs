@@ -781,8 +781,6 @@ pub enum Cardinality<O, M> {
 
 impl<O, M> Cardinality<O, M> {
     /// Converts the cardinality into an `Option<O>`, discarding the [`Many`] value, if any.
-    ///
-    /// [`Many`]: crate::Cardinality::Many
     pub fn one(self) -> Option<O> {
         match self {
             One(one) => Some(one),
@@ -791,8 +789,6 @@ impl<O, M> Cardinality<O, M> {
     }
 
     /// Converts the cardinality into an `Option<M>`, discarding the [`One`] value, if any.
-    ///
-    /// [`One`]: crate::Cardinality::One
     pub fn many(self) -> Option<M> {
         match self {
             Many(many) => Some(many),
@@ -802,8 +798,6 @@ impl<O, M> Cardinality<O, M> {
 
     /// Maps a `Cardinality<O, M>` to `Cardinality<U, M>` by applying a function to the [`One`]
     /// value.
-    ///
-    /// [`One`]: crate::Cardinality::One
     pub fn map_one<U, F>(self, f: F) -> Cardinality<U, M>
     where
         F: FnOnce(O) -> U,
@@ -816,8 +810,6 @@ impl<O, M> Cardinality<O, M> {
 
     /// Maps a `Cardinality<O, M>` to `Cardinality<O, U>` by applying a function to the [`Many`]
     /// value.
-    ///
-    /// [`Many`]: crate::Cardinality::Many
     pub fn map_many<U, F>(self, f: F) -> Cardinality<O, U>
     where
         F: FnOnce(M) -> U,
@@ -826,6 +818,16 @@ impl<O, M> Cardinality<O, M> {
             One(one) => One(one),
             Many(many) => Many(f(many)),
         }
+    }
+
+    /// Returns `true` if the `Cardinality` is [`One`], otherwise `false`.
+    pub fn is_one(&self) -> bool {
+        matches!(self, One(_))
+    }
+
+    /// Returns `true` if the `Cardinality` is [`Many`], otherwise `false`.
+    pub fn is_many(&self) -> bool {
+        matches!(self, Many(_))
     }
 }
 
