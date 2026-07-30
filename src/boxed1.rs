@@ -129,6 +129,15 @@ impl<T> AsRef<[T]> for BoxedSlice1<T> {
     }
 }
 
+impl<T> Clone for BoxedSlice1<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        BoxedSlice1::from(self.as_ref())
+    }
+}
+
 #[cfg(feature = "serde")]
 #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl<'de, T> Deserialize<'de> for BoxedSlice1<T>
@@ -291,6 +300,25 @@ impl BoxedStr1Ext for BoxedStr1 {
         //         requires that the memory location and layout are the same when deallocating, so
         //         dropping the transmuted `Box` is sound.
         unsafe { Box::from_raw(items as *mut str) }
+    }
+}
+
+impl AsRef<str> for BoxedStr1 {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Clone for BoxedStr1 {
+    fn clone(&self) -> Self {
+        BoxedStr1::from(self.as_ref())
+    }
+}
+
+impl<'a> From<&'a Str1> for BoxedStr1 {
+    fn from(items: &'a Str1) -> Self {
+        // SAFETY: `items` is non-empty.
+        unsafe { BoxedStr1::from_boxed_str_unchecked(Box::from(items.as_str())) }
     }
 }
 
