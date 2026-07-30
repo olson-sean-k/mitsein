@@ -764,22 +764,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
-impl<T: Clone> Clone for alloc::boxed::Box<NonEmpty<[T]>>
-{
-    fn clone(&self) -> Self {
-        crate::boxed1::BoxedSlice1::from(self.as_ref())
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl Clone for alloc::boxed::Box<NonEmpty<str>>
-{
-    fn clone(&self) -> Self {
-        self.as_ref().to_string1().into_boxed_str1()
-    }
-}
-
 /// Non-empty cardinality.
 ///
 /// `Cardinality` associates some arbitrary data with a non-empty cardinality: one or many. For
