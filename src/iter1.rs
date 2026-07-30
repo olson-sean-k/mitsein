@@ -13,6 +13,7 @@ use core::iter::{
 };
 use core::net::{Ipv4Addr, Ipv6Addr};
 use core::num::NonZeroUsize;
+use core::ops::RangeBounds;
 use core::option;
 use core::result;
 #[cfg(feature = "either")]
@@ -45,6 +46,22 @@ use crate::vec1::Vec1;
 #[cfg(feature = "itertools")]
 use crate::{Cardinality, safety};
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty, NonZeroExt as _};
+
+pub trait Drain1<T> {
+    type Iter<'a>: Iterator<Item = Self::Item>
+    where
+        Self: 'a,
+        T: 'a;
+    type Item;
+
+    fn drain1<R>(&mut self, range: NonEmpty<R>) -> Iterator1<Self::Iter<'_>>
+    where
+        // Both `NonEmpty` and `RangeBounds` are foreign items, so downstream crates cannot
+        // implement `RangeBounds` for `NonEmpty<T>`, even if `T` is a local type. Therefore
+        // implementors can rely on this bound, which specifies that `NonEmpty<R>` is a non-empty
+        // range type as defined by this crate.
+        NonEmpty<R>: RangeBounds<T>;
+}
 
 // Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
 // implementation. In particular, the `IntoIterator::IntoIter` type for `Either` is itself, and so
