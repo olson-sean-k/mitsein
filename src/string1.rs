@@ -426,7 +426,7 @@ impl BorrowMut<Str1> for String1 {
 
 impl Debug for String1 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{:?}", &self.items)
+        write!(formatter, "{:?}", self.items)
     }
 }
 
@@ -446,7 +446,7 @@ impl DerefMut for String1 {
 
 impl Display for String1 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", &self.items)
+        write!(formatter, "{}", self.items)
     }
 }
 
