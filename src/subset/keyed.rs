@@ -48,7 +48,7 @@ where
     Q: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(formatter, "key {:?} not found", self.key)
+        write!(formatter, "key {:?} not found", self.key)
     }
 }
 
