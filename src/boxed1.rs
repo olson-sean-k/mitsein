@@ -129,7 +129,10 @@ impl<T> AsRef<[T]> for BoxedSlice1<T> {
     }
 }
 
-impl<T: Clone> Clone for BoxedSlice1<T> {
+impl<T> Clone for BoxedSlice1<T>
+where
+    T: Clone,
+{
     fn clone(&self) -> Self {
         BoxedSlice1::from(self.as_ref())
     }
