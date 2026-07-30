@@ -29,7 +29,7 @@ use crate::borrow1::CowSlice1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
 use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
-use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
+use crate::iter1::{Drain1, FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::range1::{Range1, RangeInclusive1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
@@ -40,6 +40,25 @@ use crate::subset::range::{self, IndexRange, RangeError};
 use crate::take;
 use crate::vec_deque1::VecDeque1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+
+impl<T> Drain1<usize> for Vec<T> {
+    type Iter<'a>
+        = Drain<'a, T>
+    where
+        Self: 'a,
+        T: 'a;
+    type Item = T;
+
+    fn drain1<R>(&mut self, range: NonEmpty<R>) -> Iterator1<Self::Iter<'_>>
+    where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        // SAFETY: `range` is a non-empty range type. If `range` extends beyond `self`, then
+        //         `Vec::drain` panics. Therefore, `range` must cover at least one item in `self`
+        //         and `self.drain(range)` is non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.drain(range)) }
+    }
+}
 
 impl<T> Extend1<T> for Vec<T> {
     fn extend_non_empty<I>(mut self, items: I) -> Vec1<T>
@@ -1094,6 +1113,19 @@ impl<T> OnlyRangeSubset<'_, T> {
         }
     }
 
+    pub fn swap_drain1<R>(
+        &mut self,
+        range: NonEmpty<R>,
+    ) -> Iterator1<SwapDrainOnlyRangeSubset<'_, T>>
+    where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        // SAFETY: `range` is a non-empty range type. If `range` extends beyond `self`, then
+        //         `OnlyRangeSubset::swap_drain` panics. Therefore, `range` must cover at least one
+        //         item in `self` and `self.drain(range)` is non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.swap_drain(range)) }
+    }
+
     pub fn remove(&mut self, index: usize) -> T {
         let index = self
             .range
@@ -1282,14 +1314,20 @@ pub use vec1;
 
 #[cfg(test)]
 pub mod harness {
+    use alloc::vec::Vec;
     use rstest::fixture;
 
-    use crate::iter1::{self, FromIterator1};
+    use crate::iter1;
     use crate::vec1::Vec1;
 
     #[fixture]
+    pub fn xs(#[default(4)] end: u8) -> Vec<u8> {
+        (0..=end).collect()
+    }
+
+    #[fixture]
     pub fn xs1(#[default(4)] end: u8) -> Vec1<u8> {
-        Vec1::from_iter1(iter1::harness::xs1(end))
+        iter1::harness::xs1(end).collect1()
     }
 }
 
@@ -1304,13 +1342,44 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde_test::Token;
 
+    use crate::NonEmpty;
+    use crate::iter1::Drain1 as _;
+    use crate::range1::range1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
     use crate::vec1::Vec1;
-    use crate::vec1::harness::{self, xs1};
+    use crate::vec1::harness::{self, xs, xs1};
+
+    #[rstest]
+    #[case::first(range1!(0..1), (slice1![0], &[1, 2, 3, 4][..]))]
+    #[case::middle(range1!(2..3), (slice1![2], &[0, 1, 3, 4][..]))]
+    #[case::middle(range1!(1..4), (slice1![1, 2, 3], &[0, 4][..]))]
+    #[case::last(range1!(4..5), (slice1![4], &[0, 1, 2, 3][..]))]
+    #[case::all(range1!(0..=4), (slice1![0, 1, 2, 3, 4], &[][..]))]
+    fn drain1_from_vec_then_drained_and_vec_eq<R>(
+        mut xs: Vec<u8>,
+        #[case] range: NonEmpty<R>,
+        #[case] expected: (&Slice1<u8>, &[u8]),
+    ) where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        let drained: Vec1<_> = xs.drain1(range).collect1();
+        assert_eq!((drained.as_slice1(), xs.as_slice()), expected);
+    }
+
+    #[rstest]
+    #[case::intersecting(range1!(0..10))]
+    #[case::non_intersecting(range1!(5..10))]
+    #[should_panic]
+    fn drain1_from_vec_out_of_bounds_then_panic<R>(mut xs: Vec<u8>, #[case] range: NonEmpty<R>)
+    where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        xs.drain1(range).into_iter().for_each(|_| {});
+    }
 
     #[rstest]
     fn vec1_from_vec_macro_eq_vec1_from_vec1_macro_by_rep_expr() {
@@ -1557,6 +1626,37 @@ mod tests {
         let mut xss = xs1.only(subset).unwrap();
         mem::forget(xss.swap_drain(drain));
         assert_eq!(xs1.as_slice1(), expected);
+    }
+
+    #[rstest]
+    #[case::first(range1!(0..1), (slice1![1], &[2, 3, 4][..]))]
+    #[case::middle(range1!(2..3), (slice1![3], &[1, 2, 4][..]))]
+    #[case::middle(range1!(1..3), (slice1![2, 3], &[1, 4][..]))]
+    #[case::last(range1!(3..4), (slice1![4], &[1, 2, 3][..]))]
+    #[case::all(range1!(0..=3), (slice1![1, 2, 3, 4], &[][..]))]
+    fn swap_drain1_from_tail_of_vec1_then_drained_and_tail_eq<R>(
+        mut xs1: Vec1<u8>,
+        #[case] range: NonEmpty<R>,
+        #[case] expected: (&Slice1<u8>, &[u8]),
+    ) where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        let mut tail = xs1.tail();
+        let drained: Vec1<_> = tail.swap_drain1(range).collect1();
+        assert_eq!((drained.as_slice1(), tail.as_slice()), expected);
+    }
+
+    #[rstest]
+    #[case::intersecting(range1!(0..10))]
+    #[case::non_intersecting(range1!(4..10))]
+    #[should_panic]
+    fn swap_drain1_from_tail_of_vec1_out_of_bounds_then_panic<R>(
+        mut xs1: Vec1<u8>,
+        #[case] range: NonEmpty<R>,
+    ) where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        xs1.tail().swap_drain1(range).into_iter().for_each(|_| {});
     }
 
     #[cfg(feature = "schemars")]

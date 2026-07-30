@@ -424,7 +424,7 @@ pub mod prelude {
     #[cfg(feature = "itertools")]
     pub use crate::iter1::ItertoolsExt as _;
     pub use crate::iter1::{
-        Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1 as _,
+        Drain1 as _, Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1 as _,
     };
     #[cfg(feature = "rayon")]
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
