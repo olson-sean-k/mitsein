@@ -287,6 +287,18 @@ impl AsMut<str> for Str1 {
     }
 }
 
+impl AsMut<Str1> for &mut Str1 {
+    fn as_mut(&mut self) -> &mut Str1 {
+        self
+    }
+}
+
+impl AsRef<Str1> for &Str1 {
+    fn as_ref(&self) -> &Str1 {
+        self
+    }
+}
+
 impl Debug for Str1 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         write!(formatter, "{:?}", &self.items)
