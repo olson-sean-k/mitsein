@@ -12,7 +12,7 @@ mod legacy {
     pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 }
 
-use core::num::NonZeroUsize;
+use core::num::NonZero;
 use core::ops::{Bound, RangeBounds};
 use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
 
@@ -138,18 +138,6 @@ impl<T> Range1<T> {
 
     pub const fn as_range(&self) -> &Range<T> {
         &self.items
-    }
-}
-
-impl Range1<usize> {
-    pub const fn zero_to_non_zero(end: NonZeroUsize) -> Self {
-        // SAFETY: `end` is non-zero, so the half-open range is non-empty.
-        unsafe {
-            Range1::from_range_unchecked(Range {
-                start: 0,
-                end: end.get(),
-            })
-        }
     }
 }
 
@@ -336,27 +324,6 @@ impl<T> RangeInclusive1<T> {
     }
 }
 
-impl RangeInclusive1<usize> {
-    pub const fn zero_to(last: usize) -> Self {
-        // SAFETY: The closed range starts at zero and can only end at an inclusive minimum of
-        //         zero, and so is non-empty.
-        unsafe {
-            RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive { start: 0, last })
-        }
-    }
-
-    pub const fn to_max_from(start: usize) -> Self {
-        // SAFETY: Because the bounds of `RangeInclusive1` are inclusive, any `usize` lower bound
-        //         forms a non-empty `RangeInclusive`, even when the upper bound is `usize::MAX`.
-        unsafe {
-            RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive {
-                start,
-                last: usize::MAX,
-            })
-        }
-    }
-}
-
 impl From<Range1<usize>> for RangeInclusive1<usize> {
     fn from(items: Range1<usize>) -> Self {
         let Range { start, end } = items.items;
@@ -372,12 +339,6 @@ impl From<Range1<usize>> for RangeInclusive1<usize> {
     }
 }
 
-impl From<RangeFrom<usize>> for RangeInclusive1<usize> {
-    fn from(items: RangeFrom<usize>) -> Self {
-        RangeInclusive1::to_max_from(items.start)
-    }
-}
-
 impl<T> From<RangeInclusive1<T>> for RangeInclusive<T> {
     fn from(items: RangeInclusive1<T>) -> Self {
         items.items
@@ -387,12 +348,6 @@ impl<T> From<RangeInclusive1<T>> for RangeInclusive<T> {
 impl<T> From<RangeInclusive1<T>> for legacy::RangeInclusive<T> {
     fn from(items: RangeInclusive1<T>) -> Self {
         items.items.into()
-    }
-}
-
-impl From<RangeToInclusive<usize>> for RangeInclusive1<usize> {
-    fn from(items: RangeToInclusive<usize>) -> Self {
-        RangeInclusive1::zero_to(items.last)
     }
 }
 
@@ -472,6 +427,60 @@ where
             .map_err(|error| error.map(From::from))
     }
 }
+
+macro_rules! one_sided_range1 {
+    ($($t:ty)*) => {
+        $(
+            impl Range1<$t> {
+                pub const fn zero_to_non_zero(end: NonZero<$t>) -> Self {
+                    // SAFETY: `end` is non-zero, so the half-open range is non-empty.
+                    unsafe {
+                        Range1::from_range_unchecked(Range {
+                            start: 0,
+                            end: end.get(),
+                        })
+                    }
+                }
+            }
+
+            impl RangeInclusive1<$t> {
+                pub const fn zero_to(last: $t) -> Self {
+                    // SAFETY: The closed range starts at zero and can only end at an inclusive minimum of
+                    //         zero, and so is non-empty.
+                    unsafe {
+                        RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive { start: 0, last })
+                    }
+                }
+
+                pub const fn to_max_from(start: $t) -> Self {
+                    // SAFETY: Because the bounds of `RangeInclusive1` are inclusive, any `$t` lower bound
+                    //         forms a non-empty `RangeInclusive`, even when the upper bound is `$t::MAX`.
+                    unsafe {
+                        RangeInclusive1::from_range_inclusive_unchecked(RangeInclusive {
+                            start,
+                            last: <$t>::MAX,
+                        })
+                    }
+                }
+            }
+
+            impl From<RangeFrom<$t>> for RangeInclusive1<$t> {
+                fn from(items: RangeFrom<$t>) -> Self {
+                    RangeInclusive1::<$t>::to_max_from(items.start)
+                }
+            }
+
+            impl From<RangeToInclusive<$t>> for RangeInclusive1<$t> {
+                fn from(items: RangeToInclusive<$t>) -> Self {
+                    RangeInclusive1::<$t>::zero_to(items.last)
+                }
+            }
+
+        )*
+    };
+}
+
+one_sided_range1!(u8 u16 u32 u64 u128 usize);
 
 #[macro_export]
 macro_rules! range1 {
