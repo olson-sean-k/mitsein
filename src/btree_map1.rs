@@ -383,7 +383,7 @@ impl<K, V> BTreeMap1<K, V> {
         self.and_then_try(|items| items.retain(f))
     }
 
-    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<(&'_ K, &'_ V)>
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<(&'_ K, &'_ mut V)>
     where
         K: Ord,
         F: FnMut(&K, &V) -> bool,
@@ -399,7 +399,7 @@ impl<K, V> BTreeMap1<K, V> {
             is_retained
         });
         if self.len().get() == 1 {
-            let (key, value) = self.first_key_value();
+            let (key, value) = self.iter1_mut().first();
             if f(key, value) {
                 None
             }

@@ -215,13 +215,13 @@ where
         self.and_then_try(|items| items.retain(f))
     }
 
-    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ T>
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ mut T>
     where
         F: FnMut(&T) -> bool,
     {
         self.rtail().retain(|item| f(item));
         if self.len().get() == 1 {
-            let last = self.last();
+            let last = self.last_mut();
             if f(last) { None } else { Some(last) }
         }
         else {
