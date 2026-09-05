@@ -765,12 +765,16 @@ where
 
 /// Non-empty cardinality.
 ///
-/// `Cardinality` associates some arbitrary data with a non-empty cardinality: one or many. For
-/// some particular data types, cardinality determines specific behaviors, such as in
-/// [`OccupiedEntry`] APIs for [`BTreeMap1`].
+/// `Cardinality` describes and associates data with a non-empty cardinality: one or many.
+/// Cardinality predicates some behaviors of non-empty types. In particular, it is not possible to
+/// take the only remaining item out of a non-empty collection, and so APIs that take an item like
+/// [`Vec1::pop_if_many`] return [a `Cardinality` type][`OrOnly`]. Similarly, non-empty map types
+/// like [`BTreeMap1`] use `Cardinality` types in [their entry APIs][`OccupiedEntry`].
 ///
 /// [`BTreeMap1`]: crate::btree_map1::BTreeMap1
 /// [`OccupiedEntry`]: crate::btree_map1::OccupiedEntry
+/// [`OrOnly`]: crate::vec1::OrOnly
+/// [`Vec1::pop_if_many`]: crate::vec1::Vec1::pop_if_many
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Cardinality<O, M> {
     /// Exactly one item.
@@ -846,10 +850,74 @@ impl<T> Cardinality<T, T> {
 }
 
 impl<T> Cardinality<&mut T, T> {
+    /// Gets the [`Many`] value or replaces the [`One`] reference with `item`.
+    ///
+    /// When taking an item out of a non-empty collection, this function gets the taken item or, if
+    /// there is only one remaining item, replaces it.
+    ///
+    /// # Examples
+    ///
+    /// Implementing a pop (a.k.a. drop) operation in a postfix calculator:
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = "```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// pub struct PostfixCalculator {
+    ///     // There must always be a computation, so this is non-empty.
+    ///     stack: Vec1<f64>,
+    ///     // ...
+    /// }
+    ///
+    /// impl PostfixCalculator {
+    ///     pub fn pop(&mut self) -> f64 {
+    ///         self.stack
+    ///             .pop_if_many()
+    ///             .or_replace_only(0.0)
+    ///     }
+    ///
+    ///     // ...
+    /// }
+    #[doc = "```"]
     pub fn or_replace_only(self, item: T) -> T {
         self.or_else_replace_only(|| item)
     }
 
+    /// Gets the [`Many`] value or replaces the [`One`] reference with the output of the given
+    /// function.
+    ///
+    /// When taking an item out of a non-empty collection, this function gets the taken item or, if
+    /// there is only one remaining item, replaces it.
+    ///
+    /// # Examples
+    ///
+    /// Implementing a back operation in a UI screen navigator:
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = "```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// #[derive(Default)]
+    /// pub enum Screen {
+    ///     #[default]
+    ///     Home,
+    ///     // ...
+    /// }
+    ///
+    /// pub struct Navigator {
+    ///     // There must always be an active `Screen`, so this is non-empty.
+    ///     screens: Vec1<Screen>,
+    ///     // ...
+    /// }
+    ///
+    /// impl Navigator {
+    ///     pub fn back(&mut self) -> Screen {
+    ///         self.screens
+    ///             .pop_if_many()
+    ///             .or_else_replace_only(Screen::default)
+    ///     }
+    /// }
+    #[doc = "```"]
     pub fn or_else_replace_only<F>(self, f: F) -> T
     where
         F: FnOnce() -> T,
