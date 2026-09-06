@@ -6,14 +6,17 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 
 use alloc::borrow::{Borrow, BorrowMut, Cow};
+use alloc::boxed::Box;
 use alloc::string::{FromUtf8Error, FromUtf16Error, String};
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
+use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut};
 use core::slice::SliceIndex;
+use core::str::FromStr;
 #[cfg(feature = "schemars")]
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 
@@ -505,6 +508,18 @@ impl From<String1> for String {
     }
 }
 
+impl From<String1> for Box<dyn Error> {
+    fn from(items: String1) -> Self {
+        items.into_string().into()
+    }
+}
+
+impl From<String1> for Box<dyn Error + Send + Sync> {
+    fn from(items: String1) -> Self {
+        items.into_string().into()
+    }
+}
+
 impl FromIterator1<char> for String1 {
     fn from_iter1<I>(items: I) -> Self
     where
@@ -560,6 +575,17 @@ impl FromIterator1<String1> for String1 {
     }
 }
 
+impl FromStr for String1 {
+    // Has to be owned.
+    type Err = EmptyError<String>;
+
+    fn from_str(items: &str) -> Result<Self, Self::Err> {
+        Str1::try_from_str(items)
+            .map(Self::from)
+            .map_err(|err| err.map(String::from))
+    }
+}
+
 impl<I> Index<I> for String1
 where
     I: SliceIndex<str>,
@@ -608,7 +634,9 @@ impl JsonSchema for String1 {
 crate::impl_partial_eq_for_non_empty!([in str] <= [in String1]);
 crate::impl_partial_eq_for_non_empty!([in &str] <= [in String1]);
 crate::impl_partial_eq_for_non_empty!([in &Str1] == [in String1]);
+crate::impl_partial_eq_for_non_empty!([in Cow<'_, str>] <= [in String1]);
 crate::impl_partial_eq_for_non_empty!([in CowStr1<'_>] == [in String1]);
+crate::impl_partial_eq_for_non_empty!([in String1] => [in Cow<'_, str>]);
 crate::impl_partial_eq_for_non_empty!([in String1] => [in str]);
 crate::impl_partial_eq_for_non_empty!([in String1] => [in &str]);
 crate::impl_partial_eq_for_non_empty!([in String1] == [in &Str1]);
