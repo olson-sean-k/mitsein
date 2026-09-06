@@ -7,7 +7,7 @@ use alloc::borrow::Cow;
 use alloc::string::String;
 #[cfg(feature = "arbitrary")]
 use arbitrary::{Arbitrary, Unstructured};
-use compact_str::{CompactString, CompactStringExt as _, ReserveError, Utf16Error};
+use compact_str::{CompactString, ReserveError, Utf16Error};
 use core::borrow::{Borrow, BorrowMut};
 use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::num::NonZeroUsize;
@@ -17,9 +17,13 @@ use core::str::{FromStr, Utf8Error};
 #[cfg(feature = "schemars")]
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 #[cfg(feature = "std")]
-use std::boxed::Box;
-#[cfg(feature = "std")]
-use std::error::Error as StdError;
+use std::{
+    boxed::Box,
+    // At time of writing, `compact-str` has an MSRV of `1.71.0` and so cannot yet use
+    // `core::error::Error`. The `Error` trait can only be used alongside the `std` feature and must
+    // be imported from `std`.
+    error::Error,
+};
 
 use crate::borrow1::{CowStr1, CowStr1Ext as _};
 use crate::boxed1::{BoxedStr1, BoxedStr1Ext as _};
@@ -36,6 +40,42 @@ use crate::sync1::{ArcStr1, ArcStr1Ext as _};
 use crate::vec1::Vec1;
 use crate::{Cardinality, FromMaybeEmpty, NonEmpty};
 use crate::{EmptyError, take};
+
+pub trait CompactString1Ext {
+    fn concat_compact1(self) -> CompactString1;
+
+    fn join_compact1<S>(self, separator: S) -> CompactString1
+    where
+        S: AsRef<str>;
+}
+
+impl<I, C> CompactString1Ext for C
+where
+    I: AsRef<Str1>,
+    C: IntoIterator1<Item = I>,
+{
+    fn concat_compact1(self) -> CompactString1 {
+        let (head, tail) = self.into_iter1().into_head_and_tail();
+        let mut head = CompactString1::new(head);
+        for item in tail {
+            head += item.as_ref();
+        }
+        head
+    }
+
+    fn join_compact1<S>(self, separator: S) -> CompactString1
+    where
+        S: AsRef<str>,
+    {
+        let (head, tail) = self.into_iter1().into_head_and_tail();
+        let mut head = CompactString1::new(head);
+        for item in tail {
+            head += separator.as_ref();
+            head += item.as_ref();
+        }
+        head
+    }
+}
 
 impl Add<&Str1> for CompactString {
     type Output = Self;
@@ -194,31 +234,36 @@ impl CompactString1 {
     }
 
     #[cfg(feature = "smallvec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "smallvec")))]
     pub fn into_bytes1(self) -> SmallVec1<[u8; 24]> {
         // SAFETY: `self` is non-empty.
         unsafe { SmallVec1::from_small_vec_unchecked(self.items.into_bytes()) }
     }
 
-    pub fn new_non_empty<T: AsRef<Str1>>(items: T) -> Self {
+    pub fn new<T>(items: T) -> Self
+    where
+        T: AsRef<Str1>,
+    {
         // SAFETY: `items` is non-empty.
         unsafe { Self::from_compact_string_unchecked(CompactString::new(items.as_ref())) }
     }
 
-    pub fn try_new_non_empty<T: AsRef<Str1>>(items: T) -> Result<Self, ReserveError> {
+    pub fn try_new<T>(items: T) -> Result<Self, ReserveError>
+    where
+        T: AsRef<Str1>,
+    {
         // SAFETY: `items` is non-empty.
         CompactString::try_new(items.as_ref())
             .map(|items| unsafe { Self::from_compact_string_unchecked(items) })
     }
 
-    pub const fn const_new_non_empty(items: &'static Str1) -> Self {
-        // SAFETY: `items` is non-empty.
-        #[allow(unused_unsafe)]
-        unsafe {
-            // `FromMaybeEmpty::from_maybe_empty_unchecked` would be cleaner,
-            // but traits don't support const functinos.
-            NonEmpty {
-                items: CompactString::const_new(items.as_str()),
-            }
+    pub const fn const_new(items: &'static Str1) -> Self {
+        // Because `items` is a non-empty `Str1`, we uphold the non-empty guarantee of `NonEmpty`.
+        //
+        // `FromMaybeEmpty::from_maybe_empty_unchecked` would be cleaner, but traits don't support
+        // const functinos.
+        NonEmpty {
+            items: CompactString::const_new(items.as_str()),
         }
     }
 
@@ -230,7 +275,7 @@ impl CompactString1 {
         }
     }
 
-    pub fn from_one_with_capacity<U>(item: char, capacity: usize) -> Self {
+    pub fn from_one_with_capacity(item: char, capacity: usize) -> Self {
         Self::from_iter1_with_capacity([item], capacity)
     }
 
@@ -242,10 +287,7 @@ impl CompactString1 {
         CompactString::with_capacity(capacity).extend_non_empty(items)
     }
 
-    pub fn try_from_one_with_capacity<U>(
-        item: char,
-        capacity: usize,
-    ) -> Result<Self, ReserveError> {
+    pub fn try_from_one_with_capacity(item: char, capacity: usize) -> Result<Self, ReserveError> {
         Self::try_from_iter1_with_capacity([item], capacity)
     }
 
@@ -254,19 +296,24 @@ impl CompactString1 {
         CompactString: Extend1<U::Item>,
         U: IntoIterator1,
     {
-        // Is this robust enough?
-        // Can panic if `items` exceed the available memory.
+        // Is this robust enough? Can panic if `items` exceed the available memory.
         CompactString::try_with_capacity(capacity).map(|s| s.extend_non_empty(items))
     }
 
-    pub fn from_utf8<B: AsRef<Slice1<u8>>>(items: B) -> Result<Self, Utf8Error> {
+    pub fn from_utf8<B>(items: B) -> Result<Self, Utf8Error>
+    where
+        B: AsRef<Slice1<u8>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf8` checks for valid UTF-8,
         //         so there must be one or more code points.
         CompactString::from_utf8(items.as_ref())
             .map(|items| unsafe { Self::from_compact_string_unchecked(items) })
     }
 
-    pub fn from_utf8_lossy<B: AsRef<Slice1<u8>>>(items: B) -> Self {
+    pub fn from_utf8_lossy<B>(items: B) -> Self
+    where
+        B: AsRef<Slice1<u8>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf8_lossy` checks for valid UTF-8
         //         or introduces replacement characters, so there must be one or more code points.
         unsafe {
@@ -274,14 +321,20 @@ impl CompactString1 {
         }
     }
 
-    pub fn from_utf16<B: AsRef<Slice1<u16>>>(items: B) -> Result<Self, Utf16Error> {
+    pub fn from_utf16<B>(items: B) -> Result<Self, Utf16Error>
+    where
+        B: AsRef<Slice1<u16>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf16` checks for valid UTF-16,
         //         so there must be one or more code points.
         CompactString::from_utf16(items.as_ref())
             .map(|items| unsafe { Self::from_compact_string_unchecked(items) })
     }
 
-    pub fn from_utf16_lossy<B: AsRef<Slice1<u16>>>(items: B) -> Self {
+    pub fn from_utf16_lossy<B>(items: B) -> Self
+    where
+        B: AsRef<Slice1<u16>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf16_lossy` checks for valid
         //         UTF-16 or introduces replacement characters, so there must be one or more code
         //         points.
@@ -290,14 +343,20 @@ impl CompactString1 {
         }
     }
 
-    pub fn from_utf16le<B: AsRef<Slice1<u8>>>(items: B) -> Result<Self, Utf16Error> {
+    pub fn from_utf16le<B>(items: B) -> Result<Self, Utf16Error>
+    where
+        B: AsRef<Slice1<u8>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf16le` checks for valid UTF-16,
         //         so there must be one or more code points.
         CompactString::from_utf16le(items.as_ref())
             .map(|items| unsafe { CompactString1::from_compact_string_unchecked(items) })
     }
 
-    pub fn from_utf16le_lossy<B: AsRef<Slice1<u8>>>(items: B) -> Self {
+    pub fn from_utf16le_lossy<B>(items: B) -> Self
+    where
+        B: AsRef<Slice1<u8>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf16le_lossy` checks for valid
         //         UTF-16 or introduces replacement characters, so there must be one or more code
         //         points.
@@ -306,14 +365,20 @@ impl CompactString1 {
         }
     }
 
-    pub fn from_utf16be<B: AsRef<Slice1<u8>>>(items: B) -> Result<Self, Utf16Error> {
+    pub fn from_utf16be<B>(items: B) -> Result<Self, Utf16Error>
+    where
+        B: AsRef<Slice1<u8>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf16be` checks for valid UTF-16,
         //         so there must be one or more code points.
         CompactString::from_utf16be(items.as_ref())
             .map(|items| unsafe { CompactString1::from_compact_string_unchecked(items) })
     }
 
-    pub fn from_utf16be_lossy<B: AsRef<Slice1<u8>>>(items: B) -> Self {
+    pub fn from_utf16be_lossy<B>(items: B) -> Self
+    where
+        B: AsRef<Slice1<u8>>,
+    {
         // SAFETY: `items` is non-empty and `CompactString::from_utf16be_lossy` checks for valid
         //         UTF-16 or introduces replacement characters, so there must be one or more code
         //         points.
@@ -374,11 +439,8 @@ impl CompactString1 {
     }
 
     pub fn replace_range(&mut self, range: impl RangeBounds<usize>, items: &Str1) {
-        // SAFETY: `items` is non-empty.
-        #[allow(unused_unsafe)]
-        unsafe {
-            self.items.replace_range(range, items)
-        }
+        // Because `items` is a non-empty `Str1`, this cannot empty the inner `CompactString`.
+        self.items.replace_range(range, items)
     }
 
     pub fn repeat(&self, n: usize) -> Self {
@@ -512,37 +574,6 @@ impl CompactString1 {
     /// ```
     pub const unsafe fn as_mut_compact_string(&mut self) -> &mut CompactString {
         &mut self.items
-    }
-}
-
-pub trait CompactString1Ext {
-    fn concat_compact1(self) -> CompactString1;
-
-    fn join_compact1<S: AsRef<str>>(self, separator: S) -> CompactString1;
-}
-
-impl<I, C> CompactString1Ext for C
-where
-    I: AsRef<Str1>,
-    C: IntoIterator1<Item = I>,
-{
-    fn concat_compact1(self) -> CompactString1 {
-        let (head, tail) = self.into_iter1().into_head_and_tail();
-        let mut head = CompactString1::new_non_empty(head);
-        for item in tail {
-            head += item.as_ref();
-        }
-        head
-    }
-
-    fn join_compact1<S: AsRef<str>>(self, separator: S) -> CompactString1 {
-        let (head, tail) = self.into_iter1().into_head_and_tail();
-        let mut head = CompactString1::new_non_empty(head);
-        for item in tail {
-            head += separator.as_ref();
-            head += item.as_ref();
-        }
-        head
     }
 }
 
@@ -693,13 +724,13 @@ impl<'a> From<&'a CompactString1> for CowStr1<'a> {
 
 impl<'a> From<&'a String1> for CompactString1 {
     fn from(items: &'a String1) -> Self {
-        CompactString1::new_non_empty(items)
+        CompactString1::new(items)
     }
 }
 
 impl From<&Str1> for CompactString1 {
     fn from(items: &Str1) -> Self {
-        CompactString1::new_non_empty(items)
+        CompactString1::new(items)
     }
 }
 
@@ -711,14 +742,16 @@ impl From<CompactString1> for ArcStr1 {
 }
 
 #[cfg(feature = "std")]
-impl From<CompactString1> for Box<dyn StdError> {
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+impl From<CompactString1> for Box<dyn Error> {
     fn from(items: CompactString1) -> Self {
         items.into_compact_string().into()
     }
 }
 
 #[cfg(feature = "std")]
-impl From<CompactString1> for Box<dyn StdError + Send + Sync> {
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+impl From<CompactString1> for Box<dyn Error + Send + Sync> {
     fn from(items: CompactString1) -> Self {
         items.into_compact_string().into()
     }
@@ -783,30 +816,12 @@ impl<'a> FromIterator1<&'a char> for CompactString1 {
     }
 }
 
-impl<'a> FromIterator1<&'a Str1> for CompactString {
-    fn from_iter1<I>(items: I) -> Self
-    where
-        I: IntoIterator1<Item = &'a Str1>,
-    {
-        items.concat_compact()
-    }
-}
-
 impl<'a> FromIterator1<&'a Str1> for CompactString1 {
     fn from_iter1<I>(items: I) -> Self
     where
         I: IntoIterator1<Item = &'a Str1>,
     {
         items.concat_compact1()
-    }
-}
-
-impl FromIterator1<BoxedStr1> for CompactString {
-    fn from_iter1<I>(items: I) -> Self
-    where
-        I: IntoIterator1<Item = BoxedStr1>,
-    {
-        items.concat_compact1().into_compact_string()
     }
 }
 
@@ -819,15 +834,6 @@ impl FromIterator1<BoxedStr1> for CompactString1 {
     }
 }
 
-impl FromIterator1<CompactString1> for CompactString {
-    fn from_iter1<I>(items: I) -> Self
-    where
-        I: IntoIterator1<Item = CompactString1>,
-    {
-        items.concat_compact()
-    }
-}
-
 impl FromIterator1<Self> for CompactString1 {
     fn from_iter1<I>(items: I) -> Self
     where
@@ -837,30 +843,12 @@ impl FromIterator1<Self> for CompactString1 {
     }
 }
 
-impl<'a> FromIterator1<CowStr1<'a>> for CompactString {
-    fn from_iter1<I>(items: I) -> Self
-    where
-        I: IntoIterator1<Item = CowStr1<'a>>,
-    {
-        items.concat_compact1().into_compact_string()
-    }
-}
-
 impl<'a> FromIterator1<CowStr1<'a>> for CompactString1 {
     fn from_iter1<I>(items: I) -> Self
     where
         I: IntoIterator1<Item = CowStr1<'a>>,
     {
         items.concat_compact1()
-    }
-}
-
-impl FromIterator1<String1> for CompactString {
-    fn from_iter1<I>(items: I) -> Self
-    where
-        I: IntoIterator1<Item = String1>,
-    {
-        items.concat_compact()
     }
 }
 
@@ -972,56 +960,22 @@ impl<'a> TryFrom<&'a mut CompactString> for &'a mut CompactString1 {
     }
 }
 
-crate::impl_partial_eq_for_non_empty!([in &CompactString] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString] <= [in Str1]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString] <= [in String1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in &CompactString1]);
 crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in &&Str1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in &Str1]);
 crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in Str1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in &String1]);
+crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in &Str1]);
 crate::impl_partial_eq_for_non_empty!([in CompactString] <= [in String1]);
-crate::impl_partial_eq_for_non_empty!([in &Cow<'_, str>] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in Cow<'_, str>] <= [in &CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in Cow<'_, str>] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &String] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in String] <= [in &CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in String] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &&str] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &str] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in str] <= [in &CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in str] <= [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString1] == [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString1] == [in CowStr1<'_>]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString1] == [in Str1]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString1] == [in String1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in &CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in &CowStr1<'_>]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in CowStr1<'_>]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in &&Str1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in &Str1]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in &String1]);
-crate::impl_partial_eq_for_non_empty!([in &CowStr1<'_>] == [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in CowStr1<'_>] == [in &CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in CowStr1<'_>] == [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &&Str1] == [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &Str1] == [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in Str1] == [in &CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &String1] == [in CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in String1] == [in &CompactString1]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString1] => [in Cow<'_, str>]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString1] => [in String]);
-crate::impl_partial_eq_for_non_empty!([in &CompactString1] => [in str]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in &CompactString]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in &Cow<'_, str>]);
 crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in Cow<'_, str>]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in &&str]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in &str]);
+crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in CowStr1<'_>]);
 crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in str]);
-crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in &String]);
+crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in &str]);
+crate::impl_partial_eq_for_non_empty!([in CompactString1] == [in &Str1]);
 crate::impl_partial_eq_for_non_empty!([in CompactString1] => [in String]);
-crate::impl_partial_eq_for_non_empty!([in String1] => [in &CompactString]);
+crate::impl_partial_eq_for_non_empty!([in Cow<'_, str>] <= [in CompactString1]);
+crate::impl_partial_eq_for_non_empty!([in CowStr1<'_>] == [in CompactString1]);
+crate::impl_partial_eq_for_non_empty!([in str] <= [in CompactString1]);
+crate::impl_partial_eq_for_non_empty!([in &str] <= [in CompactString1]);
+crate::impl_partial_eq_for_non_empty!([in &Str1] == [in CompactString1]);
+crate::impl_partial_eq_for_non_empty!([in String] <= [in CompactString1]);
 
 impl Write for CompactString1 {
     fn write_str(&mut self, items: &str) -> fmt::Result {
@@ -1109,7 +1063,7 @@ mod tests {
     }
 
     #[cfg(feature = "schemars")]
-    #[test]
+    #[rstest]
     fn compact_string1_json_schema_has_non_empty_property() {
         schemars::harness::assert_json_schema_has_non_empty_property::<CompactString1>(
             schemars::NON_EMPTY_KEY_STRING,
@@ -1131,7 +1085,7 @@ mod tests {
     }
 
     #[cfg(feature = "serde")]
-    #[test]
+    #[rstest]
     fn compact_string1_cannot_deserialize_from_empty_string() {
         let empty_string_json = serde_json::Value::String(String::default());
         let actual_output = serde_json::from_value::<CompactString1>(empty_string_json);
