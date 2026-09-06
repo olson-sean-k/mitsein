@@ -10,6 +10,7 @@ mod legacy {
     pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 }
 
+use core::fmt::Debug;
 use core::num::NonZeroUsize;
 use core::ops::{Bound, RangeBounds};
 use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
@@ -283,6 +284,12 @@ impl TryFrom<RangeToInclusive<usize>> for Range1<usize> {
     }
 }
 
+impl<T: Debug> Debug for Range1<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.items.fmt(f)
+    }
+}
+
 pub type RangeInclusive1<T> = NonEmpty<RangeInclusive<T>>;
 
 impl<T> RangeInclusive1<T>
@@ -468,6 +475,12 @@ where
     fn try_from(items: legacy::RangeInclusive<T>) -> Result<Self, Self::Error> {
         RangeInclusive1::try_from(RangeInclusive::from(items))
             .map_err(|error| error.map(From::from))
+    }
+}
+
+impl<T: Debug> Debug for RangeInclusive1<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.items.fmt(f)
     }
 }
 
