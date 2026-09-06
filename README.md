@@ -225,23 +225,25 @@ use the nomenclature "maybe unchecked", such as `unwrap_maybe_unchecked`.
 Mitsein provides some optional features and integrations via the following
 feature flags.
 
-| Feature     | Also Enables | Default | Crate         | Description                                                    |
-|-------------|--------------|---------|---------------|----------------------------------------------------------------|
-| `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.              |
-| `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
-| `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
-| `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
-| `heapless`  |              | No      | [`heapless`]  | Non-empty implementations of [`heapless`] types.               |
-| `indexmap`  | `alloc`      | No      | [`indexmap`]  | Non-empty implementations of [`indexmap`] types.               |
-| `itertools` | `either`     | No      | [`itertools`] | Combinators from [`itertools`] for `Iterator1`.                |
-| `rayon`     | `std`        | No      | [`rayon`]     | Parallel operations for non-empty types.                       |
-| `schemars`  | `alloc`      | No      | [`schemars`]  | JSON schema generation for non-empty types.                    |
-| `serde`     |              | No      | [`serde`]     | De/serialization of non-empty collections with [`serde`].      |
-| `smallvec`  | `alloc`      | No      | [`smallvec`]  | Non-empty implementations of [`smallvec`] types.               |
-| `std`       | `alloc`      | Yes     | `std`         | Non-empty hashing collections and integrations with `std::io`. |
+| Feature        | Also Enables | Default | Crate            | Description                                                    |
+|----------------|--------------|---------|------------------|----------------------------------------------------------------|
+| `alloc`        |              | No      | `alloc`          | Non-empty collections that allocate, like `Vec1`.              |
+| `arbitrary`    | `std`        | No      | [`arbitrary`]    | Construction of arbitrary non-empty collections.               |
+| `arrayvec`     |              | No      | [`arrayvec`]     | Non-empty implementations of [`arrayvec`] types.               |
+| `compact_str`  | `alloc`      | No      | [`compact_str`]  | Non-empty implementations of [`compact_str`] types.            |
+| `either`       |              | No      | [`either`]       | Non-empty iterator implementation for `Either`.                |
+| `heapless`     |              | No      | [`heapless`]     | Non-empty implementations of [`heapless`] types.               |
+| `indexmap`     | `alloc`      | No      | [`indexmap`]     | Non-empty implementations of [`indexmap`] types.               |
+| `itertools`    | `either`     | No      | [`itertools`]    | Combinators from [`itertools`] for `Iterator1`.                |
+| `rayon`        | `std`        | No      | [`rayon`]        | Parallel operations for non-empty types.                       |
+| `schemars`     | `alloc`      | No      | [`schemars`]     | JSON schema generation for non-empty types.                    |
+| `serde`        |              | No      | [`serde`]        | De/serialization of non-empty collections with [`serde`].      |
+| `smallvec`     | `alloc`      | No      | [`smallvec`]     | Non-empty implementations of [`smallvec`] types.               |
+| `std`          | `alloc`      | Yes     | `std`            | Non-empty hashing collections and integrations with `std::io`. |
 
 [`arbitrary`]: https://crates.io/crates/arbitrary
 [`arrayvec`]: https://crates.io/crates/arrayvec
+[`compact_str`]: https://crates.io/crates/compact_str
 [`either`]: https://crates.io/crates/either
 [`heapless`]: https://crates.io/crates/heapless
 [`indexmap`]: https://crates.io/crates/indexmap
