@@ -21,7 +21,7 @@ use {
     schemars::{JsonSchema, Schema, SchemaGenerator},
 };
 #[cfg(feature = "alloc")]
-use {alloc::borrow::ToOwned, alloc::string::String};
+use {alloc::borrow::ToOwned, alloc::boxed::Box, alloc::string::String, core::error::Error};
 
 use crate::iter1::Iterator1;
 #[cfg(feature = "rayon")]
@@ -359,6 +359,22 @@ impl<'a> From<&'a mut Str1> for &'a mut str {
 impl<'a> From<&'a Str1> for String {
     fn from(items: &'a Str1) -> Self {
         String::from(items.as_str())
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl From<&Str1> for Box<dyn Error> {
+    fn from(items: &Str1) -> Self {
+        items.as_str().into()
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl From<&Str1> for Box<dyn Error + Send + Sync> {
+    fn from(items: &Str1) -> Self {
+        items.as_str().into()
     }
 }
 
