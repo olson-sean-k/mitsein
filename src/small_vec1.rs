@@ -35,7 +35,7 @@ impl<A> Extend1<A::Item> for SmallVec<A>
 where
     A: Array,
 {
-    fn extend_non_empty<I>(mut self, items: I) -> SmallVec1<A>
+    fn extend1<I>(mut self, items: I) -> SmallVec1<A>
     where
         I: IntoIterator1<Item = A::Item>,
     {

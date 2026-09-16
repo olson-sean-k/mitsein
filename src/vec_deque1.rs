@@ -35,7 +35,7 @@ use crate::vec1::Vec1;
 use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 
 impl<T> Extend1<T> for VecDeque<T> {
-    fn extend_non_empty<I>(mut self, items: I) -> VecDeque1<T>
+    fn extend1<I>(mut self, items: I) -> VecDeque1<T>
     where
         I: IntoIterator1<Item = T>,
     {

@@ -60,7 +60,7 @@ impl Extend<String1> for String {
 }
 
 impl Extend1<char> for String {
-    fn extend_non_empty<I>(mut self, items: I) -> String1
+    fn extend1<I>(mut self, items: I) -> String1
     where
         I: IntoIterator1<Item = char>,
     {
@@ -101,7 +101,7 @@ impl String1 {
         String: Extend1<U::Item>,
         U: IntoIterator1,
     {
-        String::with_capacity(capacity).extend_non_empty(items)
+        String::with_capacity(capacity).extend1(items)
     }
 
     pub fn try_from_ref(items: &String) -> Result<&'_ Self, EmptyError<&'_ String>> {

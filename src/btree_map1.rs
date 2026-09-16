@@ -38,7 +38,7 @@ impl<K, V> Extend1<(K, V)> for BTreeMap<K, V>
 where
     K: Ord,
 {
-    fn extend_non_empty<I>(mut self, items: I) -> BTreeMap1<K, V>
+    fn extend1<I>(mut self, items: I) -> BTreeMap1<K, V>
     where
         I: IntoIterator1<Item = (K, V)>,
     {

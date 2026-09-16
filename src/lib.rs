@@ -139,7 +139,7 @@
 //! let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
 //!
 //! let ys = Vec::new();
-//! let ys: Vec1<_> = ys.extend_non_empty([0i32]);
+//! let ys: Vec1<_> = ys.extend1([0i32]);
 //!
 //! assert_eq!(xs.as_slice(), &[3]);
 //! assert_eq!(ys.as_slice(), &[0]);

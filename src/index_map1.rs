@@ -63,7 +63,7 @@ where
     K: Eq + Hash,
     S: BuildHasher,
 {
-    fn extend_non_empty<I>(mut self, items: I) -> IndexMap1<K, V, S>
+    fn extend1<I>(mut self, items: I) -> IndexMap1<K, V, S>
     where
         I: IntoIterator1<Item = (K, V)>,
     {

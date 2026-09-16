@@ -59,7 +59,7 @@ impl<T> Drain1<usize> for Vec<T> {
 }
 
 impl<T> Extend1<T> for Vec<T> {
-    fn extend_non_empty<I>(mut self, items: I) -> Vec1<T>
+    fn extend1<I>(mut self, items: I) -> Vec1<T>
     where
         I: IntoIterator1<Item = T>,
     {

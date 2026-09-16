@@ -99,7 +99,7 @@ impl<L, R> EitherExt<L, R> for Either<L, R> {
 
 pub trait Extend1<T> {
     #[must_use]
-    fn extend_non_empty<I>(self, items: I) -> NonEmpty<Self>
+    fn extend1<I>(self, items: I) -> NonEmpty<Self>
     where
         I: IntoIterator1<Item = T>;
 }
@@ -365,21 +365,18 @@ impl<I> ItertoolsExt for I where I: Itertools {}
 //   where
 //       I: ThenIterator1<K, Item = i64>,
 //   {
-//       items.chain_non_empty([0]).max()
+//       items.chain1([0]).max()
 //   }
 //
-// Note the input type parameter `K`. `ThenIterator1` is an extension trait with a broad
-// implementaion over `Iterator` types, so this is very unlikely to be a problem. Moreover,
-// associated types are the more "correct" implementation for such an iterator-like trait. In fact,
-// using the input type parameter `K` makes this sort of bound even more troublesome, as the
-// relationship between the implementor and parameter `K` differs between the two implementations
-// (requiring distinct bounds for each)!
+// Note the input type parameter `K` in `max`. `ThenIterator1` is essentially an extension trait
+// with a broad implementaion over `Iterator` types, so this is very unlikely to be a problem in
+// practice.
 pub trait ThenIterator1<K>: Sized {
     type Item;
     type MaybeEmpty: Iterator<Item = Self::Item>;
     type Chained: Iterator<Item = Self::Item>;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
         T: IntoIterator1<Item = Self::Item>;
 
@@ -390,6 +387,13 @@ pub trait ThenIterator1<K>: Sized {
         self.or_else_non_empty(move || items)
     }
 
+    // This and related functions use a more explicit and verbose `_non_empty` suffix rather than a
+    // `1` suffix, because `1` would be especially unclear in context. For example,
+    // `xs.into_iter().or_else1(ys)` is arguably more difficult to understand at a glance than
+    // `xs.into_iter().or_else_non_empty(ys)`.
+    //
+    // This naming convention also interacts a bit more cleanly with `ThenIterator1::or_one`, which
+    // does not dovetail with a `1` suffix at all!
     fn or_else_non_empty<T, F>(self, f: F) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
         T: IntoIterator1<Item = Self::Item>,
@@ -408,7 +412,7 @@ where
     type MaybeEmpty = I;
     type Chained = I;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
         T: IntoIterator1<Item = Self::Item>,
     {
@@ -445,7 +449,7 @@ where
     type MaybeEmpty = I;
     type Chained = Peekable<I>;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
         T: IntoIterator1<Item = Self::Item>,
     {
@@ -1405,7 +1409,7 @@ pub fn rtail_and_head<I, T>(tail: I, head: T) -> RTailAndHead<I>
 where
     I: IntoIterator<Item = T>,
 {
-    tail.into_iter().chain_non_empty(self::once(head))
+    tail.into_iter().chain1(self::once(head))
 }
 
 pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
