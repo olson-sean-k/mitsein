@@ -148,5 +148,5 @@ features = [
 optional = true
 
 [dev-dependencies]
-rstest = "^0.26.0"
+rstest = "^0.27.0"
 serde_test = "1.0"
