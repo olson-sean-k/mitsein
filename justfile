@@ -21,5 +21,8 @@ format:
 lint:
     cargo clippy --all-features --all-targets -- -D clippy::all
 
+minimal-versions:
+    cargo minimal-versions test --all-features
+
 test:
     cargo test --all-features
