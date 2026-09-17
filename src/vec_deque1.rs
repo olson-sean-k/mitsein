@@ -128,6 +128,13 @@ impl<T> VecDeque1<T> {
         self.and_then_try(|items| items.retain(f))
     }
 
+    pub fn try_retain_mut<F>(self, f: F) -> Result<Self, EmptyError<VecDeque<T>>>
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        self.and_then_try(|items| items.retain_mut(f))
+    }
+
     pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ mut T>
     where
         F: FnMut(&T) -> bool,
