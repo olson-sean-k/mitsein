@@ -290,8 +290,8 @@ impl<T> Debug for Range1<T>
 where
     T: Debug,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.items.fmt(f)
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
     }
 }
 
@@ -487,8 +487,8 @@ impl<T> Debug for RangeInclusive1<T>
 where
     T: Debug,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.items.fmt(f)
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
     }
 }
 
