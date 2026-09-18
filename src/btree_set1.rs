@@ -404,7 +404,7 @@ impl<T> BTreeSet1<T> {
     {
         self.contains(key)
             .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
-            .ok_or_else(|| KeyNotFoundError::from_key(key))
+            .ok_or(KeyNotFoundError(key))
     }
 
     pub fn only<R>(&mut self, range: R) -> OnlyResult<'_, T>

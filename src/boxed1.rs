@@ -68,7 +68,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
 
     fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, EmptyError<Box<[T]>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(items) }),
         }
@@ -79,7 +79,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
         T: Clone,
     {
         match items.len() {
-            0 => Err(EmptyError::from_empty(items)),
+            0 => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(Box::from(items)) }),
         }
@@ -287,7 +287,7 @@ impl BoxedStr1Ext for BoxedStr1 {
 
     fn try_from_boxed_str(items: Box<str>) -> Result<Self, EmptyError<Box<str>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedStr1::from_boxed_str_unchecked(items) }),
         }

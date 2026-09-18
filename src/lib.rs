@@ -454,7 +454,7 @@ use core::num::NonZeroUsize;
 
 pub use Cardinality::{Many, One};
 
-const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
+const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty value: no items";
 
 /// Extension methods for [`MaybeEmpty`] types.
 trait MaybeEmptyExt: MaybeEmpty {
@@ -486,7 +486,7 @@ where
         F: FnOnce(Self) -> U,
     {
         if self.is_empty() {
-            Err(EmptyError::from_empty(self))
+            Err(EmptyError(self))
         }
         else {
             Ok(f(self))
@@ -542,40 +542,19 @@ where
 
 /// An error in which a non-empty value is expected but an empty value is observed.
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-pub struct EmptyError<T> {
-    items: T,
-}
+pub struct EmptyError<T>(pub T);
 
 impl<T> EmptyError<T> {
-    fn from_empty(items: T) -> Self {
-        EmptyError { items }
-    }
-
     /// Converts the error into the empty value.
     pub fn into_empty(self) -> T {
-        self.items
+        self.0
     }
 
     fn map<U, F>(self, f: F) -> EmptyError<U>
     where
         F: FnOnce(T) -> U,
     {
-        EmptyError::from_empty(f(self.items))
-    }
-
-    /// Takes the empty value out of the error, returning it and a unit error.
-    pub fn take(self) -> (T, EmptyError<()>) {
-        (self.items, EmptyError::from_empty(()))
-    }
-
-    /// Takes the empty value out of the error and immediately drops it, returning a unit error.
-    pub fn take_and_drop(self) -> EmptyError<()> {
-        EmptyError::from_empty(())
-    }
-
-    /// Converts the error to a reference to the empty value.
-    pub fn as_empty(&self) -> &T {
-        &self.items
+        EmptyError(f(self.0))
     }
 }
 
@@ -587,13 +566,13 @@ impl<T> EmptyError<&'_ T> {
     where
         T: ToOwned,
     {
-        EmptyError::from_empty(self.items.to_owned())
+        self.map(T::to_owned)
     }
 }
 
 impl<T> Debug for EmptyError<T> {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("EmptyError").finish_non_exhaustive()
+        formatter.debug_tuple("EmptyError").finish_non_exhaustive()
     }
 }
 
@@ -603,6 +582,9 @@ impl<T> Display for EmptyError<T> {
     }
 }
 
+// There are no bounds on `T` here (nor the `Debug` and `Display` implementations). The empty value
+// is provided less for reporting and more for handling and flexibility, so it is not formatted into
+// error text like in some other error types.
 impl<T> Error for EmptyError<T> {}
 
 /// A collection or slice type that must contain one or more items (is never empty).

@@ -8,27 +8,12 @@ use alloc::borrow::ToOwned;
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
 
-#[derive(Clone, Copy, Debug)]
-pub struct KeyNotFoundError<Q> {
-    key: Q,
-}
+#[derive(Clone, Copy)]
+pub struct KeyNotFoundError<Q>(pub Q);
 
 impl<Q> KeyNotFoundError<Q> {
-    pub(crate) const fn from_key(key: Q) -> Self {
-        KeyNotFoundError { key }
-    }
-
     pub fn into_key(self) -> Q {
-        self.key
-    }
-
-    pub fn take(self) -> (Q, KeyNotFoundError<()>) {
-        let KeyNotFoundError { key } = self;
-        (key, KeyNotFoundError::from_key(()))
-    }
-
-    pub fn take_and_drop(self) -> KeyNotFoundError<()> {
-        self.take().1
+        self.0
     }
 }
 
@@ -39,7 +24,15 @@ impl<Q> KeyNotFoundError<&'_ Q> {
     where
         Q: ToOwned,
     {
-        KeyNotFoundError::from_key(self.key.to_owned())
+        KeyNotFoundError(self.0.to_owned())
+    }
+}
+
+impl<Q> Debug for KeyNotFoundError<Q> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_tuple("KeyNotFoundError")
+            .finish_non_exhaustive()
     }
 }
 
@@ -48,7 +41,7 @@ where
     Q: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "key {:?} not found", self.key)
+        write!(formatter, "key not found: {:?}", self.0)
     }
 }
 

@@ -600,7 +600,7 @@ where
         match items.peek() {
             // SAFETY: `items` is non-empty.
             Some(_) => Ok(unsafe { Iterator1::from_iter_unchecked(items) }),
-            _ => Err(EmptyError::from_empty(items)),
+            _ => Err(EmptyError(items)),
         }
     }
 

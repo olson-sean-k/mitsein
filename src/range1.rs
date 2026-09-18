@@ -230,7 +230,7 @@ where
 
     fn try_from(items: Range<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
-            Err(EmptyError::from_empty(items))
+            Err(EmptyError(items))
         }
         else {
             Ok(NonEmpty { items })
@@ -470,7 +470,7 @@ where
 
     fn try_from(items: RangeInclusive<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
-            Err(EmptyError::from_empty(items))
+            Err(EmptyError(items))
         }
         else {
             Ok(NonEmpty { items })

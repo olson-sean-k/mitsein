@@ -400,7 +400,7 @@ where
     ) -> Result<ExceptKeySubset<'a, T, S>, KeyNotFoundError<&'a T>> {
         self.contains(key)
             .then_some(ExceptKeySubset::unchecked(&mut self.items, key))
-            .ok_or_else(|| KeyNotFoundError::from_key(key))
+            .ok_or(KeyNotFoundError(key))
     }
 }
 
