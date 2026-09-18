@@ -10,6 +10,7 @@ mod legacy {
     pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 }
 
+use core::fmt::{self, Debug, Formatter};
 use core::num::NonZeroUsize;
 use core::ops::{Bound, RangeBounds};
 use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
@@ -148,6 +149,15 @@ impl Range1<usize> {
                 end: end.get(),
             })
         }
+    }
+}
+
+impl<T> Debug for Range1<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
     }
 }
 
@@ -352,6 +362,15 @@ impl RangeInclusive1<usize> {
                 last: usize::MAX,
             })
         }
+    }
+}
+
+impl<T> Debug for RangeInclusive1<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
     }
 }
 
