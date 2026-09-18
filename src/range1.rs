@@ -154,6 +154,15 @@ impl Range1<usize> {
     }
 }
 
+impl<T> Debug for Range1<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
+    }
+}
+
 impl<T> From<Range1<T>> for Range<T> {
     fn from(items: Range1<T>) -> Self {
         items.items
@@ -286,15 +295,6 @@ impl TryFrom<RangeToInclusive<usize>> for Range1<usize> {
     }
 }
 
-impl<T> Debug for Range1<T>
-where
-    T: Debug,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        self.items.fmt(formatter)
-    }
-}
-
 pub type RangeInclusive1<T> = NonEmpty<RangeInclusive<T>>;
 
 impl<T> RangeInclusive1<T>
@@ -364,6 +364,15 @@ impl RangeInclusive1<usize> {
                 last: usize::MAX,
             })
         }
+    }
+}
+
+impl<T> Debug for RangeInclusive1<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
     }
 }
 
@@ -480,15 +489,6 @@ where
     fn try_from(items: legacy::RangeInclusive<T>) -> Result<Self, Self::Error> {
         RangeInclusive1::try_from(RangeInclusive::from(items))
             .map_err(|error| error.map(From::from))
-    }
-}
-
-impl<T> Debug for RangeInclusive1<T>
-where
-    T: Debug,
-{
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        self.items.fmt(formatter)
     }
 }
 
