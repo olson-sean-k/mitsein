@@ -26,9 +26,9 @@ use {
 use crate::array1::Array1;
 use crate::borrow1::CowSlice1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
-use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, Drain1, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
-use crate::iter1::{Drain1, FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
+use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::range1::{Range1, RangeInclusive1};
 use crate::safety::{self, NonZeroExt as _, OptionExt as _};
 use crate::slice1::Slice1;
