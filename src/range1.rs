@@ -469,13 +469,22 @@ macro_rules! one_sided_range1 {
                     RangeInclusive1::<$t>::to_max_from(items.start)
                 }
             }
+            impl From<legacy::RangeFrom<$t>> for RangeInclusive1<$t> {
+                fn from(items: legacy::RangeFrom<$t>) -> Self {
+                    RangeInclusive1::<$t>::to_max_from(items.start)
+                }
+            }
 
             impl From<RangeToInclusive<$t>> for RangeInclusive1<$t> {
                 fn from(items: RangeToInclusive<$t>) -> Self {
                     RangeInclusive1::<$t>::zero_to(items.last)
                 }
             }
-
+            impl From<legacy::RangeToInclusive<$t>> for RangeInclusive1<$t> {
+                fn from(items: legacy::RangeToInclusive<$t>) -> Self {
+                    RangeInclusive1::<$t>::zero_to(items.end)
+                }
+            }
         )*
     };
 }
