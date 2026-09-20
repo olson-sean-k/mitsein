@@ -1,6 +1,6 @@
 **Mitsein** (mɪtsaɪ̯n | _mitt-zign_) is a Rust library that provides strongly
-typed APIs for non-empty collections and views, including iterators, slices,
-vectors, and much more.
+typed APIs for non-empty collections, slices, iterators, and much more. One of
+its most important features is the non-empty vector type `Vec1`.
 
 [![GitHub](https://img.shields.io/badge/GitHub-olson--sean--k/mitsein-8da0cb?logo=github&style=for-the-badge)](https://github.com/olson-sean-k/mitsein)
 [![docs.rs](https://img.shields.io/badge/docs.rs-mitsein-66c2a5?logo=rust&style=for-the-badge)](https://docs.rs/mitsein)
@@ -60,31 +60,20 @@ let mut xs = Vec1::from([0i32, 1, 2]);
 xs.tail().clear();
 ```
 
-Bridging between `Iterator` and `Iterator1`:
-
-```rust
-use mitsein::iter1;
-use mitsein::prelude::*;
-
-let xs = iter1::head_and_tail(0i32, [1, 2]);
-let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
-assert_eq!(xs.as_slice(), &[3]);
-```
-
 ## Features and Comparisons
 
 ### Separation of Concerns
 
-Mitsein separates concerns into dedicated APIs much like standard types. This
-persists the non-empty guarantee across types and supports familiar patterns and
-syntax.
+Mitsein separates concerns into dedicated APIs much like standard types do. This
+persists the non-empty guarantee between distinct types and supports familiar
+patterns and syntax.
 
-Non-empty iterators support any non-empty collection or view and mirror their
-counterparts. For example, the [`vec1`] crate supports map operations over its
-`Vec1` type via bespoke `Vec1::mapped`, `Vec1::mapped_ref`, and
-`Vec1::mapped_mut` functions. Mitsein instead exposes map operations via
+Non-empty iterators work together with non-empty collections and mirror their
+counterparts. Contrast this with the [`vec1`] crate, which supports map
+operations over its `Vec1` type via bespoke `Vec1::mapped`, `Vec1::mapped_ref`,
+and `Vec1::mapped_mut` functions. Mitsein instead exposes map operations via
 `Iterator1::map`, which supports a variety of types and receivers just like
-`Iterator` types do.
+standard `Iterator` types do.
 
 ```rust
 use mitsein::prelude::*;
@@ -93,10 +82,10 @@ let xs = Vec1::from([0i32, 1, 2, 3, 4]);
 let ys: Vec1<_> = xs.into_iter1().map(|x| x * 2).collect1();
 ```
 
-Mitsein provides subset APIs that isolate a subset of a non-empty collection. A
-subset can be constructed prior to removals, which consolidates error
-conditions: a strict subset can be freely manipulated without checks or errors
-after its construction.
+Mitsein also provides APIs that isolate a strict subset of a non-empty
+collection. A subset can be constructed prior to removals, which consolidates
+error conditions: a strict subset can be freely manipulated without checks or
+errors after its construction.
 
 ```rust
 use mitsein::prelude::*;
