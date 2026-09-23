@@ -98,6 +98,27 @@ mod array_vec {
     }
 }
 
+#[cfg(feature = "compact-str")]
+#[cfg_attr(docsrs, doc(cfg(feature = "compact-str")))]
+mod compact_string {
+    use crate::cmp::{UnsafeOrd, UnsafeOrdIsomorph};
+
+    unsafe impl UnsafeOrd for compact_str::CompactString {}
+
+    unsafe impl UnsafeOrd for crate::compact_string1::CompactString1 {}
+
+    unsafe impl UnsafeOrdIsomorph<str> for compact_str::CompactString {}
+    unsafe impl UnsafeOrdIsomorph<&'_ str> for compact_str::CompactString {}
+    unsafe impl UnsafeOrdIsomorph<&'_ mut str> for compact_str::CompactString {}
+
+    unsafe impl UnsafeOrdIsomorph<crate::str1::Str1> for crate::compact_string1::CompactString1 {}
+    unsafe impl UnsafeOrdIsomorph<&'_ crate::str1::Str1> for crate::compact_string1::CompactString1 {}
+    unsafe impl UnsafeOrdIsomorph<&'_ mut crate::str1::Str1>
+        for crate::compact_string1::CompactString1
+    {
+    }
+}
+
 // `Cell` and `RefCell` are intentionally absent here and do not implement `UnsafeOrd`. Interior
 // mutability is incompatible with the safety requirements of `UnsafeOrd`.
 mod core {
