@@ -1164,6 +1164,62 @@ where
         // SAFETY: `self` is non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
     }
+
+    pub fn position_max(self) -> usize
+    where
+        I::Item: Ord,
+    {
+        let position = self.items.position_max();
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_max_by_key<K, F>(self, key: F) -> usize
+    where
+        K: Ord,
+        F: FnMut(&I::Item) -> K,
+    {
+        let position = self.items.position_max_by_key(key);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_max_by<F>(self, compare: F) -> usize
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        let position = self.items.position_max_by(compare);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_min(self) -> usize
+    where
+        I::Item: Ord,
+    {
+        let position = self.items.position_min();
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_min_by_key<K, F>(self, key: F) -> usize
+    where
+        K: Ord,
+        F: FnMut(&I::Item) -> K,
+    {
+        let position = self.items.position_min_by_key(key);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_min_by<F>(self, compare: F) -> usize
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        let position = self.items.position_min_by(compare);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
 }
 
 #[cfg(feature = "rayon")]
