@@ -22,10 +22,9 @@ use crate::subset::ranged::range::{IndexRange, OutOfBoundsError, RangeError};
 
 /// A contiguous and ordered subset of a non-empty collection over a range.
 ///
-/// This is a very general type constructor: refer to more specific type definitions to see the
-/// relevant APIs for a particular collection type. For example, see [`vec1::OnlyRangeSubset`] to
-/// see supported APIs for [`Vec1`]. Every supported non-empty collection type has such a subset
-/// type definition.
+/// This is a very general type: refer to more specific type aliases to see the relevant APIs for a
+/// particular collection type. For example, see [`vec1::OnlyRangeSubset`] for supported [`Vec1`]
+/// APIs. Every supported non-empty collection type has such subset type aliases.
 ///
 /// [`vec1::OnlyRangeSubset`]: crate::vec1::OnlyRangeSubset
 /// [`Vec1`]: crate::vec1::Vec1

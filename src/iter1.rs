@@ -359,7 +359,7 @@ impl<I> ItertoolsExt for I where I: Itertools {}
 // `Iterator` type `I` versus `Result<I>`.
 //
 // This is unfortunate and, though this trait is not meant to be used in this way, makes bounds on
-// the trait and type definitions for its outputs unusual:
+// the trait and type aliases for its outputs unusual:
 //
 //   fn max<I, K>(items: I) -> i64
 //   where

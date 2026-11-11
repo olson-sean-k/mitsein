@@ -3,8 +3,8 @@
 //! This module provides types that isolate strict subsets of [`NonEmpty`] collections. These view
 //! types support mass-removal operations like `clear` and `drain`. By first isolating a strict
 //! subset, removals can be performed against a subset without emptying the source collection.
-//! Subsets are designed for subtractive writes and do not support additive writes like `push` and
-//! `insert`.
+//! Subsets are designed for subtractive writes and so do not support additive writes like `push`
+//! and `insert`.
 //!
 //! # Ranges
 //!
@@ -60,8 +60,8 @@
 //! [`ExceptKeySubset`] isolates a subset of a [`NonEmpty`] collection that omits a particular key.
 //! Unlike [ranges](#ranges), this kind of subset supports unordered collections like [`HashSet1`].
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "std", doc = "```rust")]
+#![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
 //! use mitsein::hash_set1::HashSet1;
 //! use mitsein::prelude::*;
 //!

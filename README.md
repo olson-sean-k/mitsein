@@ -136,10 +136,10 @@ tail items, **not** allocated on the heap. This precludes views and slicing and
 can have surprising performance implications when items are non-trivial to copy
 or clone.
 
-Non-empty collections are defined by the transparent `NonEmpty` type
-constructor, so the representation of a non-empty collection is always exactly
-the same as its counterpart. For example, `Vec1<T>` is a type definition for
-`NonEmpty<Vec<T>>` and has the same representation as `Vec<T>`.
+Non-empty collections are defined by the generic and transparent `NonEmpty` type
+, so the representation of a non-empty collection is always exactly the same as
+its counterpart. For example, `Vec1<T>` is a type alias for `NonEmpty<Vec<T>>`
+and has the same representation as `Vec<T>`.
 
 This representation also supports conversions through references. For example,
 `&mut Vec<T>` can be fallibly converted into `&mut Vec1<T>`, so ownership of a
@@ -170,8 +170,8 @@ APIs](#separation-of-concerns), such as `vec1::OnlyRangeSubset::swap_drain`.
 
 ### Comprehensiveness
 
-Mitsein provides comprehensive coverage of ordered collections and container
-APIs in `core` and `alloc`. This notably includes `slice`, `str`, `BTreeMap`,
+Mitsein provides comprehensive coverage of collection and smart pointer APIs in
+`core` and `alloc`. This notably includes `slice`, `str`, `BTreeMap`,
 `BTreeSet`, `Box`, `Arc`, and ranges. Non-empty types also implement standard
 traits like their counterparts. The [`nonempty`] and [`vec1`] crates lack
 support for primitive types like `slice` and collections other than `Vec`.
@@ -216,7 +216,7 @@ feature flags.
 
 | Feature     | Also Enables | Default | Crate         | Description                                                    |
 |-------------|--------------|---------|---------------|----------------------------------------------------------------|
-| `alloc`     |              | No      | `alloc`       | Non-empty collections that allocate, like `Vec1`.              |
+| `alloc`     |              | Yes     | `alloc`       | Non-empty collections that allocate, like `Vec1`.              |
 | `arbitrary` | `std`        | No      | [`arbitrary`] | Construction of arbitrary non-empty collections.               |
 | `arrayvec`  |              | No      | [`arrayvec`]  | Non-empty implementations of [`arrayvec`] types.               |
 | `either`    |              | No      | [`either`]    | Non-empty iterator implementation for `Either`.                |
