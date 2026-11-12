@@ -376,6 +376,39 @@
 //! `from_points` API. This relieves this function from this tangential error condition and avoids
 //! redundant checks for emptiness.
 //!
+//! ## Representing an AST
+//!
+//! Consider an [abstract syntax tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for
+//! a simple programming language. The AST must model literals (like `5`) and blocks (like
+//! `{ ... }`). Crucially, blocks cannot be empty.
+//!
+//! A minimal representation using standard maybe-empty types may look like this:
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! pub enum AstNode {
+//!     Literal(i64),
+//!     Block(Vec<AstNode>),
+//! }
+#![doc = "```"]
+//!
+//! This representation isn't quite right though: as written, a block consists of zero or more AST
+//! nodes, but a block cannot be empty. This pushes validation and error handling into code where it
+//! does not belong, which can easily lead to redundant checks and logic errors.
+//!
+//! Non-empty types strictly and correctly represent the intended relationship here:
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = "```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! pub enum AstNode {
+//!     Literal(i64),
+//!     // `Vec1` guarantees that the block consists of at least one `AstNode`.
+//!     Block(Vec1<AstNode>),
+//! }
+#![doc = "```"]
+//!
 //! # Integrations and Feature Flags
 //!
 //! Mitsein supports `no_std` environments and provides feature flags for integrating as needed
