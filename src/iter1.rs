@@ -535,6 +535,17 @@ impl<T> MinMax<T> {
 
 #[cfg(feature = "itertools")]
 #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+impl<T> From<MinMax<T>> for MinMaxResult<T> {
+    fn from(minmax: MinMax<T>) -> Self {
+        match minmax {
+            MinMax::One(item) => MinMaxResult::OneElement(item),
+            MinMax::Many((min, max)) => MinMaxResult::MinMax(min, max),
+        }
+    }
+}
+
+#[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
 impl<T> TryFrom<MinMaxResult<T>> for MinMax<T> {
     type Error = EmptyError<MinMaxResult<T>>;
 
@@ -1185,21 +1196,21 @@ where
         unsafe { position.unwrap_maybe_unchecked() }
     }
 
-    pub fn position_max_by_key<K, F>(self, key: F) -> usize
+    pub fn position_max_by_key<K, F>(self, f: F) -> usize
     where
         K: Ord,
         F: FnMut(&I::Item) -> K,
     {
-        let position = self.items.position_max_by_key(key);
+        let position = self.items.position_max_by_key(f);
         // SAFETY: `self` is non-empty.
         unsafe { position.unwrap_maybe_unchecked() }
     }
 
-    pub fn position_max_by<F>(self, compare: F) -> usize
+    pub fn position_max_by<F>(self, f: F) -> usize
     where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
     {
-        let position = self.items.position_max_by(compare);
+        let position = self.items.position_max_by(f);
         // SAFETY: `self` is non-empty.
         unsafe { position.unwrap_maybe_unchecked() }
     }
@@ -1213,21 +1224,21 @@ where
         unsafe { position.unwrap_maybe_unchecked() }
     }
 
-    pub fn position_min_by_key<K, F>(self, key: F) -> usize
+    pub fn position_min_by_key<K, F>(self, f: F) -> usize
     where
         K: Ord,
         F: FnMut(&I::Item) -> K,
     {
-        let position = self.items.position_min_by_key(key);
+        let position = self.items.position_min_by_key(f);
         // SAFETY: `self` is non-empty.
         unsafe { position.unwrap_maybe_unchecked() }
     }
 
-    pub fn position_min_by<F>(self, compare: F) -> usize
+    pub fn position_min_by<F>(self, f: F) -> usize
     where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
     {
-        let position = self.items.position_min_by(compare);
+        let position = self.items.position_min_by(f);
         // SAFETY: `self` is non-empty.
         unsafe { position.unwrap_maybe_unchecked() }
     }
@@ -1241,21 +1252,21 @@ where
         unsafe { minmax.unwrap_maybe_unchecked() }
     }
 
-    pub fn position_minmax_by_key<K, F>(self, key: F) -> MinMax<usize>
+    pub fn position_minmax_by_key<K, F>(self, f: F) -> MinMax<usize>
     where
         K: PartialOrd,
         F: FnMut(&I::Item) -> K,
     {
-        let minmax = MinMax::try_from(self.items.position_minmax_by_key(key));
+        let minmax = MinMax::try_from(self.items.position_minmax_by_key(f));
         // SAFETY: `self` is non-empty.
         unsafe { minmax.unwrap_maybe_unchecked() }
     }
 
-    pub fn position_minmax_by<F>(self, compare: F) -> MinMax<usize>
+    pub fn position_minmax_by<F>(self, f: F) -> MinMax<usize>
     where
         F: FnMut(&I::Item, &I::Item) -> Ordering,
     {
-        let minmax = MinMax::try_from(self.items.position_minmax_by(compare));
+        let minmax = MinMax::try_from(self.items.position_minmax_by(f));
         // SAFETY: `self` is non-empty.
         unsafe { minmax.unwrap_maybe_unchecked() }
     }
