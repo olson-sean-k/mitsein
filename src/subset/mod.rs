@@ -12,8 +12,8 @@
 //! Such a subset can be constructed explicitly from [standard range types][`core::range`] or
 //! nominally from predefined ranges (namely a tail or reverse-tail).
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = vec1![0i64, 1, -3];
@@ -29,8 +29,8 @@
 //!
 //! Most [`OnlyRangeSubset`] types can be further subdivided after construction.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = vec1![0i64, 1, -3];
@@ -44,8 +44,8 @@
 //! its items positionally while [`BTreeSet1`] orders its items relationally via the [`Ord`]
 //! implementation.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::btree_set1::BTreeSet1;
 //! use mitsein::prelude::*;
 //!
@@ -60,8 +60,8 @@
 //! [`ExceptKeySubset`] isolates a subset of a [`NonEmpty`] collection that omits a particular key.
 //! Unlike [ranges](#ranges), this kind of subset supports unordered collections like [`HashSet1`].
 #![doc = ""]
-#![cfg_attr(feature = "std", doc = "```rust")]
-#![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "std", doc = " ```rust")]
+#![cfg_attr(not(feature = "std"), doc = " ```rust,ignore")]
 //! use mitsein::hash_set1::HashSet1;
 //! use mitsein::prelude::*;
 //!

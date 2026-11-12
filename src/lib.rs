@@ -13,8 +13,8 @@
 //! Non-empty types resolve these issues by encapsulating the representation of one or more items.
 //! Consider the following function written against the standard [slice][`type@slice`] type:
 #![doc = ""]
-#![cfg_attr(feature = "std", doc = "```rust")]
-#![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "std", doc = " ```rust")]
+#![cfg_attr(not(feature = "std"), doc = " ```rust,ignore")]
 //! pub fn print_route_endpoints(waypoints: &[String]) -> Result<(), ()> {
 //!     let first = waypoints.first().ok_or(())?;
 //!     let last = waypoints.last().ok_or(())?;
@@ -29,8 +29,8 @@
 //! then the non-empty requirement is expressed in the API and this error condition no longer exists
 //! in the function:
 #![doc = ""]
-#![cfg_attr(feature = "std", doc = "```rust")]
-#![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "std", doc = " ```rust")]
+#![cfg_attr(not(feature = "std"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! pub fn print_route_endpoints(waypoints: &Slice1<String>) {
@@ -103,8 +103,8 @@
 //! Non-empty collections are represented with the generic [`NonEmpty`] type. These types are
 //! exported as type aliases in their respective modules.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
@@ -154,8 +154,8 @@
 //! combinator functions that cannot discard all items (e.g., [`map`][`Iterator1::map`]). Non-empty
 //! collections and views naturally support iteration, collection, etc. via [`Iterator1`].
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let xs = vec1![0i32, 1, 2];
@@ -167,8 +167,8 @@
 //! Non-empty iterators have supporting traits that bridge between maybe-empty [`Iterator`] types
 //! and non-empty [`Iterator1`] types.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let xs = vec![0i32, 1, 2];
@@ -223,8 +223,8 @@
 //! can be used to index slices and types that can be trivially coerced or converted to slices. The
 //! output of slicing by a non-empty range is a [`Slice1`].
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //! use mitsein::range1::range1;
 //!
@@ -250,8 +250,8 @@
 //! Subsets can be constructed from ranges over ordered collections. These ranges can be explicit
 //! (e.g., from standard range types) or nominal, such as the tail of a collection.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = vec1![0i64, 1, 2, 3, 4];
@@ -263,8 +263,8 @@
 //! Subsets can also be constructed from keys. Unordered collections only support this kind of
 //! subset.
 #![doc = ""]
-#![cfg_attr(feature = "std", doc = "```rust")]
-#![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "std", doc = " ```rust")]
+#![cfg_attr(not(feature = "std"), doc = " ```rust,ignore")]
 //! use mitsein::hash_set1::HashSet1;
 //! use mitsein::prelude::*;
 //!
@@ -286,8 +286,8 @@
 //! Aggregation generally requires one or more items. Consider the following operation written
 //! against the standard [`Vec`] type:
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! let mut xs = vec![0i64, 1, -3, 2];
 //! let absmax = xs.into_iter().map(i64::abs).max().expect("no xs!");
 //!
@@ -298,8 +298,8 @@
 //! must return an [`Option`] here. Code must handle this as an error condition if this is
 //! unexpected. If a non-empty [`Vec1`] is used instead, then this error condition disappears:
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = vec1![0i64, 1, -3, 2];
@@ -315,10 +315,10 @@
 //! one or more points in space by computing the minimum and maximum points. An implementation may
 //! look something like this:
 #![doc = ""]
-#![cfg_attr(all(feature = "alloc", feature = "itertools"), doc = "```rust")]
+#![cfg_attr(all(feature = "alloc", feature = "itertools"), doc = " ```rust")]
 #![cfg_attr(
     not(all(feature = "alloc", feature = "itertools")),
-    doc = "```rust,ignore"
+    doc = " ```rust,ignore"
 )]
 //! // This provides `minmax`, which computes both the minimum and maximum in a single pass.
 //! use itertools::Itertools;
@@ -347,10 +347,10 @@
 //!
 //! An implementation using non-empty types may instead look something like this:
 #![doc = ""]
-#![cfg_attr(all(feature = "alloc", feature = "itertools"), doc = "```rust")]
+#![cfg_attr(all(feature = "alloc", feature = "itertools"), doc = " ```rust")]
 #![cfg_attr(
     not(all(feature = "alloc", feature = "itertools")),
-    doc = "```rust,ignore"
+    doc = " ```rust,ignore"
 )]
 //! use mitsein::prelude::*;
 //!
@@ -384,8 +384,8 @@
 //!
 //! A minimal representation using standard maybe-empty types may look like this:
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! pub enum AstNode {
 //!     Literal(i64),
 //!     Block(Vec<AstNode>),
@@ -398,8 +398,8 @@
 //!
 //! Non-empty types strictly and correctly represent the intended relationship here:
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! pub enum AstNode {
@@ -833,8 +833,8 @@ where
     ///
     /// # Examples
     #[doc = ""]
-    #[cfg_attr(feature = "alloc", doc = "```rust")]
-    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    #[cfg_attr(feature = "alloc", doc = " ```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
     /// use mitsein::prelude::*;
     ///
     /// let xs = vec1![0i32, 1, 2, 3];
@@ -1053,8 +1053,8 @@ impl<T> Cardinality<&mut T, T> {
     ///
     /// Implementing a pop (a.k.a. drop) operation in a postfix calculator:
     #[doc = ""]
-    #[cfg_attr(feature = "alloc", doc = "```rust")]
-    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    #[cfg_attr(feature = "alloc", doc = " ```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
     /// use mitsein::prelude::*;
     ///
     /// pub struct PostfixCalculator {
@@ -1087,8 +1087,8 @@ impl<T> Cardinality<&mut T, T> {
     ///
     /// Implementing a back operation in a UI screen navigator:
     #[doc = ""]
-    #[cfg_attr(feature = "alloc", doc = "```rust")]
-    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    #[cfg_attr(feature = "alloc", doc = " ```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
     /// use mitsein::prelude::*;
     ///
     /// #[derive(Default)]
