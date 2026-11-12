@@ -534,6 +534,7 @@ impl<T> MinMax<T> {
 }
 
 #[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
 impl<T> TryFrom<MinMaxResult<T>> for MinMax<T> {
     type Error = EmptyError<MinMaxResult<T>>;
 
