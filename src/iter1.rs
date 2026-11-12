@@ -538,8 +538,8 @@ impl<T> MinMax<T> {
 impl<T> TryFrom<MinMaxResult<T>> for MinMax<T> {
     type Error = EmptyError<MinMaxResult<T>>;
 
-    fn try_from(value: MinMaxResult<T>) -> result::Result<Self, Self::Error> {
-        match value {
+    fn try_from(minmax: MinMaxResult<T>) -> result::Result<Self, Self::Error> {
+        match minmax {
             MinMaxResult::NoElements => Err(EmptyError(MinMaxResult::NoElements)),
             MinMaxResult::OneElement(item) => Ok(MinMax::One(item)),
             MinMaxResult::MinMax(min, max) => Ok(MinMax::Many((min, max))),
