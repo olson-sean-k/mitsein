@@ -517,17 +517,17 @@ unsafe impl UnsafeStep for Ipv6Addr {}
 
 #[cfg(feature = "itertools")]
 #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
-pub type MinMax<T> = Cardinality<T, (T, T)>;
+pub type MinMax<T> = Cardinality<T, [T; 2]>;
 
 #[cfg(feature = "itertools")]
 #[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
 impl<T> MinMax<T> {
-    pub fn pair(self) -> (T, T)
+    pub fn pair(self) -> [T; 2]
     where
         T: Clone,
     {
         match self {
-            MinMax::One(one) => (one.clone(), one),
+            MinMax::One(one) => [one.clone(), one],
             MinMax::Many(many) => many,
         }
     }
@@ -539,7 +539,7 @@ impl<T> From<MinMax<T>> for MinMaxResult<T> {
     fn from(minmax: MinMax<T>) -> Self {
         match minmax {
             MinMax::One(item) => MinMaxResult::OneElement(item),
-            MinMax::Many((min, max)) => MinMaxResult::MinMax(min, max),
+            MinMax::Many([min, max]) => MinMaxResult::MinMax(min, max),
         }
     }
 }
@@ -553,7 +553,7 @@ impl<T> TryFrom<MinMaxResult<T>> for MinMax<T> {
         match minmax {
             MinMaxResult::NoElements => Err(EmptyError(MinMaxResult::NoElements)),
             MinMaxResult::OneElement(item) => Ok(MinMax::One(item)),
-            MinMaxResult::MinMax(min, max) => Ok(MinMax::Many((min, max))),
+            MinMaxResult::MinMax(min, max) => Ok(MinMax::Many([min, max])),
         }
     }
 }
