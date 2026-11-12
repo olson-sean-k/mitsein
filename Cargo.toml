@@ -1,7 +1,7 @@
 [package]
 name = "mitsein"
 version = "0.9.0"
-description = "Strongly typed APIs for non-empty collections, slices, and iterators."
+description = "Strongly typed APIs for non-empty collections, slices, iterators, and more."
 repository = "https://github.com/olson-sean-k/mitsein"
 readme = "README.md"
 edition = "2024"
