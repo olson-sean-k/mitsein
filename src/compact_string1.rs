@@ -39,7 +39,7 @@ use crate::string1::String1;
 use crate::sync1::{ArcStr1, ArcStr1Ext as _};
 use crate::vec1::Vec1;
 use crate::{Cardinality, FromMaybeEmpty, NonEmpty};
-use crate::{EmptyError, take};
+use crate::{EmptyError, Many, One};
 
 pub trait CompactString1Ext {
     fn concat_compact1(self) -> CompactString1;
@@ -142,7 +142,7 @@ impl Extend<CompactString1> for String {
 }
 
 impl Extend1<char> for CompactString {
-    fn extend_non_empty<I>(mut self, items: I) -> CompactString1
+    fn extend1<I>(mut self, items: I) -> CompactString1
     where
         I: IntoIterator1<Item = char>,
     {
@@ -159,66 +159,7 @@ unsafe impl MaybeEmpty for CompactString {
     }
 }
 
-type TakeIfMany<'a, N = ()> = take::TakeIfMany<'a, CompactString, char, N>;
-
-pub type PopIfMany<'a> = TakeIfMany<'a, ()>;
-
-pub type RemoveIfMany<'a> = TakeIfMany<'a, usize>;
-
-impl<N> TakeIfMany<'_, N> {
-    pub fn or_get_only(self) -> Result<char, char> {
-        self.take_or_else(|items, _| items.first())
-    }
-
-    pub fn or_replace_only(self, replacement: char) -> Result<char, char> {
-        self.or_else_replace_only(move || replacement)
-    }
-
-    pub fn or_else_replace_only<F>(self, f: F) -> Result<char, char>
-    where
-        F: FnOnce() -> char,
-    {
-        self.take_or_else(move |items, _| {
-            let target = items.first();
-            items.items.clear();
-            items.items.push(f());
-            target
-        })
-    }
-}
-
-impl TakeIfMany<'_, usize> {
-    pub fn or_get(self) -> Result<char, char> {
-        self.take_or_else(|items, index| {
-            if items.is_char_boundary(index) {
-                items.first()
-            }
-            else {
-                self::panic_index_is_not_char_boundary()
-            }
-        })
-    }
-
-    pub fn or_replace(self, replacement: char) -> Result<char, char> {
-        self.or_else_replace(move || replacement)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Result<char, char>
-    where
-        F: FnOnce() -> char,
-    {
-        self.take_or_else(move |items, index| {
-            if items.is_char_boundary(index) {
-                let target = items.items.remove(index);
-                items.items.push(f());
-                target
-            }
-            else {
-                self::panic_index_is_not_char_boundary()
-            }
-        })
-    }
-}
+pub type OrOnly<M> = Cardinality<char, M>;
 
 pub type CompactString1 = NonEmpty<CompactString>;
 
@@ -284,7 +225,7 @@ impl CompactString1 {
         CompactString: Extend1<U::Item>,
         U: IntoIterator1,
     {
-        CompactString::with_capacity(capacity).extend_non_empty(items)
+        CompactString::with_capacity(capacity).extend1(items)
     }
 
     pub fn try_from_one_with_capacity(item: char, capacity: usize) -> Result<Self, ReserveError> {
@@ -297,7 +238,7 @@ impl CompactString1 {
         U: IntoIterator1,
     {
         // Is this robust enough? Can panic if `items` exceed the available memory.
-        CompactString::try_with_capacity(capacity).map(|s| s.extend_non_empty(items))
+        CompactString::try_with_capacity(capacity).map(|s| s.extend1(items))
     }
 
     pub fn from_utf8<B>(items: B) -> Result<Self, Utf8Error>
@@ -419,19 +360,27 @@ impl CompactString1 {
         self.items.push(item)
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_> {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, ()| unsafe {
-            items.items.pop().unwrap_maybe_unchecked()
-        })
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<U>
+    where
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            One(_) => One(self.first()),
+            Many(_) => Many(f(self)),
+        }
+    }
+
+    pub fn pop_if_many(&mut self) -> OrOnly<char> {
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop().unwrap_maybe_unchecked() })
     }
 
     pub fn push_str(&mut self, items: &str) {
         self.items.push_str(items)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_> {
-        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> OrOnly<char> {
+        self.get_only_or_else(|items| items.items.remove(index))
     }
 
     pub fn is_heap_allocated(&self) -> bool {
@@ -985,10 +934,6 @@ impl Write for CompactString1 {
     fn write_char(&mut self, item: char) -> fmt::Result {
         self.items.write_char(item)
     }
-}
-
-const fn panic_index_is_not_char_boundary() -> ! {
-    panic!("index is not at a UTF-8 code point boundary")
 }
 
 #[cfg(test)]
