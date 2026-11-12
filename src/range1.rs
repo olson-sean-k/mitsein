@@ -1,8 +1,6 @@
 //! Non-empty bounded [ranges][`core::range`].
 
-// Unlike other non-empty types, ranges do not rely on `MaybeEmpty` implementations. One of the
-// primary mechanisms provided by `MaybeEmpty` is `TakeIfMany`, which inspects the cardinality of
-// the target collection, but that API is not used by range types.
+// Unlike other `NonEmpty` types, ranges do not rely on `MaybeEmpty` implementations.
 
 // TODO: Use range syntax for maybe-empty range types where possible when it is stabilized.
 
@@ -12,6 +10,7 @@ mod legacy {
     pub use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 }
 
+use core::fmt::{self, Debug, Formatter};
 use core::num::NonZeroUsize;
 use core::ops::{Bound, RangeBounds};
 use core::range::{Range, RangeFrom, RangeInclusive, RangeToInclusive};
@@ -153,6 +152,15 @@ impl Range1<usize> {
     }
 }
 
+impl<T> Debug for Range1<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
+    }
+}
+
 impl<T> From<Range1<T>> for Range<T> {
     fn from(items: Range1<T>) -> Self {
         items.items
@@ -222,7 +230,7 @@ where
 
     fn try_from(items: Range<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
-            Err(EmptyError::from_empty(items))
+            Err(EmptyError(items))
         }
         else {
             Ok(NonEmpty { items })
@@ -357,6 +365,15 @@ impl RangeInclusive1<usize> {
     }
 }
 
+impl<T> Debug for RangeInclusive1<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        self.items.fmt(formatter)
+    }
+}
+
 impl From<Range1<usize>> for RangeInclusive1<usize> {
     fn from(items: Range1<usize>) -> Self {
         let Range { start, end } = items.items;
@@ -453,7 +470,7 @@ where
 
     fn try_from(items: RangeInclusive<T>) -> Result<Self, Self::Error> {
         if items.is_empty() {
-            Err(EmptyError::from_empty(items))
+            Err(EmptyError(items))
         }
         else {
             Ok(NonEmpty { items })

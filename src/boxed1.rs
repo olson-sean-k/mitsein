@@ -68,7 +68,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
 
     fn try_from_boxed_slice(items: Box<[T]>) -> Result<Self, EmptyError<Box<[T]>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(items) }),
         }
@@ -79,7 +79,7 @@ impl<T> BoxedSlice1Ext<T> for BoxedSlice1<T> {
         T: Clone,
     {
         match items.len() {
-            0 => Err(EmptyError::from_empty(items)),
+            0 => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedSlice1::from_boxed_slice_unchecked(Box::from(items)) }),
         }
@@ -126,6 +126,15 @@ impl<T> AsMut<[T]> for BoxedSlice1<T> {
 impl<T> AsRef<[T]> for BoxedSlice1<T> {
     fn as_ref(&self) -> &[T] {
         self.items.as_ref()
+    }
+}
+
+impl<T> Clone for BoxedSlice1<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        BoxedSlice1::from(self.as_ref())
     }
 }
 
@@ -278,7 +287,7 @@ impl BoxedStr1Ext for BoxedStr1 {
 
     fn try_from_boxed_str(items: Box<str>) -> Result<Self, EmptyError<Box<str>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { BoxedStr1::from_boxed_str_unchecked(items) }),
         }
@@ -291,6 +300,25 @@ impl BoxedStr1Ext for BoxedStr1 {
         //         requires that the memory location and layout are the same when deallocating, so
         //         dropping the transmuted `Box` is sound.
         unsafe { Box::from_raw(items as *mut str) }
+    }
+}
+
+impl AsRef<str> for BoxedStr1 {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Clone for BoxedStr1 {
+    fn clone(&self) -> Self {
+        BoxedStr1::from(self.as_ref())
+    }
+}
+
+impl<'a> From<&'a Str1> for BoxedStr1 {
+    fn from(items: &'a Str1) -> Self {
+        // SAFETY: `items` is non-empty.
+        unsafe { BoxedStr1::from_boxed_str_unchecked(Box::from(items.as_str())) }
     }
 }
 

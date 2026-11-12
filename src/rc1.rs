@@ -59,7 +59,7 @@ impl<T> RcSlice1Ext<T> for RcSlice1<T> {
 
     fn try_from_rc_slice(items: Rc<[T]>) -> Result<Self, EmptyError<Rc<[T]>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { RcSlice1::from_rc_slice_unchecked(items) }),
         }
@@ -194,7 +194,7 @@ impl RcStr1Ext for RcStr1 {
 
     fn try_from_rc_str(items: Rc<str>) -> Result<Self, EmptyError<Rc<str>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { RcStr1::from_rc_str_unchecked(items) }),
         }

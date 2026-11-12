@@ -1,0 +1,16 @@
+name: Minimal Versions
+on: [workflow_call, workflow_dispatch]
+jobs:
+  minimal-versions:
+    name: Minimal Versions
+    env:
+      RUSTFLAGS: -D warnings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: |
+            cargo-hack
+            cargo-minimal-versions
+      - run: cargo minimal-versions test --all-features

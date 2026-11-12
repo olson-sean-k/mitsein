@@ -1,43 +1,92 @@
-//! Mitsein provides strongly typed APIs for non-empty collections and views, including (but not
-//! limited to) iterators, slices, and containers. Where possible, unnecessary branches are omitted
-//! and APIs enforce and reflect the non-empty invariant.
+//! Mitsein provides strongly typed APIs for non-empty collections, slices, iterators, and more.
+//! Expressing the non-empty guarantee in the type system produces more ergonomic, less error-prone,
+//! and better performing APIs when modeling systems in which emptiness is not a valid state.
+//!
+//! Many problem domains fundamentally require a representation of one or more items. However, code
+//! written against standard types in these situations must accomodate emptiness where it does not
+//! belong. This has some unfortunate consequences:
+//!
+//! - Emptiness is a persistent edge case that can easily and subtly introduce bugs.
+//! - Checking for emptiness introduces branches and panics that aren't strictly necessary.
+//! - APIs must aggressively validate data and expose tangential errors regarding emptiness.
+//!
+//! Non-empty types resolve these issues by encapsulating the representation of one or more items.
+//! Consider the following function written against the standard [slice][`type@slice`] type:
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
-//! use mitsein::prelude::*;
-//!
-//! let mut xs = vec1![0i64, 1, -3];
-//! xs.push(2);
-//!
-//! assert_eq!(&0, xs.first());
-//! assert_eq!(6, xs.into_iter1().map(|x| x * 2).map(i64::abs).max());
+#![cfg_attr(feature = "std", doc = " ```rust")]
+#![cfg_attr(not(feature = "std"), doc = " ```rust,ignore")]
+//! pub fn print_route_endpoints(waypoints: &[String]) -> Result<(), ()> {
+//!     let first = waypoints.first().ok_or(())?;
+//!     let last = waypoints.last().ok_or(())?;
+//!     println!("{first} -> {last}");
+//!     Ok(())
+//! }
 #![doc = "```"]
 //!
-//! Note in the above example that operations on `xs` yield non-[optional][`Option`] outputs,
-//! because `xs` is non-empty.
+//! Note the calls to `ok_or` and that the `print_route_endpoints` function is fallible. Because a
+//! [slice][`type@slice1] may be empty, the `first` and `last` functions must return an [`Option`]
+//! and code must handle this as an error condition here. If a non-empty [`Slice1`] is used instead,
+//! then the non-empty requirement is expressed in the API and this error condition no longer exists
+//! in the function:
+#![doc = ""]
+#![cfg_attr(feature = "std", doc = " ```rust")]
+#![cfg_attr(not(feature = "std"), doc = " ```rust,ignore")]
+//! use mitsein::prelude::*;
 //!
-//! Modules in this crate reflect corresponding modules in [`core`], [`alloc`], and [`std`], though
-//! collection modules are exported at the crate root rather than a `collections` module. For
-//! example, [`Vec`] is exported in `alloc::vec::Vec` and its non-empty counterpart [`Vec1`] is
-//! exported in `mitsein::vec1::Vec1`. APIs in this crate are typically named by appending `1` to
-//! the names of their counterparts.
+//! pub fn print_route_endpoints(waypoints: &Slice1<String>) {
+//!     let first = waypoints.first();
+//!     let last = waypoints.last();
+//!     println!("{first} -> {last}");
+//! }
+#![doc = "```"]
 //!
-//! At time of writing, `rustdoc` ignores input type parameters in the "Methods from
-//! `Deref<Target = _>`" section. For types that implement `Deref<Target = NonEmpty<_>>`, **the API
-//! documentation may be misleading** and list all methods of [`NonEmpty`] regardless of its input
-//! type parameter. This is mostly a problem for types that dereference to a [`NonEmpty`] type,
-//! such as [`Vec1`]. See [this `rustdoc` bug](https://github.com/rust-lang/rust/issues/24686).
+//! Non-empty types are also useful as fields in data structures. See the [Examples](#examples)
+//! section for more.
+//!
+//! # Nomenclature
+//!
+//! Non-empty APIs are typically named by appending `1` to the names of their maybe-empty
+//! counterparts. For example, the non-empty counterpart to [`Vec`] is named [`Vec1`] and its
+//! non-empty counterpart to `iter` is named [`iter1`][`Vec1::iter1`]. The term "non-empty" is also
+//! used where "1" is either not possible or especially unclear in context, such as
+//! [`or_non_empty`][`ThenIterator1::or_non_empty`].
+//!
+//! Non-empty types have a cardinality that describes the quantity of items that they contain: one
+//! or many. Here, "many" means more than one item. This concept is represented by the
+//! [`Cardinality`] type and is featured heavily in APIs that may remove a single item from a
+//! non-empty collection. These APIs typically have an `_if_many` suffix in their name that
+//! indicates an important predicate: an item cannot be taken out of a non-empty collection if its
+//! cardinality is one. For example, [`Vec1::pop_if_many`] is the counterpart to [`Vec::pop`] and
+//! returns a [`Cardinality`] type. The [`One`] and [`Many`] variants of [`Cardinality`] are part of
+//! the [prelude][`prelude`].
+//!
+//! # Structure
+//!
+//! Modules in this crate reflect corresponding modules in [`core`], [`alloc`], and [`std`]. For
+//! example, the `alloc::vec` module has a non-empty counterpart in `mitsein::vec1`. Similarly,
+//! [`str`] is exported in `core::str` and its non-empty counterpart [`Str1`] is exported in
+//! `mitsein::str1`.
+//!
+//! Unlike [`alloc`] however, there is no intermediate `collections` module in Mitsein. Instead, all
+//! collection modules are exported directly in the crate root (or an integration module; see
+//! [`heapless`]). For example, [`BTreeSet`] is exported in `alloc::collections::btree_set`, but its
+//! non-empty counterpart [`BTreeSet1`] is exported more directly in `mitsein::btree_set1`.
+//!
+//! Some generic types are reused extensively, in particular [`NonEmpty`] and [`Cardinality`]. Each
+//! reuse of these types features a dedicated type alias. For example, the non-empty [`Vec1`] type
+//! is an alias for `NonEmpty<Vec<_>>`. Because of this reuse, the API documentation for these types
+//! can be extremely noisy. **Refer to the documentation for their more specific type aliases
+//! instead to see the relevant APIs.**
 //!
 //! # Non-Empty Types
 //!
-//! Types that represent non-empty collections, containers, or views present APIs that reflect the
-//! non-empty guarantee. The names of these types are formed by appending `1` to the name of their
-//! counterparts. For example, the non-empty [`Vec`] type is [`Vec1`].
+//! Non-empty types present APIs that somewhat differ from their maybe-empty counterparts and
+//! reflect the non-empty guarantee. Just like standard types, some essential non-empty types are
+//! included in the [prelude][`prelude`], such as [`Vec1`] and the [`vec1!`] macro.
 //!
 //! ## Collections
 //!
-//! This crate provides the following non-empty collections and supporting APIs (depending on which
-//! [feature flags](#integrations-and-feature-flags) are enabled):
+//! This crate provides the following non-empty collections and supporting APIs:
 //!
 //! - [`ArrayVec1`][`array_vec1`]
 //! - [`BTreeMap1`][`btree_map1`]
@@ -52,49 +101,39 @@
 //! - [`VecDeque1`][`vec_deque1`]
 //! - [`heapless`](crate::heapless#collections)
 //!
-//! Non-empty collections are represented with the [`NonEmpty`] type constructor. These types are
-//! exported as type definitions in their respective modules. Similarly to `std::prelude`, the
-//! [`prelude`] module notably re-exports [`Vec1`] and the [`vec1!`] macro.
+//! Non-empty collections are represented with the generic [`NonEmpty`] type. These types are
+//! exported as type aliases in their respective modules.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = Vec1::from_head_and_tail(0i64, [1, 2, 3]);
-//! while let Ok(_) = xs.pop_if_many().or_get_only() {}
+//! while let Many(_) = xs.pop_if_many() {}
 //!
 //! assert_eq!(xs.as_slice(), &[0]);
 #![doc = "```"]
 //!
 //! ## Slices
 //!
-//! Like collections, non-empty slices are represented with the [`NonEmpty`] type constructor and
-//! the [`Slice1`] and [`Str1`] type definitions. These types are unsized and so are accessed via
-//! references just like standard slices. The [`prelude`] module re-exports [`Slice1`] and the
-//! [`slice1!`] macro.
+//! Like collections, non-empty slices are represented with the generic [`NonEmpty`] type and the
+//! [`Slice1`] and [`Str1`] type aliases. These types are unsized and so are accessed via references
+//! just like standard slices.
 //!
 //! ```rust
 //! use mitsein::prelude::*;
 //!
-//! fn fold_terminals<T, U, F>(xs: &Slice1<T>, f: F) -> U
-//! where
-//!     F: FnOnce(&T, &T) -> U,
-//! {
-//!     f(xs.first(), xs.last())
-//! }
-//!
 //! let xs = slice1![0i64, 1, 2, 3];
-//! let y = fold_terminals(xs, |first, last| first + last);
+//! let sum = xs.first() + xs.last(); // This is infallible.
 //!
-//! assert_eq!(y, 3);
+//! assert_eq!(sum, 3);
 //! ```
 //!
 //! See the [`slice1`][`mod@slice1`] and [`str1`][`mod@str1`] modules.
 //!
-//! ## Containers
+//! ## Smart Pointers
 //!
-//! This crate provides the following non-empty containers for slices and strings (depending on
-//! which [feature flags](#integrations-and-feature-flags) are enabled):
+//! This crate provides the following non-empty smart pointers for slices and strings:
 //!
 //! - [`ArcSlice1`][`ArcSlice1Ext`]
 //! - [`ArcStr1`][`ArcStr1Ext`]
@@ -105,19 +144,19 @@
 //! - [`RcSlice1`][`RcSlice1Ext`]
 //! - [`RcStr1`][`RcStr1Ext`]
 //!
-//! Each of these type definitions has an accompanying extension trait for operations and
-//! conversions that take advantage of the non-empty guarantee. For example, [`ArcSlice1Ext`]
-//! provides APIs for non-empty slices in an [`Arc`]. Some collection types like [`Vec1`] support
-//! conversions from and into these containers.
+//! Each of these type aliases has an accompanying extension trait for operations and conversions
+//! that take advantage of the non-empty guarantee. For example, [`ArcSlice1Ext`] provides APIs for
+//! non-empty slices in an [`Arc`]. Some collection types like [`Vec1`] support conversions from and
+//! into these smart pointers.
 //!
 //! ## Iterators
 //!
-//! Non-empty iterators are provided by the [`Iterator1`] type constructor and directly support
-//! combinators that never reduce cardinality to zero (e.g., [`map`][`Iterator1::map`]). Non-empty
+//! Non-empty iterators are provided by the generic [`Iterator1`] type and directly support
+//! combinator functions that cannot discard all items (e.g., [`map`][`Iterator1::map`]). Non-empty
 //! collections and views naturally support iteration, collection, etc. via [`Iterator1`].
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let xs = vec1![0i32, 1, 2];
@@ -126,23 +165,23 @@
 //! assert_eq!(ys.as_slice(), &[1, 2, 3]);
 #![doc = "```"]
 //!
-//! Supporting traits are re-exported in the [`prelude`] module and provide methods for bridging
-//! between non-empty [`Iterator1`] types and maybe-empty [`Iterator`] types.
+//! Non-empty iterators have supporting traits that bridge between maybe-empty [`Iterator`] types
+//! and non-empty [`Iterator1`] types.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
-//! use mitsein::iter1;
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
-//! let xs = iter1::head_and_tail(0i32, [1, 2]);
-//! // `Iterator1` does not support `skip`, so `xs` is converted into an `Iterator` and then into a
-//! // different `Iterator1` via `or_non_empty`.
-//! let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([3]).collect1();
+//! let xs = vec![0i32, 1, 2];
+//! // `or_non_empty` either constructs an `Iterator1` from `self` if it is non-empty or instead
+//! // constructs an `Iterator1` from its non-empty parameter (`[42]`).
+//! let xs: Vec1<_> = xs.into_iter().skip(3).or_non_empty([42]).collect1();
 //!
 //! let ys = Vec::new();
-//! let ys: Vec1<_> = ys.extend_non_empty([0i32]);
+//! // `extend1` converts a maybe-empty type into a non-empty type.
+//! let ys: Vec1<_> = ys.extend1([0i32]);
 //!
-//! assert_eq!(xs.as_slice(), &[3]);
+//! assert_eq!(xs.as_slice(), &[42]);
 //! assert_eq!(ys.as_slice(), &[0]);
 #![doc = "```"]
 //!
@@ -162,7 +201,7 @@
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = [0i64, 1, 2, 3];
-//! let x = xs.as_mut_slice1().first_mut();
+//! let x = xs.as_mut_slice1().first_mut(); // This is infallible.
 //! *x = 4;
 //!
 //! assert_eq!(xs.as_slice(), &[4, 1, 2, 3]);
@@ -180,24 +219,40 @@
 //! - [`Range1`]
 //! - [`RangeInclusive1`]
 //!
-//! Like collections, non-empty ranges are represented with the [`NonEmpty`] type constructor.
-//! Non-empty range types implement both the [`IntoIterator`] and [`IntoIterator1`] traits.
-//! Non-empty ranges can be used to index slices and types that can be trivially coerced or
-//! converted to slices. The output of slicing by a non-empty range is a [`Slice1`].
+//! Like collections, non-empty ranges are represented with the generic [`NonEmpty`] type. Non-empty
+//! range types implement both the [`IntoIterator`] and [`IntoIterator1`] traits. Non-empty ranges
+//! can be used to index slices and types that can be trivially coerced or converted to slices. The
+//! output of slicing by a non-empty range is a [`Slice1`].
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
+//! use mitsein::prelude::*;
+//! use mitsein::range1::range1;
+//!
+//! let mut xs = vec![0i64, 1, 2, 3];
+//! let ys = &mut xs[range1![3..4]]; // `ys` is a `Slice1`.
+//! let y = ys.first_mut(); // This is infallible.
+//! *y = 42;
+//!
+//! assert_eq!(xs.as_slice(), &[0, 1, 2, 42]);
+#![doc = "```"]
 //!
 //! See the [`range1`][`mod@crate::range1`] module.
 //!
 //! # Subsets
 //!
-//! Subset APIs construct a view over a subset of a collection that can freely mutate both its items
-//! and topology. Subsets are one of the most efficient ways to mass-remove and drain items from
-//! non-empty collections.
+//! Subset APIs construct views over a strict subset of items in a non-empty collection. A subset
+//! can freely mutate and remove the items in its collection by first asserting that one or more
+//! items in the collection are not a part of the subset and are therefore never affected. This
+//! allows subsets to present more typical removal APIs that need not repeatedly check that a
+//! removal does not violate the non-empty guarantee. Subsets are one of the most efficient ways to
+//! mass-remove and drain items from non-empty collections.
 //!
 //! Subsets can be constructed from ranges over ordered collections. These ranges can be explicit
 //! (e.g., from standard range types) or nominal, such as the tail of a collection.
 #![doc = ""]
-#![cfg_attr(feature = "alloc", doc = "```rust")]
-#![cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
 //! use mitsein::prelude::*;
 //!
 //! let mut xs = vec1![0i64, 1, 2, 3, 4];
@@ -209,8 +264,8 @@
 //! Subsets can also be constructed from keys. Unordered collections only support this kind of
 //! subset.
 #![doc = ""]
-#![cfg_attr(feature = "std", doc = "```rust")]
-#![cfg_attr(not(feature = "std"), doc = "```rust,ignore")]
+#![cfg_attr(feature = "std", doc = " ```rust")]
+#![cfg_attr(not(feature = "std"), doc = " ```rust,ignore")]
 //! use mitsein::hash_set1::HashSet1;
 //! use mitsein::prelude::*;
 //!
@@ -222,6 +277,139 @@
 //!
 //! See the [`subset`] module.
 //!
+//! # Examples
+//!
+//! The following examples demonstrate how and why non-empty types can be used in situations where
+//! emptiness is not a valid state.
+//!
+//! ## Aggregating an Iterator
+//!
+//! Aggregation generally requires one or more items. Consider the following operation written
+//! against the standard [`Vec`] type:
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
+//! let mut xs = vec![0i64, 1, -3, 2];
+//! let absmax = xs.into_iter().map(i64::abs).max().expect("no xs!");
+//!
+//! assert_eq!(3, absmax);
+#![doc = "```"]
+//!
+//! Note the `expect` call. Because a [`Vec`] and its iterators may be empty, the `max` function
+//! must return an [`Option`] here. Code must handle this as an error condition if this is
+//! unexpected. If a non-empty [`Vec1`] is used instead, then this error condition disappears:
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! let mut xs = vec1![0i64, 1, -3, 2];
+//! let absmax = xs.into_iter1().map(i64::abs).max();
+//!
+//! assert_eq!(3, absmax);
+#![doc = "```"]
+//!
+//! ## Computing a Bounding Box
+//!
+//! Consider a representation of an [axis-aligned bounding
+//! box](https://en.wikipedia.org/wiki/Bounding_volume) `Aabb`. An `Aabb` can be constructed from
+//! one or more points in space by computing the minimum and maximum points. An implementation may
+//! look something like this:
+#![doc = ""]
+#![cfg_attr(all(feature = "alloc", feature = "itertools"), doc = " ```rust")]
+#![cfg_attr(
+    not(all(feature = "alloc", feature = "itertools")),
+    doc = " ```rust,ignore"
+)]
+//! // This provides `minmax`, which computes both the minimum and maximum in a single pass.
+//! use itertools::Itertools;
+//!
+//!# pub type Point = [f32; 3];
+//!# pub struct Aabb;
+//!#
+//! impl Aabb {
+//!     pub fn from_points<I>(points: I) -> Option<Self>
+//!     where
+//!         I: IntoIterator<Item = Point>,
+//!     {
+//!         // `into_option` returns `None` if there are no items.
+//!         points.into_iter().minmax().into_option().map(|minmax| {
+//!#             let _ = minmax;
+//!             Aabb { /* ... */ }
+//!         })
+//!     }
+//! }
+#![doc = "```"]
+//!
+//! In the above example, `Aabb::from_points` returns `Option<Self>`. This is unfortunate, because
+//! it expresses a cardinality error concerning the input `points` as an error constructing an
+//! `Aabb`. Note too that `minmax` and `into_option` must examine (indirectly or otherwise) the
+//! cardinality of `points` regardless of whether or not the caller has already done so.
+//!
+//! An implementation using non-empty types may instead look something like this:
+#![doc = ""]
+#![cfg_attr(all(feature = "alloc", feature = "itertools"), doc = " ```rust")]
+#![cfg_attr(
+    not(all(feature = "alloc", feature = "itertools")),
+    doc = " ```rust,ignore"
+)]
+//! use mitsein::prelude::*;
+//!
+//!# pub type Point = [f32; 3];
+//!# pub struct Aabb;
+//!#
+//! impl Aabb {
+//!     pub fn from_points<I>(points: I) -> Self
+//!     where
+//!         // This is a bound on `IntoIterator1` (note the `1`), the non-empty counterpart of
+//!         // `IntoIterator`.
+//!         I: IntoIterator1<Item = Point>,
+//!     {
+//!         // This non-empty `minmax` function is an integration with `itertools`.
+//!         let minmax = points.into_iter1().minmax();
+//!#         let _ = minmax;
+//!         Aabb { /* ... */ }
+//!     }
+//! }
+#![doc = "```"]
+//!
+//! The bound on [`IntoIterator1`] captures the requirement for one or more points in the
+//! `from_points` API. This relieves this function from this tangential error condition and avoids
+//! redundant checks for emptiness.
+//!
+//! ## Representing an AST
+//!
+//! Consider an [abstract syntax tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for
+//! a simple programming language. The AST must model literals (like `5`) and blocks (like
+//! `{ ... }`). Crucially, blocks cannot be empty.
+//!
+//! A minimal representation using standard maybe-empty types may look like this:
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
+//! pub enum AstNode {
+//!     Literal(i64),
+//!     Block(Vec<AstNode>),
+//! }
+#![doc = "```"]
+//!
+//! This representation isn't quite right though: as written, a block consists of zero or more AST
+//! nodes, but a block cannot be empty. This pushes validation and error handling into code where it
+//! does not belong, which can easily lead to redundant checks and logic errors.
+//!
+//! Non-empty types strictly and correctly represent the intended relationship here:
+#![doc = ""]
+#![cfg_attr(feature = "alloc", doc = " ```rust")]
+#![cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
+//! use mitsein::prelude::*;
+//!
+//! pub enum AstNode {
+//!     Literal(i64),
+//!     // `Vec1` guarantees that the block consists of at least one `AstNode`.
+//!     Block(Vec1<AstNode>),
+//! }
+#![doc = "```"]
+//!
 //! # Integrations and Feature Flags
 //!
 //! Mitsein supports `no_std` environments and provides feature flags for integrating as needed
@@ -232,7 +420,7 @@
 //!
 //! | Feature       | Also Enables | Default | Crate           | Description                                                    |
 //! |---------------|--------------|---------|-----------------|----------------------------------------------------------------|
-//! | `alloc`       |              | No      | `alloc`         | Non-empty collections that allocate, like `Vec1`.              |
+//! | `alloc`       |              | Yes     | `alloc`         | Non-empty collections that allocate, like `Vec1`.              |
 //! | `arbitrary`   | `std`        | No      | [`arbitrary`]   | Construction of arbitrary non-empty collections.               |
 //! | `arrayvec`    |              | No      | [`arrayvec`]    | Non-empty implementations of [`arrayvec`] types.               |
 //! | `compact_str` | `alloc`      | No      | [`compact_str`] | Non-empty implementation of [`compact_str`] types.             |
@@ -246,6 +434,20 @@
 //! | `smallvec`    | `alloc`      | No      | [`smallvec`]    | Non-empty implementations of [`smallvec`] types.               |
 //! | `std`         | `alloc`      | Yes     | `std`           | Non-empty hashing collections and integrations with `std::io`. |
 //!
+//! # Misleading API Documentation for Dereferenced Methods
+//!
+//! At time of writing, `rustdoc` ignores type parameters in the "Methods from `Deref<Target = _>`"
+//! section. For types that implement `Deref<Target = NonEmpty<_>>`, **the API documentation may be
+//! misleading and list all methods of [`NonEmpty`] rather than only the methods available for the
+//! given type parameter.**
+//!
+//! This is a problem for types that dereference to a [`NonEmpty`] type, such as [`Vec1`]. Because
+//! [`Vec1`] dereferences to [`Slice1`] (a.k.a. `NonEmpty<[_]>`), its dereferenced method
+//! documentation may incorrectly list all [`NonEmpty`] methods for any and all type parameters
+//! (when only methods for **slice type parameters** are actually available).
+//!
+//! See [this `rustdoc` bug](https://github.com/rust-lang/rust/issues/24686).
+//!
 //! [`Arc`]: alloc::sync::Arc
 //! [`ArcSlice1Ext`]: crate::sync1::ArcSlice1Ext
 //! [`ArcStr1Ext`]: crate::sync1::ArcStr1Ext
@@ -254,6 +456,8 @@
 //! [`arrayvec`]: https://crates.io/crates/arrayvec
 //! [`BoxedSlice1Ext`]: crate::boxed1::BoxedSlice1Ext
 //! [`BoxedStr1Ext`]: crate::boxed1::BoxedStr1Ext
+//! [`BTreeSet`]: alloc::collections::btree_set::BTreeSet
+//! [`BTreeSet1`]: crate::btree_set1::BTreeSet1
 //! [`compact_str`]: https://crates.io/crates/compact_str
 //! [`CowSlice1Ext`]: crate::borrow1::CowSlice1Ext
 //! [`CowStr1Ext`]: crate::borrow1::CowStr1Ext
@@ -275,8 +479,12 @@
 //! [`Slice1`]: crate::slice1::Slice1
 //! [`smallvec`]: https://crates.io/crates/smallvec
 //! [`Str1`]: crate::str1::Str1
+//! [`ThenIterator1::or_non_empty`]: crate::iter1::ThenIterator1::or_non_empty
 //! [`Vec`]: alloc::vec::Vec
+//! [`Vec::pop`]: alloc::vec::Vec::pop
 //! [`Vec1`]: crate::vec1::Vec1
+//! [`Vec1::iter1`]: crate::vec1::Vec1::iter1
+//! [`Vec1::pop_if_many`]: crate::vec1::Vec1::pop_if_many
 
 // TODO: At time of writing, it is not possible to specify or enable features required for
 //       documentation examples without explicitly applying `doc` attributes. These attributes harm
@@ -321,7 +529,6 @@
     clippy::explicit_into_iter_loop,
     clippy::filter_map_next,
     clippy::flat_map_option,
-    clippy::from_iter_instead_of_collect,
     clippy::if_not_else,
     clippy::manual_ok_or,
     clippy::map_unwrap_or,
@@ -341,7 +548,6 @@ extern crate std;
 mod safety;
 mod schemars;
 mod serde;
-mod take;
 
 pub mod array1;
 pub mod array_vec1;
@@ -428,7 +634,7 @@ pub mod prelude {
     #[cfg(feature = "itertools")]
     pub use crate::iter1::ItertoolsExt as _;
     pub use crate::iter1::{
-        Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1 as _,
+        Drain1, Extend1, FromIterator1, IntoIterator1, IteratorExt as _, ThenIterator1 as _,
     };
     #[cfg(feature = "rayon")]
     pub use crate::iter1::{FromParallelIterator1, IntoParallelIterator1};
@@ -438,6 +644,7 @@ pub mod prelude {
     pub use crate::sync1::{
         ArcSlice1Ext as _, ArcStr1Ext as _, WeakSlice1Ext as _, WeakStr1Ext as _,
     };
+    pub use crate::{Many, One};
     #[cfg(feature = "alloc")]
     pub use {
         crate::borrow1::{CowSlice1Ext as _, CowStr1Ext as _},
@@ -457,10 +664,9 @@ use core::fmt::{self, Debug, Display, Formatter};
 use core::mem;
 use core::num::NonZeroUsize;
 
-#[cfg(any(feature = "alloc", feature = "arrayvec", feature = "heapless"))]
-pub use take::TakeIfMany;
+pub use Cardinality::{Many, One};
 
-const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty collection: no items";
+const EMPTY_ERROR_MESSAGE: &str = "failed to construct non-empty value: no items";
 
 /// Extension methods for [`MaybeEmpty`] types.
 trait MaybeEmptyExt: MaybeEmpty {
@@ -492,7 +698,7 @@ where
         F: FnOnce(Self) -> U,
     {
         if self.is_empty() {
-            Err(EmptyError::from_empty(self))
+            Err(EmptyError(self))
         }
         else {
             Ok(f(self))
@@ -548,40 +754,19 @@ where
 
 /// An error in which a non-empty value is expected but an empty value is observed.
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-pub struct EmptyError<T> {
-    items: T,
-}
+pub struct EmptyError<T>(pub T);
 
 impl<T> EmptyError<T> {
-    fn from_empty(items: T) -> Self {
-        EmptyError { items }
-    }
-
     /// Converts the error into the empty value.
     pub fn into_empty(self) -> T {
-        self.items
+        self.0
     }
 
     fn map<U, F>(self, f: F) -> EmptyError<U>
     where
         F: FnOnce(T) -> U,
     {
-        EmptyError::from_empty(f(self.items))
-    }
-
-    /// Takes the empty value out of the error, returning it and a unit error.
-    pub fn take(self) -> (T, EmptyError<()>) {
-        (self.items, EmptyError::from_empty(()))
-    }
-
-    /// Takes the empty value out of the error and immediately drops it, returning a unit error.
-    pub fn take_and_drop(self) -> EmptyError<()> {
-        EmptyError::from_empty(())
-    }
-
-    /// Converts the error to a reference to the empty value.
-    pub fn as_empty(&self) -> &T {
-        &self.items
+        EmptyError(f(self.0))
     }
 }
 
@@ -593,13 +778,13 @@ impl<T> EmptyError<&'_ T> {
     where
         T: ToOwned,
     {
-        EmptyError::from_empty(self.items.to_owned())
+        self.map(T::to_owned)
     }
 }
 
 impl<T> Debug for EmptyError<T> {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("EmptyError").finish_non_exhaustive()
+        formatter.debug_tuple("EmptyError").finish_non_exhaustive()
     }
 }
 
@@ -609,20 +794,28 @@ impl<T> Display for EmptyError<T> {
     }
 }
 
+// There are no bounds on `T` here (nor the `Debug` and `Display` implementations). The empty value
+// is provided less for reporting and more for handling and flexibility, so it is not formatted into
+// error text like in some other error types.
 impl<T> Error for EmptyError<T> {}
 
-/// A collection or slice type that must contain one or more items (is never empty).
+/// A collection, slice, or range type that must contain one or more items (is never empty).
 ///
-/// `NonEmpty` is an adapter that guarantees (barring unsafe code) that a collection or slice is
-/// non-empty and so has one or more items. For example, `NonEmpty<Vec<_>>` represents a non-empty
-/// [`Vec`] with APIs that reflect this non-empty guarantee.
+/// `NonEmpty` is an adapter that guarantees (barring unsafe code) that a value is non-empty and so
+/// has one or more items. For example, `NonEmpty<Vec<_>>` represents a non-empty [`Vec`] with APIs
+/// that reflect this non-empty guarantee.
 ///
-/// Note that non-empty arrays and iterators are **not** represented with `NonEmpty`: see
-/// [`Array1`] and [`Iterator1`].
+/// This is a very general type: refer to more specific type aliases to see the relevant APIs for a
+/// particular non-empty type. For example, see [`vec1::Vec1`] for supported non-empty [`Vec`] APIs.
+/// Every non-empty collection has such a type alias.
+///
+/// Non-empty arrays and iterators are **not** represented with `NonEmpty`: see [`Array1`] and
+/// [`Iterator1`].
 ///
 /// [`Array1`]: crate::array1::Array1
 /// [`Iterator1`]: crate::iter1::Iterator1
 /// [`Vec`]: alloc::vec::Vec
+/// [`vec1::Vec1`]: crate::vec1::Vec1
 #[derive(Clone, Copy, Hash)]
 #[repr(transparent)]
 pub struct NonEmpty<T>
@@ -636,7 +829,7 @@ impl<T> NonEmpty<T>
 where
     T: Sized,
 {
-    /// Applies a function `f` over a mutable reference to the inner maybe-empty collection.
+    /// Applies a function `f` over a mutable reference to the inner maybe-empty value.
     ///
     /// # Errors
     ///
@@ -644,8 +837,8 @@ where
     ///
     /// # Examples
     #[doc = ""]
-    #[cfg_attr(feature = "alloc", doc = "```rust")]
-    #[cfg_attr(not(feature = "alloc"), doc = "```rust,ignore")]
+    #[cfg_attr(feature = "alloc", doc = " ```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
     /// use mitsein::prelude::*;
     ///
     /// let xs = vec1![0i32, 1, 2, 3];
@@ -683,8 +876,8 @@ where
     #[cfg(feature = "alloc")]
     fn as_cardinality_items_mut(&mut self) -> Cardinality<&mut T, &mut T> {
         match self.cardinality() {
-            Cardinality::One(_) => Cardinality::One(&mut self.items),
-            Cardinality::Many(_) => Cardinality::Many(&mut self.items),
+            One(_) => One(&mut self.items),
+            Many(_) => Many(&mut self.items),
         }
     }
 }
@@ -770,12 +963,16 @@ where
 
 /// Non-empty cardinality.
 ///
-/// `Cardinality` associates some arbitrary data with a non-empty cardinality: one or many. For
-/// some particular data types, cardinality determines specific behaviors, such as in
-/// [`OccupiedEntry`] APIs for [`BTreeMap1`].
+/// `Cardinality` describes and associates data with a non-empty cardinality: one or many. Some
+/// behaviors of non-empty types are predicated on cardinality. In particular, it is not possible to
+/// take the only remaining item out of a non-empty collection, and so APIs that take an item like
+/// [`Vec1::pop_if_many`] return [a `Cardinality` type][`OrOnly`]. Similarly, non-empty map types
+/// like [`BTreeMap1`] use `Cardinality` types in [their entry APIs][`OccupiedEntry`].
 ///
 /// [`BTreeMap1`]: crate::btree_map1::BTreeMap1
 /// [`OccupiedEntry`]: crate::btree_map1::OccupiedEntry
+/// [`OrOnly`]: crate::vec1::OrOnly
+/// [`Vec1::pop_if_many`]: crate::vec1::Vec1::pop_if_many
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Cardinality<O, M> {
     /// Exactly one item.
@@ -786,51 +983,53 @@ pub enum Cardinality<O, M> {
 
 impl<O, M> Cardinality<O, M> {
     /// Converts the cardinality into an `Option<O>`, discarding the [`Many`] value, if any.
-    ///
-    /// [`Many`]: crate::Cardinality::Many
     pub fn one(self) -> Option<O> {
         match self {
-            Cardinality::One(one) => Some(one),
+            One(one) => Some(one),
             _ => None,
         }
     }
 
     /// Converts the cardinality into an `Option<M>`, discarding the [`One`] value, if any.
-    ///
-    /// [`One`]: crate::Cardinality::One
     pub fn many(self) -> Option<M> {
         match self {
-            Cardinality::Many(many) => Some(many),
+            Many(many) => Some(many),
             _ => None,
         }
     }
 
     /// Maps a `Cardinality<O, M>` to `Cardinality<U, M>` by applying a function to the [`One`]
     /// value.
-    ///
-    /// [`One`]: crate::Cardinality::One
     pub fn map_one<U, F>(self, f: F) -> Cardinality<U, M>
     where
         F: FnOnce(O) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(f(one)),
-            Cardinality::Many(many) => Cardinality::Many(many),
+            One(one) => One(f(one)),
+            Many(many) => Many(many),
         }
     }
 
     /// Maps a `Cardinality<O, M>` to `Cardinality<O, U>` by applying a function to the [`Many`]
     /// value.
-    ///
-    /// [`Many`]: crate::Cardinality::Many
     pub fn map_many<U, F>(self, f: F) -> Cardinality<O, U>
     where
         F: FnOnce(M) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(one),
-            Cardinality::Many(many) => Cardinality::Many(f(many)),
+            One(one) => One(one),
+            Many(many) => Many(f(many)),
         }
+    }
+
+    /// Returns `true` if the `Cardinality` is [`One`], otherwise `false`.
+    pub fn is_one(&self) -> bool {
+        matches!(self, One(_))
+    }
+
+    /// Returns `true` if the `Cardinality` is [`Many`], otherwise `false`.
+    pub fn is_many(&self) -> bool {
+        matches!(self, Many(_))
     }
 }
 
@@ -842,8 +1041,88 @@ impl<T> Cardinality<T, T> {
         F: FnOnce(T) -> U,
     {
         match self {
-            Cardinality::One(one) => Cardinality::One(f(one)),
-            Cardinality::Many(many) => Cardinality::Many(f(many)),
+            One(one) => One(f(one)),
+            Many(many) => Many(f(many)),
+        }
+    }
+}
+
+impl<T> Cardinality<&mut T, T> {
+    /// Gets the [`Many`] value or replaces the [`One`] reference with `item`.
+    ///
+    /// When taking an item out of a non-empty collection, this function gets the taken item or, if
+    /// there is only one remaining item, replaces it.
+    ///
+    /// # Examples
+    ///
+    /// Implementing a pop (a.k.a. drop) operation in a postfix calculator:
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = " ```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// pub struct PostfixCalculator {
+    ///     // There must always be a computation, so this is non-empty.
+    ///     stack: Vec1<f64>,
+    ///     // ...
+    /// }
+    ///
+    /// impl PostfixCalculator {
+    ///     pub fn pop(&mut self) -> f64 {
+    ///         self.stack
+    ///             .pop_if_many()
+    ///             .or_replace_only(0.0)
+    ///     }
+    ///
+    ///     // ...
+    /// }
+    #[doc = "```"]
+    pub fn or_replace_only(self, item: T) -> T {
+        self.or_else_replace_only(|| item)
+    }
+
+    /// Gets the [`Many`] value or replaces the [`One`] reference with the output of the given
+    /// function.
+    ///
+    /// When taking an item out of a non-empty collection, this function gets the taken item or, if
+    /// there is only one remaining item, replaces it.
+    ///
+    /// # Examples
+    ///
+    /// Implementing a back operation in a UI screen navigator:
+    #[doc = ""]
+    #[cfg_attr(feature = "alloc", doc = " ```rust")]
+    #[cfg_attr(not(feature = "alloc"), doc = " ```rust,ignore")]
+    /// use mitsein::prelude::*;
+    ///
+    /// #[derive(Default)]
+    /// pub enum Screen {
+    ///     #[default]
+    ///     Home,
+    ///     // ...
+    /// }
+    ///
+    /// pub struct Navigator {
+    ///     // There must always be an active `Screen`, so this is non-empty.
+    ///     screens: Vec1<Screen>,
+    ///     // ...
+    /// }
+    ///
+    /// impl Navigator {
+    ///     pub fn back(&mut self) -> Screen {
+    ///         self.screens
+    ///             .pop_if_many()
+    ///             .or_else_replace_only(Screen::default)
+    ///     }
+    /// }
+    #[doc = "```"]
+    pub fn or_else_replace_only<F>(self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        match self {
+            One(only) => mem::replace(only, f()),
+            Many(item) => item,
         }
     }
 }

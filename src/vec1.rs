@@ -10,7 +10,6 @@ use arbitrary::{Arbitrary, Unstructured};
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Formatter};
 use core::iter::{FusedIterator, Skip, Take};
-use core::mem;
 use core::num::NonZeroUsize;
 use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
 use core::slice;
@@ -27,7 +26,7 @@ use {
 use crate::array1::Array1;
 use crate::borrow1::CowSlice1;
 use crate::boxed1::{BoxedSlice1, BoxedSlice1Ext as _};
-use crate::iter1::{self, Extend1, FromIterator1, IntoIterator1, Iterator1};
+use crate::iter1::{self, Drain1, Extend1, FromIterator1, IntoIterator1, Iterator1};
 #[cfg(feature = "rayon")]
 use crate::iter1::{FromParallelIterator1, IntoParallelIterator1, ParallelIterator1};
 use crate::range1::{Range1, RangeInclusive1};
@@ -37,12 +36,30 @@ use crate::str1::Str1;
 use crate::string1::String1;
 use crate::subset;
 use crate::subset::range::{self, IndexRange, RangeError};
-use crate::take;
 use crate::vec_deque1::VecDeque1;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
+
+impl<T> Drain1<usize> for Vec<T> {
+    type Iter<'a>
+        = Drain<'a, T>
+    where
+        Self: 'a,
+        T: 'a;
+    type Item = T;
+
+    fn drain1<R>(&mut self, range: NonEmpty<R>) -> Iterator1<Self::Iter<'_>>
+    where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        // SAFETY: `range` is a non-empty range type. If `range` extends beyond `self`, then
+        //         `Vec::drain` panics. Therefore, `range` must cover at least one item in `self`
+        //         and `self.drain(range)` is non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.drain(range)) }
+    }
+}
 
 impl<T> Extend1<T> for Vec<T> {
-    fn extend_non_empty<I>(mut self, items: I) -> Vec1<T>
+    fn extend1<I>(mut self, items: I) -> Vec1<T>
     where
         I: IntoIterator1<Item = T>,
     {
@@ -87,45 +104,7 @@ unsafe impl<T> MaybeEmpty for Vec<T> {
     }
 }
 
-type TakeIfMany<'a, T, N = ()> = take::TakeIfMany<'a, Vec<T>, T, N>;
-
-pub type PopIfMany<'a, T> = TakeIfMany<'a, T, ()>;
-
-pub type RemoveIfMany<'a, T> = TakeIfMany<'a, T, usize>;
-
-impl<'a, T, N> TakeIfMany<'a, T, N> {
-    pub fn or_get_only(self) -> Result<T, &'a T> {
-        self.take_or_else(|items, _| items.first())
-    }
-
-    pub fn or_replace_only(self, replacement: T) -> Result<T, T> {
-        self.or_else_replace_only(move || replacement)
-    }
-
-    pub fn or_else_replace_only<F>(self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.take_or_else(move |items, _| mem::replace(items.first_mut(), f()))
-    }
-}
-
-impl<'a, T> TakeIfMany<'a, T, usize> {
-    pub fn or_get(self) -> Result<T, &'a T> {
-        self.take_or_else(|items, index| &items[index])
-    }
-
-    pub fn or_replace(self, replacement: T) -> Result<T, T> {
-        self.or_else_replace(move || replacement)
-    }
-
-    pub fn or_else_replace<F>(self, f: F) -> Result<T, T>
-    where
-        F: FnOnce() -> T,
-    {
-        self.take_or_else(move |items, index| mem::replace(&mut items[index], f()))
-    }
-}
+pub type OrOnly<'a, O, M> = Cardinality<&'a mut O, M>;
 
 pub type Vec1<T> = NonEmpty<Vec<T>>;
 
@@ -220,13 +199,20 @@ impl<T> Vec1<T> {
         self.and_then_try(|items| items.retain(f))
     }
 
-    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ T>
+    pub fn try_retain_mut<F>(self, f: F) -> Result<Self, EmptyError<Vec<T>>>
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        self.and_then_try(|items| items.retain_mut(f))
+    }
+
+    pub fn retain_until_only<F>(&mut self, mut f: F) -> Option<&'_ mut T>
     where
         F: FnMut(&T) -> bool,
     {
         self.rtail().retain(|item| f(item));
         if self.len().get() == 1 {
-            let last = self.last();
+            let last = self.last_mut();
             if f(last) { None } else { Some(last) }
         }
         else {
@@ -281,40 +267,45 @@ impl<T> Vec1<T> {
         self.items.push(item)
     }
 
-    pub fn pop_if_many(&mut self) -> PopIfMany<'_, T> {
-        // SAFETY: `with` executes this closure only if `self` contains more than one item.
-        TakeIfMany::with(self, (), |items, ()| unsafe {
-            items.items.pop().unwrap_maybe_unchecked()
-        })
+    fn get_only_or_else<U, F>(&mut self, f: F) -> OrOnly<'_, T, U>
+    where
+        F: FnOnce(&mut Self) -> U,
+    {
+        match self.cardinality() {
+            One(_) => One(self.first_mut()),
+            Many(_) => Many(f(self)),
+        }
     }
 
-    pub fn pop_if_many_and<F>(&mut self, f: F) -> Option<T>
+    pub fn pop_if_many(&mut self) -> OrOnly<'_, T, T> {
+        // SAFETY: `get_only_or_else` only calls the given function if `items` has many items.
+        self.get_only_or_else(|items| unsafe { items.items.pop().unwrap_maybe_unchecked() })
+    }
+
+    pub fn pop_if_many_and<F>(&mut self, f: F) -> OrOnly<'_, T, Option<T>>
     where
         F: FnOnce(&mut T) -> bool,
     {
-        match self.cardinality() {
-            Cardinality::One(_) => None,
-            Cardinality::Many(_) => {
-                if f(self.last_mut()) {
-                    self.items.pop()
-                }
-                else {
-                    None
-                }
-            },
-        }
+        self.get_only_or_else(|items| {
+            if f(items.last_mut()) {
+                items.items.pop()
+            }
+            else {
+                None
+            }
+        })
     }
 
     pub fn insert(&mut self, index: usize, item: T) {
         self.items.insert(index, item)
     }
 
-    pub fn remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T> {
-        TakeIfMany::with(self, index, |items, index| items.items.remove(index))
+    pub fn remove_if_many(&mut self, index: usize) -> OrOnly<'_, T, T> {
+        self.get_only_or_else(|items| items.items.remove(index))
     }
 
-    pub fn swap_remove_if_many(&mut self, index: usize) -> RemoveIfMany<'_, T> {
-        TakeIfMany::with(self, index, |items, index| items.items.swap_remove(index))
+    pub fn swap_remove_if_many(&mut self, index: usize) -> OrOnly<'_, T, T> {
+        self.get_only_or_else(|items| items.items.swap_remove(index))
     }
 
     pub fn dedup(&mut self)
@@ -1094,6 +1085,19 @@ impl<T> OnlyRangeSubset<'_, T> {
         }
     }
 
+    pub fn swap_drain1<R>(
+        &mut self,
+        range: NonEmpty<R>,
+    ) -> Iterator1<SwapDrainOnlyRangeSubset<'_, T>>
+    where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        // SAFETY: `range` is a non-empty range type. If `range` extends beyond `self`, then
+        //         `OnlyRangeSubset::swap_drain` panics. Therefore, `range` must cover at least one
+        //         item in `self` and `self.drain(range)` is non-empty.
+        unsafe { Iterator1::from_iter_unchecked(self.swap_drain(range)) }
+    }
+
     pub fn remove(&mut self, index: usize) -> T {
         let index = self
             .range
@@ -1119,17 +1123,15 @@ impl<T> OnlyRangeSubset<'_, T> {
         if self.range.is_empty() {
             range::panic_index_out_of_bounds()
         }
-        else {
-            let index = self
-                .range
-                .project_point(index)
-                .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-            let swapped = self.range.end() - 1;
-            self.items.as_mut_slice().swap(index, swapped);
-            let item = self.items.remove(swapped);
-            self.range.take_from_end(1);
-            item
-        }
+        let index = self
+            .range
+            .project_point(index)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+        let swapped = self.range.end() - 1;
+        self.items.as_mut_slice().swap(index, swapped);
+        let item = self.items.remove(swapped);
+        self.range.take_from_end(1);
+        item
     }
 
     pub fn clear(&mut self) {
@@ -1282,14 +1284,20 @@ pub use vec1;
 
 #[cfg(test)]
 pub mod harness {
+    use alloc::vec::Vec;
     use rstest::fixture;
 
-    use crate::iter1::{self, FromIterator1};
+    use crate::iter1;
     use crate::vec1::Vec1;
 
     #[fixture]
+    pub fn xs(#[default(4)] end: u8) -> Vec<u8> {
+        (0..=end).collect()
+    }
+
+    #[fixture]
     pub fn xs1(#[default(4)] end: u8) -> Vec1<u8> {
-        Vec1::from_iter1(iter1::harness::xs1(end))
+        iter1::harness::xs1(end).collect1()
     }
 }
 
@@ -1304,13 +1312,45 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde_test::Token;
 
+    use crate::NonEmpty;
+    use crate::iter1::Drain1 as _;
+    use crate::range1::range1;
     #[cfg(feature = "schemars")]
     use crate::schemars;
     #[cfg(feature = "serde")]
     use crate::serde::{self, harness::sequence};
     use crate::slice1::{Slice1, slice1};
     use crate::vec1::Vec1;
-    use crate::vec1::harness::{self, xs1};
+    use crate::vec1::harness::{self, xs, xs1};
+    use crate::{Many, One};
+
+    #[rstest]
+    #[case::first(range1!(0..1), (slice1![0], &[1, 2, 3, 4][..]))]
+    #[case::middle(range1!(2..3), (slice1![2], &[0, 1, 3, 4][..]))]
+    #[case::middle(range1!(1..4), (slice1![1, 2, 3], &[0, 4][..]))]
+    #[case::last(range1!(4..5), (slice1![4], &[0, 1, 2, 3][..]))]
+    #[case::all(range1!(0..=4), (slice1![0, 1, 2, 3, 4], &[][..]))]
+    fn drain1_from_vec_then_drained_and_vec_eq<R>(
+        mut xs: Vec<u8>,
+        #[case] range: NonEmpty<R>,
+        #[case] expected: (&Slice1<u8>, &[u8]),
+    ) where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        let drained: Vec1<_> = xs.drain1(range).collect1();
+        assert_eq!((drained.as_slice1(), xs.as_slice()), expected);
+    }
+
+    #[rstest]
+    #[case::intersecting(range1!(0..10))]
+    #[case::non_intersecting(range1!(5..10))]
+    #[should_panic]
+    fn drain1_from_vec_out_of_bounds_then_panic<R>(mut xs: Vec<u8>, #[case] range: NonEmpty<R>)
+    where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        xs.drain1(range).into_iter().for_each(|_| {});
+    }
 
     #[rstest]
     fn vec1_from_vec_macro_eq_vec1_from_vec1_macro_by_rep_expr() {
@@ -1361,13 +1401,13 @@ mod tests {
 
     #[rstest]
     fn pop_if_many_from_vec1_until_and_after_only_then_vec1_eq_first(mut xs1: Vec1<u8>) {
-        let first = *xs1.first();
+        let mut first = *xs1.first();
         let mut tail = xs1.as_slice()[1..].to_vec();
-        while let Ok(item) = xs1.pop_if_many().or_get_only() {
-            assert_eq!(tail.pop().unwrap(), item);
+        while let Many(x) = xs1.pop_if_many() {
+            assert_eq!(tail.pop().unwrap(), x);
         }
         for _ in 0..3 {
-            assert_eq!(xs1.pop_if_many().or_get_only(), Err(&first));
+            assert_eq!(xs1.pop_if_many(), One(&mut first));
         }
         assert_eq!(xs1.as_slice(), &[first]);
     }
@@ -1406,7 +1446,7 @@ mod tests {
         //       lifetime that is too specific and too long (it would borrow the item beyond
         //       `pop_if_many_and`). Is there a way to prevent this without introducing `*mut u8`
         //       and unsafe code in cases for `f`? If so, do that instead!
-        let x = xs1.pop_if_many_and(|x| f(x as *mut u8));
+        let x = xs1.pop_if_many_and(|x| f(x as *mut u8)).many().unwrap();
         assert_eq!((x, xs1.as_slice1()), expected);
     }
 
@@ -1557,6 +1597,37 @@ mod tests {
         let mut xss = xs1.only(subset).unwrap();
         mem::forget(xss.swap_drain(drain));
         assert_eq!(xs1.as_slice1(), expected);
+    }
+
+    #[rstest]
+    #[case::first(range1!(0..1), (slice1![1], &[2, 3, 4][..]))]
+    #[case::middle(range1!(2..3), (slice1![3], &[1, 2, 4][..]))]
+    #[case::middle(range1!(1..3), (slice1![2, 3], &[1, 4][..]))]
+    #[case::last(range1!(3..4), (slice1![4], &[1, 2, 3][..]))]
+    #[case::all(range1!(0..=3), (slice1![1, 2, 3, 4], &[][..]))]
+    fn swap_drain1_from_tail_of_vec1_then_drained_and_tail_eq<R>(
+        mut xs1: Vec1<u8>,
+        #[case] range: NonEmpty<R>,
+        #[case] expected: (&Slice1<u8>, &[u8]),
+    ) where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        let mut tail = xs1.tail();
+        let drained: Vec1<_> = tail.swap_drain1(range).collect1();
+        assert_eq!((drained.as_slice1(), tail.as_slice()), expected);
+    }
+
+    #[rstest]
+    #[case::intersecting(range1!(0..10))]
+    #[case::non_intersecting(range1!(4..10))]
+    #[should_panic]
+    fn swap_drain1_from_tail_of_vec1_out_of_bounds_then_panic<R>(
+        mut xs1: Vec1<u8>,
+        #[case] range: NonEmpty<R>,
+    ) where
+        NonEmpty<R>: RangeBounds<usize>,
+    {
+        xs1.tail().swap_drain1(range).into_iter().for_each(|_| {});
     }
 
     #[cfg(feature = "schemars")]

@@ -20,6 +20,14 @@ use crate::subset::ranged::range::{IndexRange, OutOfBoundsError, RangeError};
 //       `Ord` implementations can disagree and expose items outside of the subset. See the B-tree
 //       collection types.
 
+/// A contiguous and ordered subset of a non-empty collection over a range.
+///
+/// This is a very general type: refer to more specific type aliases to see the relevant APIs for a
+/// particular collection type. For example, see [`vec1::OnlyRangeSubset`] for supported [`Vec1`]
+/// APIs. Every supported non-empty collection type has such subset type aliases.
+///
+/// [`vec1::OnlyRangeSubset`]: crate::vec1::OnlyRangeSubset
+/// [`Vec1`]: crate::vec1::Vec1
 #[derive(Debug)]
 #[must_use]
 pub struct OnlyRangeSubset<'a, T, R>

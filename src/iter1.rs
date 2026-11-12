@@ -13,6 +13,7 @@ use core::iter::{
 };
 use core::net::{Ipv4Addr, Ipv6Addr};
 use core::num::NonZeroUsize;
+use core::ops::RangeBounds;
 use core::option;
 use core::result;
 #[cfg(feature = "either")]
@@ -43,8 +44,24 @@ use crate::safety::OptionExt as _;
 #[cfg(any(all(feature = "alloc", feature = "itertools"), feature = "rayon"))]
 use crate::vec1::Vec1;
 #[cfg(feature = "itertools")]
-use crate::{Cardinality, safety};
+use crate::{Cardinality, safety::ResultExt as _};
 use crate::{EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty, NonZeroExt as _};
+
+pub trait Drain1<T> {
+    type Iter<'a>: Iterator<Item = Self::Item>
+    where
+        Self: 'a,
+        T: 'a;
+    type Item;
+
+    fn drain1<R>(&mut self, range: NonEmpty<R>) -> Iterator1<Self::Iter<'_>>
+    where
+        // Both `NonEmpty` and `RangeBounds` are foreign items, so downstream crates cannot
+        // implement `RangeBounds` for `NonEmpty<T>`, even if `T` is a local type. Therefore
+        // implementors can rely on this bound, which specifies that `NonEmpty<R>` is a non-empty
+        // range type as defined by this crate.
+        NonEmpty<R>: RangeBounds<T>;
+}
 
 // Ideally, `Either` would implement `IntoIterator1`, but cannot because of its direct `Iterator`
 // implementation. In particular, the `IntoIterator::IntoIter` type for `Either` is itself, and so
@@ -82,7 +99,7 @@ impl<L, R> EitherExt<L, R> for Either<L, R> {
 
 pub trait Extend1<T> {
     #[must_use]
-    fn extend_non_empty<I>(self, items: I) -> NonEmpty<Self>
+    fn extend1<I>(self, items: I) -> NonEmpty<Self>
     where
         I: IntoIterator1<Item = T>;
 }
@@ -342,27 +359,24 @@ impl<I> ItertoolsExt for I where I: Itertools {}
 // `Iterator` type `I` versus `Result<I>`.
 //
 // This is unfortunate and, though this trait is not meant to be used in this way, makes bounds on
-// the trait and type definitions for its outputs unusual:
+// the trait and type aliases for its outputs unusual:
 //
 //   fn max<I, K>(items: I) -> i64
 //   where
 //       I: ThenIterator1<K, Item = i64>,
 //   {
-//       items.chain_non_empty([0]).max()
+//       items.chain1([0]).max()
 //   }
 //
-// Note the input type parameter `K`. `ThenIterator1` is an extension trait with a broad
-// implementaion over `Iterator` types, so this is very unlikely to be a problem. Moreover,
-// associated types are the more "correct" implementation for such an iterator-like trait. In fact,
-// using the input type parameter `K` makes this sort of bound even more troublesome, as the
-// relationship between the implementor and parameter `K` differs between the two implementations
-// (requiring distinct bounds for each)!
+// Note the input type parameter `K` in `max`. `ThenIterator1` is essentially an extension trait
+// with a broad implementaion over `Iterator` types, so this is very unlikely to be a problem in
+// practice.
 pub trait ThenIterator1<K>: Sized {
     type Item;
     type MaybeEmpty: Iterator<Item = Self::Item>;
     type Chained: Iterator<Item = Self::Item>;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
         T: IntoIterator1<Item = Self::Item>;
 
@@ -373,6 +387,13 @@ pub trait ThenIterator1<K>: Sized {
         self.or_else_non_empty(move || items)
     }
 
+    // This and related functions use a more explicit and verbose `_non_empty` suffix rather than a
+    // `1` suffix, because `1` would be especially unclear in context. For example,
+    // `xs.into_iter().or_else1(ys)` is arguably more difficult to understand at a glance than
+    // `xs.into_iter().or_else_non_empty(ys)`.
+    //
+    // This naming convention also interacts a bit more cleanly with `ThenIterator1::or_one`, which
+    // does not dovetail with a `1` suffix at all!
     fn or_else_non_empty<T, F>(self, f: F) -> OrNonEmpty<Self::MaybeEmpty, T>
     where
         T: IntoIterator1<Item = Self::Item>,
@@ -391,7 +412,7 @@ where
     type MaybeEmpty = I;
     type Chained = I;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
         T: IntoIterator1<Item = Self::Item>,
     {
@@ -428,7 +449,7 @@ where
     type MaybeEmpty = I;
     type Chained = Peekable<I>;
 
-    fn chain_non_empty<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
+    fn chain1<T>(self, items: T) -> Iterator1<Chain<Self::Chained, T::IntoIter>>
     where
         T: IntoIterator1<Item = Self::Item>,
     {
@@ -512,6 +533,20 @@ impl<T> MinMax<T> {
     }
 }
 
+#[cfg(feature = "itertools")]
+#[cfg_attr(docsrs, doc(cfg(feature = "itertools")))]
+impl<T> TryFrom<MinMaxResult<T>> for MinMax<T> {
+    type Error = EmptyError<MinMaxResult<T>>;
+
+    fn try_from(minmax: MinMaxResult<T>) -> result::Result<Self, Self::Error> {
+        match minmax {
+            MinMaxResult::NoElements => Err(EmptyError(MinMaxResult::NoElements)),
+            MinMaxResult::OneElement(item) => Ok(MinMax::One(item)),
+            MinMaxResult::MinMax(min, max) => Ok(MinMax::Many((min, max))),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct Iterator1<I> {
@@ -579,7 +614,7 @@ where
         match items.peek() {
             // SAFETY: `items` is non-empty.
             Some(_) => Ok(unsafe { Iterator1::from_iter_unchecked(items) }),
-            _ => Err(EmptyError::from_empty(items)),
+            _ => Err(EmptyError(items)),
         }
     }
 
@@ -865,12 +900,9 @@ where
     where
         I::Item: PartialOrd,
     {
-        match self.into_iter().minmax() {
-            // SAFETY: `self` is non-empty.
-            MinMaxResult::NoElements => unsafe { safety::unreachable_maybe_unchecked() },
-            MinMaxResult::OneElement(item) => MinMax::One(item),
-            MinMaxResult::MinMax(min, max) => MinMax::Many((min, max)),
-        }
+        let minmax = MinMax::try_from(self.into_iter().minmax());
+        // SAFETY: `self` is non-empty.
+        unsafe { minmax.unwrap_maybe_unchecked() }
     }
 
     #[cfg(feature = "alloc")]
@@ -1143,6 +1175,90 @@ where
         // SAFETY: `self` is non-empty.
         unsafe { item.unwrap_maybe_unchecked() }
     }
+
+    pub fn position_max(self) -> usize
+    where
+        I::Item: Ord,
+    {
+        let position = self.items.position_max();
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_max_by_key<K, F>(self, key: F) -> usize
+    where
+        K: Ord,
+        F: FnMut(&I::Item) -> K,
+    {
+        let position = self.items.position_max_by_key(key);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_max_by<F>(self, compare: F) -> usize
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        let position = self.items.position_max_by(compare);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_min(self) -> usize
+    where
+        I::Item: Ord,
+    {
+        let position = self.items.position_min();
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_min_by_key<K, F>(self, key: F) -> usize
+    where
+        K: Ord,
+        F: FnMut(&I::Item) -> K,
+    {
+        let position = self.items.position_min_by_key(key);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_min_by<F>(self, compare: F) -> usize
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        let position = self.items.position_min_by(compare);
+        // SAFETY: `self` is non-empty.
+        unsafe { position.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_minmax(self) -> MinMax<usize>
+    where
+        I::Item: PartialOrd,
+    {
+        let minmax = MinMax::try_from(self.items.position_minmax());
+        // SAFETY: `self` is non-empty.
+        unsafe { minmax.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_minmax_by_key<K, F>(self, key: F) -> MinMax<usize>
+    where
+        K: PartialOrd,
+        F: FnMut(&I::Item) -> K,
+    {
+        let minmax = MinMax::try_from(self.items.position_minmax_by_key(key));
+        // SAFETY: `self` is non-empty.
+        unsafe { minmax.unwrap_maybe_unchecked() }
+    }
+
+    pub fn position_minmax_by<F>(self, compare: F) -> MinMax<usize>
+    where
+        F: FnMut(&I::Item, &I::Item) -> Ordering,
+    {
+        let minmax = MinMax::try_from(self.items.position_minmax_by(compare));
+        // SAFETY: `self` is non-empty.
+        unsafe { minmax.unwrap_maybe_unchecked() }
+    }
 }
 
 #[cfg(feature = "rayon")]
@@ -1388,7 +1504,7 @@ pub fn rtail_and_head<I, T>(tail: I, head: T) -> RTailAndHead<I>
 where
     I: IntoIterator<Item = T>,
 {
-    tail.into_iter().chain_non_empty(self::once(head))
+    tail.into_iter().chain1(self::once(head))
 }
 
 pub fn repeat<T>(item: T) -> Iterator1<Repeat<T>>
