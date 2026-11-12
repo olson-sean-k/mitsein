@@ -21,7 +21,7 @@ use {
     schemars::{JsonSchema, Schema, SchemaGenerator},
 };
 #[cfg(feature = "alloc")]
-use {alloc::borrow::ToOwned, alloc::string::String};
+use {alloc::borrow::ToOwned, alloc::boxed::Box, alloc::string::String, core::error::Error};
 
 use crate::iter1::Iterator1;
 #[cfg(feature = "rayon")]
@@ -287,6 +287,18 @@ impl AsMut<str> for Str1 {
     }
 }
 
+impl AsMut<Str1> for &mut Str1 {
+    fn as_mut(&mut self) -> &mut Str1 {
+        self
+    }
+}
+
+impl AsRef<Str1> for &Str1 {
+    fn as_ref(&self) -> &Str1 {
+        self
+    }
+}
+
 impl Debug for Str1 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         write!(formatter, "{:?}", &self.items)
@@ -347,6 +359,22 @@ impl<'a> From<&'a mut Str1> for &'a mut str {
 impl<'a> From<&'a Str1> for String {
     fn from(items: &'a Str1) -> Self {
         String::from(items.as_str())
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl From<&Str1> for Box<dyn Error> {
+    fn from(items: &Str1) -> Self {
+        items.as_str().into()
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl From<&Str1> for Box<dyn Error + Send + Sync> {
+    fn from(items: &Str1) -> Self {
+        items.as_str().into()
     }
 }
 
