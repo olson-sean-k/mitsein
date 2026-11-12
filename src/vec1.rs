@@ -1123,17 +1123,15 @@ impl<T> OnlyRangeSubset<'_, T> {
         if self.range.is_empty() {
             range::panic_index_out_of_bounds()
         }
-        else {
-            let index = self
-                .range
-                .project_point(index)
-                .unwrap_or_else(|_| range::panic_index_out_of_bounds());
-            let swapped = self.range.end() - 1;
-            self.items.as_mut_slice().swap(index, swapped);
-            let item = self.items.remove(swapped);
-            self.range.take_from_end(1);
-            item
-        }
+        let index = self
+            .range
+            .project_point(index)
+            .unwrap_or_else(|_| range::panic_index_out_of_bounds());
+        let swapped = self.range.end() - 1;
+        self.items.as_mut_slice().swap(index, swapped);
+        let item = self.items.remove(swapped);
+        self.range.take_from_end(1);
+        item
     }
 
     pub fn clear(&mut self) {
