@@ -691,19 +691,20 @@ where
         unsafe { self.items.min_by(f).unwrap_maybe_unchecked() }
     }
 
-    pub fn min_by_key<B, F>(self, mut f: F) -> I::Item
+    pub fn min_by_key<B, F>(self, f: F) -> I::Item
     where
         B: Ord,
         F: FnMut(&I::Item) -> B,
     {
-        self.min_by(move |lhs, rhs| f(lhs).cmp(&f(rhs)))
+        // SAFETY: `self` is non-empty.
+        unsafe { self.items.min_by_key(f).unwrap_maybe_unchecked() }
     }
 
     pub fn min(self) -> I::Item
     where
         I::Item: Ord,
     {
-        self.min_by(Ord::cmp)
+        self.reduce(Ord::min)
     }
 
     pub fn max_by<F>(self, f: F) -> I::Item
@@ -714,19 +715,20 @@ where
         unsafe { self.items.max_by(f).unwrap_maybe_unchecked() }
     }
 
-    pub fn max_by_key<B, F>(self, mut f: F) -> I::Item
+    pub fn max_by_key<B, F>(self, f: F) -> I::Item
     where
         B: Ord,
         F: FnMut(&I::Item) -> B,
     {
-        self.max_by(move |lhs, rhs| f(lhs).cmp(&f(rhs)))
+        // SAFETY: `self` is non-empty.
+        unsafe { self.items.max_by_key(f).unwrap_maybe_unchecked() }
     }
 
     pub fn max(self) -> I::Item
     where
         I::Item: Ord,
     {
-        self.max_by(Ord::cmp)
+        self.reduce(Ord::max)
     }
 
     pub fn reduce<F>(self, f: F) -> I::Item
