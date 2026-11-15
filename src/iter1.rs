@@ -691,7 +691,7 @@ where
         unsafe { self.items.min_by(f).unwrap_maybe_unchecked() }
     }
 
-    pub fn min_by_key<B, F>(self, mut f: F) -> I::Item
+    pub fn min_by_key<B, F>(self, f: F) -> I::Item
     where
         B: Ord,
         F: FnMut(&I::Item) -> B,
@@ -715,7 +715,7 @@ where
         unsafe { self.items.max_by(f).unwrap_maybe_unchecked() }
     }
 
-    pub fn max_by_key<B, F>(self, mut f: F) -> I::Item
+    pub fn max_by_key<B, F>(self, f: F) -> I::Item
     where
         B: Ord,
         F: FnMut(&I::Item) -> B,
