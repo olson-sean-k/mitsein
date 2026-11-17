@@ -7,6 +7,8 @@ jobs:
     uses: ./.github/workflows/lint.yml
   document:
     uses: ./.github/workflows/document.yml
+  minimal-versions:
+    uses: ./.github/workflows/minimal-versions.yml
   test:
     uses: ./.github/workflows/test.yml
   analyze:

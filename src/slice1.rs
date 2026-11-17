@@ -23,7 +23,7 @@ use crate::iter1::{IntoIterator1, Iterator1};
 use crate::iter1::{IntoParallelIterator1, ParallelIterator1};
 use crate::range1::{Range1, RangeInclusive1};
 use crate::safety;
-use crate::{Cardinality, EmptyError, FromMaybeEmpty, MaybeEmpty, NonEmpty};
+use crate::{Cardinality, EmptyError, FromMaybeEmpty, Many, MaybeEmpty, NonEmpty, One};
 #[cfg(feature = "alloc")]
 use {crate::boxed1::BoxedSlice1, crate::vec1::Vec1};
 
@@ -79,8 +79,8 @@ unsafe impl<T> MaybeEmpty for [T] {
     fn cardinality(&self) -> Option<Cardinality<(), ()>> {
         match self.len() {
             0 => None,
-            1 => Some(Cardinality::One(())),
-            _ => Some(Cardinality::Many(())),
+            1 => Some(One(())),
+            _ => Some(Many(())),
         }
     }
 }

@@ -59,7 +59,7 @@ impl<T> ArcSlice1Ext<T> for ArcSlice1<T> {
 
     fn try_from_arc_slice(items: Arc<[T]>) -> Result<Self, EmptyError<Arc<[T]>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { ArcSlice1::from_arc_slice_unchecked(items) }),
         }
@@ -194,7 +194,7 @@ impl ArcStr1Ext for ArcStr1 {
 
     fn try_from_arc_str(items: Arc<str>) -> Result<Self, EmptyError<Arc<str>>> {
         match items.as_ref().cardinality() {
-            None => Err(EmptyError::from_empty(items)),
+            None => Err(EmptyError(items)),
             // SAFETY: `items` is non-empty.
             _ => Ok(unsafe { ArcStr1::from_arc_str_unchecked(items) }),
         }
