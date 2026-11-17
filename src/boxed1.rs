@@ -315,6 +315,20 @@ impl Clone for BoxedStr1 {
     }
 }
 
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+impl<'de> Deserialize<'de> for BoxedStr1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use ::serde::de::Error;
+
+        let items = Box::<str>::deserialize(deserializer)?;
+        BoxedStr1::try_from(items).map_err(D::Error::custom)
+    }
+}
+
 impl<'a> From<&'a Str1> for BoxedStr1 {
     fn from(items: &'a Str1) -> Self {
         // SAFETY: `items` is non-empty.
@@ -331,6 +345,14 @@ where
         I: IntoIterator1<Item = T>,
     {
         String1::from_iter1(items).into_boxed_str1()
+    }
+}
+
+impl TryFrom<Box<str>> for BoxedStr1 {
+    type Error = EmptyError<Box<str>>;
+
+    fn try_from(items: Box<str>) -> Result<Self, Self::Error> {
+        BoxedStr1::try_from_boxed_str(items)
     }
 }
 
