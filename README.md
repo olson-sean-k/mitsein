@@ -219,7 +219,7 @@ feature flags.
 | `alloc`       |              | Yes     | `alloc`         | Non-empty collections that allocate, like `Vec1`.              |
 | `arbitrary`   | `std`        | No      | [`arbitrary`]   | Construction of arbitrary non-empty collections.               |
 | `arrayvec`    |              | No      | [`arrayvec`]    | Non-empty implementations of [`arrayvec`] types.               |
-| `compact_str` | `alloc`      | No      | [`compact_str`] | Non-empty implementations of [`compact_str`] types.            |
+| `compact-str` | `alloc`      | No      | [`compact_str`] | Non-empty implementations of [`compact_str`] types.            |
 | `either`      |              | No      | [`either`]      | Non-empty iterator implementation for `Either`.                |
 | `heapless`    |              | No      | [`heapless`]    | Non-empty implementations of [`heapless`] types.               |
 | `indexmap`    | `alloc`      | No      | [`indexmap`]    | Non-empty implementations of [`indexmap`] types.               |
